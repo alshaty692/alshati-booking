@@ -93,7 +93,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
                 style={{
                   width:'100%', background:'rgba(239,68,68,.15)', border:'1px solid rgba(239,68,68,.3)',
                   color:'#fca5a5', borderRadius:'0.4rem', padding:'0.4rem 0.75rem',
-                  fontSize:'0.82rem', fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  fontSize:'0.82rem', fontWeight:700, cursor:'pointer',
                   fontFamily:'Tajawal, sans-serif',
                 }}
               >

@@ -22,10 +22,10 @@ export default async function CodesPage() {
   const TYPE_LABELS: Record<string, string> = {
     permanent:'دائم', charity:'خيري', free:'مجاني', custom:'خاص',
   }
-  const DISCOUNT_LABELS = (c: typeof codes extends (infer T)[] ? T : never) => {
-    if ((c as { discount_type: string }).discount_type === 'free') return 'مجاني 100%'
-    if ((c as { discount_type: string }).discount_type === 'percent') return `${(c as { discount_value: number }).discount_value}%`
-    return formatAmount((c as { discount_value: number }).discount_value)
+  const DISCOUNT_LABELS = (c: { discount_type: string; discount_value: number }) => {
+    if (c.discount_type === 'free') return 'مجاني 100%'
+    if (c.discount_type === 'percent') return `${c.discount_value}%`
+    return formatAmount(c.discount_value)
   }
 
   return (
@@ -53,7 +53,7 @@ export default async function CodesPage() {
                   <td><strong style={{ fontSize:'1.05rem', letterSpacing:'0.05em' }}>{c.code}</strong></td>
                   <td><span className={`badge ${c.code_type === 'permanent' ? 'badge-confirmed' : c.code_type === 'charity' ? 'badge-gold' : c.code_type === 'free' ? 'badge-uploaded' : 'badge-regular'}`}>{TYPE_LABELS[c.code_type] ?? c.code_type}</span></td>
                   <td style={{ fontWeight:700, color:'var(--color-success)' }}>{DISCOUNT_LABELS(c)}</td>
-                  <td>{c.court_id ? { football:'⚽ القدم', volleyball:'🏐 الطائرة', multi:'🏅 المتعدد' }[c.court_id] ?? c.court_id : 'الكل'}</td>
+                  <td>{c.court_id ? ({ football:'⚽ القدم', volleyball:'🏐 الطائرة', multi:'🏅 المتعدد' } as Record<string,string>)[c.court_id as string] ?? c.court_id : 'الكل'}</td>
                   <td style={{ textAlign:'center' }}>
                     <span style={{ fontWeight:700 }}>{c.used_count}</span>
                     {c.max_uses && <span style={{ color:'var(--text-muted)' }}> / {c.max_uses}</span>}
