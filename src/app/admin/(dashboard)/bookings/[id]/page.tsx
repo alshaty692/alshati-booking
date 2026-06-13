@@ -1,0 +1,198 @@
+import type { Metadata } from 'next'
+import { notFound, redirect } from 'next/navigation'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
+import { formatAmount, formatDateTime, formatDate, getCourtName, getPeriodName } from '@/lib/utils'
+import { STATUS_LABELS } from '@/types'
+import Link from 'next/link'
+
+export const metadata: Metadata = { title: 'تفاصيل الحجز' }
+
+interface Props { params: Promise<{ id: string }> }
+
+const STATUS_STYLE: Record<string, string> = {
+  pending:'badge-pending', uploaded:'badge-uploaded', confirmed:'badge-confirmed',
+  rejected:'badge-rejected', cancelled:'badge-cancelled', expired:'badge-expired',
+}
+
+// ============================================================
+// Server Actions
+// ============================================================
+async function confirmBooking(formData: FormData) {
+  'use server'
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return
+
+  const supabase = createAdminClient()
+  const id = formData.get('booking_id') as string
+  await supabase.from('bookings').update({
+    status: 'confirmed',
+    confirmed_by: user.id,
+    confirmed_at: new Date().toISOString(),
+  }).eq('id', id)
+
+  await supabase.from('audit_log').insert({
+    table_name: 'bookings', record_id: id, action: 'update',
+    performed_by: user.id, notes: 'اعتمد الإدارة الحجز',
+  })
+  revalidatePath('/admin/bookings')
+  redirect('/admin/bookings')
+}
+
+async function rejectBooking(formData: FormData) {
+  'use server'
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return
+
+  const supabase = createAdminClient()
+  const id = formData.get('booking_id') as string
+  const reason = formData.get('rejection_reason') as string
+  await supabase.from('bookings').update({
+    status: 'rejected',
+    rejection_reason: reason,
+  }).eq('id', id)
+
+  await supabase.from('audit_log').insert({
+    table_name: 'bookings', record_id: id, action: 'update',
+    performed_by: user.id, notes: `رفض الإدارة الحجز: ${reason}`,
+  })
+  revalidatePath('/admin/bookings')
+  redirect('/admin/bookings')
+}
+
+async function addNote(formData: FormData) {
+  'use server'
+  const supabase = createAdminClient()
+  const id = formData.get('booking_id') as string
+  const note = formData.get('internal_note') as string
+  await supabase.from('bookings').update({ internal_note: note }).eq('id', id)
+  revalidatePath(`/admin/bookings/${id}`)
+}
+
+// ============================================================
+// الصفحة
+// ============================================================
+export default async function BookingDetailPage({ params }: Props) {
+  const { id } = await params
+
+  // ── التحقق من المصادقة ────────────────────────────────────
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) notFound()
+
+  // ── القراءة باستخدام Admin Client (يتجاوز RLS) ────────────
+  const supabase = createAdminClient()
+
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!booking) notFound()
+
+  // جلب دور المستخدم
+  const { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
+  const role = adminUser?.role ?? 'viewer'
+  const canEdit = ['admin', 'editor'].includes(role)
+
+  return (
+    <div className="animate-fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <Link href="/admin/bookings" style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}>← الحجوزات</Link>
+        <h1 style={{ fontSize: '1.4rem', margin: 0 }}>تفاصيل الحجز</h1>
+        <span className={`badge ${STATUS_STYLE[booking.status] ?? ''}`}>{STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS] ?? booking.status}</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+        {/* بيانات الحجز */}
+        <div className="card">
+          <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>📋 بيانات الحجز</h2>
+          <Row label="العميل" value={booking.customer_name} />
+          <Row label="الجوال" value={booking.customer_phone} />
+          <Row label="التاريخ" value={formatDate(booking.booking_date)} />
+          <Row label="الملعب" value={getCourtName(booking.court_id)} />
+          <Row label="الفترة" value={getPeriodName(booking.period_number)} />
+          <Row label="الكود" value={booking.code_used ?? '—'} />
+          <Row label="السعر الأصلي" value={formatAmount(booking.base_price)} />
+          <Row label="الخصم" value={formatAmount(booking.discount_amount)} />
+          <Row label="المبلغ النهائي" value={<strong style={{ color: 'var(--color-primary)', fontSize: '1.15rem' }}>{formatAmount(booking.final_price)}</strong>} />
+          <Row label="نوع الحجز" value={booking.is_manual ? '🖊️ يدوي' : '🌐 إلكتروني'} />
+          <Row label="وقت الحجز" value={formatDateTime(booking.created_at)} />
+          {booking.confirmed_at && <Row label="وقت الاعتماد" value={formatDateTime(booking.confirmed_at)} />}
+          {booking.rejection_reason && <Row label="سبب الرفض" value={<span style={{ color: 'var(--color-danger)' }}>{booking.rejection_reason}</span>} />}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* الإيصال */}
+          {booking.receipt_url && (
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>📄 الإيصال</h2>
+              <a href={booking.receipt_url} target="_blank" rel="noreferrer"
+                className="btn btn-secondary btn-full" style={{ marginBottom: '0.75rem' }}>
+                🔍 عرض الإيصال
+              </a>
+              {booking.receipt_uploaded_at && (
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  رُفع: {formatDateTime(booking.receipt_uploaded_at)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* الاعتماد / الرفض */}
+          {canEdit && booking.status === 'uploaded' && (
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>✅ اعتماد أو رفض الإيصال</h2>
+              <form action={confirmBooking} style={{ marginBottom: '0.75rem' }}>
+                <input type="hidden" name="booking_id" value={booking.id} />
+                <button id={`btn-confirm-${booking.id}`} type="submit" className="btn btn-success btn-full">
+                  ✅ اعتماد الحجز
+                </button>
+              </form>
+              <form action={rejectBooking}>
+                <input type="hidden" name="booking_id" value={booking.id} />
+                <textarea name="rejection_reason" className="input" placeholder="سبب الرفض..." required
+                  style={{ marginBottom: '0.75rem', resize: 'vertical', minHeight: '80px' }} />
+                <button id={`btn-reject-${booking.id}`} type="submit" className="btn btn-danger btn-full">
+                  ✕ رفض الحجز
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ملاحظة داخلية */}
+          {canEdit && (
+            <div className="card">
+              <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>📝 ملاحظة داخلية</h2>
+              <form action={addNote}>
+                <input type="hidden" name="booking_id" value={booking.id} />
+                <textarea name="internal_note" className="input" placeholder="أضف ملاحظة داخلية..."
+                  defaultValue={booking.internal_note ?? ''} style={{ marginBottom: '0.75rem', resize: 'vertical', minHeight: '80px' }} />
+                <button type="submit" className="btn btn-secondary btn-full">💾 حفظ الملاحظة</button>
+              </form>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 700px) { div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; } }
+        .detail-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { color: var(--text-muted); flex-shrink: 0; }
+      `}</style>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="detail-row">
+      <span className="detail-label">{label}</span>
+      <span style={{ fontWeight: 500, textAlign: 'left' }}>{value}</span>
+    </div>
+  )
+}
