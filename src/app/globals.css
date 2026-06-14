@@ -637,6 +637,126 @@ body {
    ============================================================ */
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .admin-main { margin-right: 0; padding: 1rem; }
+  .admin-main { margin-right: 0; padding: 1rem; padding-top: calc(56px + 1rem); }
   .stepper .step-label { display: none; }
+
+  /* جدول قابل للتمرير على الجوال */
+  .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .table { min-width: 540px; }
+
+  /* شبكة الكروت 2x2 على الجوال */
+  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 0.75rem !important; }
+  .stat-card-v2 { padding: 0.875rem !important; }
+  .stat-card-v2-value { font-size: 1.3rem !important; }
+}
+
+/* ============================================================
+   هيدر الجوال
+   ============================================================ */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: #1B2A3B;
+  z-index: 200;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  border-bottom: 1px solid rgba(201,169,110,.2);
+}
+.mobile-header-logo {
+  color: #C9A96E;
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-family: 'Tajawal', sans-serif;
+}
+.hamburger-btn {
+  background: rgba(201,169,110,.15);
+  border: 1px solid rgba(201,169,110,.3);
+  color: #C9A96E;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.hamburger-btn:hover { background: rgba(201,169,110,.3); }
+
+@media (max-width: 768px) {
+  .mobile-header { display: flex; }
+}
+
+/* ============================================================
+   Drawer الجوال
+   ============================================================ */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 250;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  right: -280px;
+  width: 280px;
+  height: 100vh;
+  background: #1B2A3B;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.28s cubic-bezier(.4,0,.2,1);
+  box-shadow: -8px 0 32px rgba(0,0,0,.4);
+}
+.mobile-drawer.open { right: 0; }
+.mobile-drawer-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid rgba(201,169,110,.2);
+  font-size: 1.1rem;
+}
+.mobile-drawer-nav {
+  flex: 1;
+  padding: 0.75rem 0;
+  overflow-y: auto;
+}
+.mobile-drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem 1.25rem;
+  color: rgba(255,255,255,.6);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: 'Tajawal', sans-serif;
+  transition: all 0.15s;
+  border-right: 3px solid transparent;
+}
+.mobile-drawer-link:hover {
+  background: rgba(201,169,110,.1);
+  color: #C9A96E;
+}
+.mobile-drawer-link.active {
+  background: rgba(201,169,110,.15);
+  color: #C9A96E;
+  border-right-color: #C9A96E;
+}
+.mobile-drawer-link span:first-child { font-size: 1.2rem; }
+.mobile-drawer-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255,255,255,.08);
 }
