@@ -775,6 +775,26 @@ body {
   border-right-color: #C9A96E;
 }
 .mobile-drawer-link span:first-child { font-size: 1.2rem; }
+/* دعم الـ button داخل الـ drawer بنفس تصميم الـ link */
+button.mobile-drawer-link {
+  font-family: 'Tajawal', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.6);
+  text-align: right;
+  padding: 0.875rem 1.25rem;
+  transition: all 0.15s;
+  border-right: 3px solid transparent;
+}
+button.mobile-drawer-link:hover {
+  background: rgba(201,169,110,.1);
+  color: #C9A96E;
+}
+button.mobile-drawer-link.active {
+  background: rgba(201,169,110,.15);
+  color: #C9A96E;
+  border-right-color: #C9A96E;
+}
 .mobile-drawer-footer {
   padding: 1rem 1.25rem;
   border-top: 1px solid rgba(255,255,255,.08);

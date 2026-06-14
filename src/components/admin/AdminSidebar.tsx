@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { AdminRole } from '@/types'
 
@@ -27,18 +27,12 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
   // أغلق الـ drawer عند تغيير المسار
   useEffect(() => { setDrawerOpen(false) }, [pathname])
 
-  // أغلق الـ drawer عند الضغط خارجه
-  useEffect(() => {
-    if (!drawerOpen) return
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('.mobile-drawer') && !target.closest('.hamburger-btn')) {
-        setDrawerOpen(false)
-      }
-    }
-    document.addEventListener('click', handler)
-    return () => document.removeEventListener('click', handler)
-  }, [drawerOpen])
+  // أغلق الـ drawer فوراً ثم انتقل للرابط
+  const handleNavClick = useCallback((href: string) => {
+    setDrawerOpen(false)
+    // نأجل قليلاً لإتاحة الإغلاق أولاً
+    setTimeout(() => router.push(href), 50)
+  }, [router])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -147,15 +141,15 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
               ? pathname === '/admin'
               : pathname.startsWith(item.href)
             return (
-              <Link
+              <button
                 key={item.href}
-                href={item.href}
                 className={`mobile-drawer-link ${isActive ? 'active' : ''}`}
-                onClick={() => setDrawerOpen(false)}
+                onClick={() => handleNavClick(item.href)}
+                style={{ width:'100%', textAlign:'right', cursor:'pointer', background:'none', border:'none' }}
               >
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
-              </Link>
+              </button>
             )
           })}
         </nav>
