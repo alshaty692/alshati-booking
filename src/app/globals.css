@@ -633,40 +633,88 @@ body {
 .card:hover { box-shadow: var(--shadow-md); }
 
 /* ============================================================
-   Responsive
+   Responsive — Desktop (≥769px) vs Mobile (<768px)
    ============================================================ */
+
+/* ── عناصر الجوال: مخفية تماماً على الدسكتوب ── */
+.mobile-header  { display: none; }
+.mobile-drawer  { display: none; }
+.drawer-overlay { display: none; }
+
+/* ── الدسكتوب: السايدبار دائماً ظاهر ── */
+@media (min-width: 769px) {
+  .sidebar     { display: flex; }
+  .admin-main  { margin-right: 64px; }
+}
+
+/* ── الجوال: السايدبار مخفي، الهيدر والـ drawer يظهران ── */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .admin-main { margin-right: 0; padding: 1rem; padding-top: calc(56px + 1rem); }
+  /* إخفاء السايدبار */
+  .sidebar { display: none !important; }
+
+  /* المحتوى يأخذ كل العرض مع مسافة للهيدر */
+  .admin-main {
+    margin-right: 0;
+    padding: 1rem;
+    padding-top: calc(56px + 1rem);
+  }
+
   .stepper .step-label { display: none; }
 
-  /* جدول قابل للتمرير على الجوال */
+  /* جدول قابل للتمرير أفقياً */
   .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .table { min-width: 540px; }
 
-  /* شبكة الكروت 2x2 على الجوال */
+  /* شبكة الكروت 2×2 */
   .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 0.75rem !important; }
   .stat-card-v2 { padding: 0.875rem !important; }
   .stat-card-v2-value { font-size: 1.3rem !important; }
+
+  /* ── هيدر الجوال الثابت ── */
+  .mobile-header {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: #1B2A3B;
+    z-index: 200;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1rem;
+    border-bottom: 1px solid rgba(201,169,110,.2);
+  }
+
+  /* ── Overlay خلف الـ drawer ── */
+  .drawer-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 250;
+    backdrop-filter: blur(2px);
+    animation: fadeIn 0.2s ease;
+  }
+
+  /* ── Drawer الجوال ── */
+  .mobile-drawer {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: -280px;
+    width: 280px;
+    height: 100vh;
+    background: #1B2A3B;
+    z-index: 300;
+    transition: right 0.28s cubic-bezier(.4,0,.2,1);
+    box-shadow: -8px 0 32px rgba(0,0,0,.4);
+  }
+  .mobile-drawer.open { right: 0; }
 }
 
-/* ============================================================
-   هيدر الجوال
-   ============================================================ */
-.mobile-header {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
-  background: #1B2A3B;
-  z-index: 200;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
-  border-bottom: 1px solid rgba(201,169,110,.2);
-}
+/* ── أنماط مشتركة لعناصر الجوال (تطبَّق فقط عندما تكون ظاهرة) ── */
 .mobile-header-logo {
   color: #C9A96E;
   font-weight: 800;
@@ -690,35 +738,6 @@ body {
 }
 .hamburger-btn:hover { background: rgba(201,169,110,.3); }
 
-@media (max-width: 768px) {
-  .mobile-header { display: flex; }
-}
-
-/* ============================================================
-   Drawer الجوال
-   ============================================================ */
-.drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.5);
-  z-index: 250;
-  backdrop-filter: blur(2px);
-  animation: fadeIn 0.2s ease;
-}
-.mobile-drawer {
-  position: fixed;
-  top: 0;
-  right: -280px;
-  width: 280px;
-  height: 100vh;
-  background: #1B2A3B;
-  z-index: 300;
-  display: flex;
-  flex-direction: column;
-  transition: right 0.28s cubic-bezier(.4,0,.2,1);
-  box-shadow: -8px 0 32px rgba(0,0,0,.4);
-}
-.mobile-drawer.open { right: 0; }
 .mobile-drawer-header {
   height: 64px;
   display: flex;
