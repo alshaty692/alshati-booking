@@ -656,6 +656,43 @@ export default function ReportsPage() {
         .print-report-type  { font-weight:600;font-size:0.95rem; }
         .print-meta { background:${PALETTE.beige};padding:0.5rem 1.25rem;font-size:0.82rem;
           color:${PALETTE.navy};border-radius:0 0 0.75rem 0.75rem;margin-bottom:1rem; }
+
+        /* ── Mobile Responsive ── */
+        @media (max-width: 768px) {
+          /* Header & export buttons stack */
+          .rpt-header { flex-direction:column; align-items:stretch; text-align:center; }
+          .rpt-actions { flex-direction:column; }
+          .rpt-btn { width:100%; justify-content:center; }
+
+          /* Filter presets wrap */
+          .rpt-presets { flex-wrap:wrap; justify-content:center; }
+          .rpt-filter-bar { flex-direction:column; align-items:stretch; }
+          .rpt-custom-range { flex-wrap:wrap; justify-content:center; }
+          .rpt-date-input { width:100%; }
+
+          /* Summary grid 2-col */
+          .rpt-summary-grid { grid-template-columns:1fr 1fr; }
+          .rpt-stat-icon { font-size:1.2rem; }
+          .rpt-stat-value { font-size:1rem; }
+
+          /* Tabs: horizontal scroll */
+          .rpt-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; gap:0.25rem; flex-wrap:nowrap; }
+          .rpt-tab { white-space:nowrap; flex-shrink:0; padding:0.5rem 0.875rem; font-size:0.8rem; }
+
+          /* Content cards & grids stack */
+          .rpt-grid-2 { grid-template-columns:1fr; }
+          .rpt-content { padding:0.875rem; }
+
+          /* Tables scroll horizontally */
+          .table-container { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+          /* Heatmap scroll */
+          .heatmap-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+          /* Day cards grid */
+          .rpt-grid-7 { grid-template-columns:repeat(3,1fr); }
+          .rpt-day-pct { font-size:1.1rem; }
+        }
       `}</style>
     </div>
   )

@@ -220,7 +220,15 @@ export default async function AdminDashboard() {
           margin-bottom: 1.5rem;
         }
         @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
-        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+
+        @media (max-width: 768px) {
+          .dash-topbar { flex-direction: column; align-items: stretch; text-align: center; gap: 0.75rem; }
+          .btn-gold { width: 100%; text-align: center; }
+          .stat-card-v2-icon { width: 2.5rem; height: 2.5rem; font-size: 1.1rem; }
+          .stat-card-v2-value { font-size: 1.2rem !important; }
+          .table-container { overflow-x: auto; }
+        }
 
         .stat-card-v2 {
           border-radius: 14px;

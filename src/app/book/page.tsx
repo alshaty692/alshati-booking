@@ -57,21 +57,27 @@ export default function BookPage() {
   const [uploading,   setUploading]   = useState(false)
   const [error,       setError]       = useState('')
   const [settings,    setSettings]    = useState<Record<string,string>>({})
+  const [isReturning, setIsReturning] = useState(false)
 
-  // ── جلب البيانات ──────────────────────────────────────────
+  // ── جلب البيانات + التعرف على العميل ──────────────────────
   useEffect(() => {
     Promise.all([
       fetch('/api/booking/slots').then(r => r.json()),
       fetch('/api/settings').then(r => r.json()),
       fetch('/api/booking/prices').then(r => r.json()),
-    ]).then(([slotsData, settingsData, pricesData]) => {
+      fetch('/api/booking/lookup-customer', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r => r.json()).catch(() => ({ found: false })),
+    ]).then(([slotsData, settingsData, pricesData, customerData]) => {
       setSlots(slotsData.slots ?? [])
       const s = settingsData.settings ?? {}
       setSettings(s)
-      // ── الأسعار من endpoint مخصص ──
       if (pricesData.prices) setCourtPrices(pricesData.prices)
       if (s.closure_active === '1') {
         setClosure({ active:true, msg: s.closure_message ?? '', date: s.closure_return_date ?? '' })
+      }
+      // ── التعرف التلقائي على العميل ──
+      if (customerData?.found && customerData.name) {
+        setBooking(b => ({ ...b, customer_name: customerData.name }))
+        setIsReturning(true)
       }
     }).finally(() => setLoadingSlots(false))
   }, [])
@@ -358,12 +364,23 @@ export default function BookPage() {
 
             <div className="form-group">
               <label htmlFor="customer-name">اسمك الكريم</label>
-              <input
-                id="customer-name" type="text" className="input"
-                placeholder="أدخل اسمك الكريم"
-                value={booking.customer_name}
-                onChange={e => setBooking(b => ({ ...b, customer_name: e.target.value }))}
-              />
+              {isReturning ? (
+                <div className="returning-welcome">
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.75rem 1rem', background:'rgba(45,92,78,.1)', border:'1px solid rgba(45,92,78,.25)', borderRadius:'10px', marginBottom:'0.5rem' }}>
+                    <span style={{ fontSize:'1.3rem' }}>👋</span>
+                    <span style={{ fontWeight:700, color:'#2D5C4E' }}>مرحباً بعودتك يا {booking.customer_name}!</span>
+                  </div>
+                  <button type="button" style={{ background:'none', border:'none', color:'var(--text-muted)', fontSize:'0.8rem', cursor:'pointer', textDecoration:'underline', fontFamily:'inherit' }}
+                    onClick={() => setIsReturning(false)}>تعديل الاسم</button>
+                </div>
+              ) : (
+                <input
+                  id="customer-name" type="text" className="input"
+                  placeholder="أدخل اسمك الكريم"
+                  value={booking.customer_name}
+                  onChange={e => setBooking(b => ({ ...b, customer_name: e.target.value }))}
+                />
+              )}
             </div>
 
             <div className="form-group">

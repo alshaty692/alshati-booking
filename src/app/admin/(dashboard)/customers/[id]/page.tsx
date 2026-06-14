@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { formatAmount, formatDateTime, getCourtName, getPeriodName } from '@/lib/utils'
 import { CLASSIFICATION_LABELS } from '@/types'
@@ -12,7 +12,7 @@ interface Props { params: Promise<{ id: string }> }
 
 async function updateCustomer(formData: FormData) {
   'use server'
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const id = formData.get('customer_id') as string
   await supabase.from('customers').update({
     is_vip: formData.get('is_vip') === 'on',
@@ -25,30 +25,29 @@ async function updateCustomer(formData: FormData) {
 
 async function addContactLog(formData: FormData) {
   'use server'
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createAdminClient()
   await supabase.from('customer_contact_log').insert({
     customer_phone: formData.get('phone') as string,
     contact_type: formData.get('contact_type') as string,
     offer_sent: formData.get('offer_sent') as string,
     notes: formData.get('notes') as string,
-    created_by: user?.id,
   })
   revalidatePath(`/admin/customers/${formData.get('customer_id')}`)
 }
 
 export default async function CustomerDetailPage({ params }: Props) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
-  const [customerRes, bookingsRes, logsRes] = await Promise.all([
-    supabase.from('customers').select('*').eq('id', id).single(),
-    supabase.from('bookings').select('*').eq('customer_phone', (await supabase.from('customers').select('phone').eq('id', id).single()).data?.phone ?? '').order('created_at', { ascending: false }).limit(20),
-    supabase.from('customer_contact_log').select('*').eq('customer_phone', (await supabase.from('customers').select('phone').eq('id', id).single()).data?.phone ?? '').order('contacted_at', { ascending: false }).limit(10),
-  ])
-
+  const customerRes = await supabase.from('customers').select('*').eq('id', id).single()
   const customer = customerRes.data
   if (!customer) notFound()
+
+  const phone = customer.phone
+  const [bookingsRes, logsRes] = await Promise.all([
+    supabase.from('bookings').select('*').eq('customer_phone', phone).order('created_at', { ascending: false }).limit(20),
+    supabase.from('customer_contact_log').select('*').eq('customer_phone', phone).order('contacted_at', { ascending: false }).limit(10),
+  ])
 
   const bookings = bookingsRes.data ?? []
   const logs = logsRes.data ?? []
