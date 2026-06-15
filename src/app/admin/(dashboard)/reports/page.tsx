@@ -489,6 +489,9 @@ export default function ReportsPage() {
       revenueByCourt: filteredStats.revenue_by_court.map(c => ({
         court: getCourtName(c.court_id), count: c.count, revenue: c.revenue,
       })),
+      customers: filteredStats.top_customers,
+      heatmap: data.heatmap,
+      codeStats: filteredStats.code_stats,
       bookings: filteredBookings.map(b => ({
         customer_name: b.customer_name,
         customer_phone: b.customer_phone,
