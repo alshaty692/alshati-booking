@@ -23,28 +23,19 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
   const router   = useRouter()
   const [showLogout, setShowLogout] = useState(false)
   const [open, setOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-
-  // كشف الجوال
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
 
   // أغلق عند تغيير المسار
   useEffect(() => { setOpen(false) }, [pathname])
 
   // منع تمرير الـ body عند فتح القائمة
   useEffect(() => {
-    if (open && isMobile) {
+    if (open) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
     }
     return () => { document.body.style.overflow = '' }
-  }, [open, isMobile])
+  }, [open])
 
   const closeDrawer = useCallback(() => {
     setOpen(false)
@@ -69,9 +60,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
 
   return (
     <>
-      {/* ══════════════════════════════════════════════════════════
-          السايدبار — دسكتوب فقط (يخفيه CSS في globals.css عند ≤768px)
-          ══════════════════════════════════════════════════════════ */}
+      {/* ══ السايدبار — دسكتوب فقط ══ */}
       <nav className="sidebar" aria-label="قائمة الإدارة">
         <div className="sidebar-logo" title="مركز حي الشاطئ">
           <span className="sidebar-logo-icon">🏟️</span>
@@ -136,9 +125,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════════════════════
-          هيدر الجوال — يُظهره CSS عند ≤768px (لا inline display!)
-          ══════════════════════════════════════════════════════════ */}
+      {/* ══ هيدر الجوال ══ */}
       <header className="mobile-header">
         <span className="mobile-header-logo">🏟️ مركز حي الشاطئ</span>
         <button
@@ -150,23 +137,49 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
         </button>
       </header>
 
-      {/* ══════════════════════════════════════════════════════════
-          Overlay — جوال فقط
-          ══════════════════════════════════════════════════════════ */}
-      {open && isMobile && (
-        <div className="drawer-overlay" onClick={closeDrawer} />
+      {/* ══ Overlay — inline styles تتجاوز Tailwind ══ */}
+      {open && (
+        <div
+          onClick={closeDrawer}
+          style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9998,
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+          }}
+        />
       )}
 
-      {/* ══════════════════════════════════════════════════════════
-          Drawer الجوال — يُظهره CSS عند ≤768px
-          ══════════════════════════════════════════════════════════ */}
-      <div className={`mobile-drawer ${open ? 'open' : ''}`}>
-        <div className="mobile-drawer-header">
+      {/* ══ Drawer الجوال — inline styles ══ */}
+      <div
+        className="mobile-drawer"
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: open ? 0 : -300,
+          width: 280,
+          height: '100dvh',
+          background: '#1B2A3B',
+          zIndex: 9999,
+          transition: 'right 0.28s cubic-bezier(.4,0,.2,1)',
+          boxShadow: open ? '-8px 0 32px rgba(0,0,0,.5)' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{
+          height: 64, display: 'flex', alignItems: 'center', gap: '0.75rem',
+          padding: '0 1.25rem', borderBottom: '1px solid rgba(201,169,110,.2)',
+          fontSize: '1.1rem', flexShrink: 0,
+        }}>
           <span>🏟️</span>
-          <span style={{ fontWeight:800, color:'#C9A96E' }}>مركز حي الشاطئ</span>
+          <span style={{ fontWeight:800, color:'#C9A96E', fontFamily:'Tajawal, sans-serif' }}>مركز حي الشاطئ</span>
         </div>
 
-        <nav className="mobile-drawer-nav">
+        <nav style={{ padding:'0.75rem 0', overflowY:'auto' }}>
           {visibleNav.map(item => {
             const isActive = item.href === '/admin'
               ? pathname === '/admin'
@@ -174,17 +187,28 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
             return (
               <button
                 key={item.href}
-                className={`mobile-drawer-link ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavClick(item.href)}
+                style={{
+                  display:'flex', alignItems:'center', gap:'0.875rem',
+                  width:'100%', padding:'0.875rem 1.25rem',
+                  background: isActive ? 'rgba(201,169,110,.15)' : 'transparent',
+                  border:'none',
+                  borderRight: isActive ? '3px solid #C9A96E' : '3px solid transparent',
+                  color: isActive ? '#C9A96E' : 'rgba(255,255,255,.65)',
+                  fontFamily:'Tajawal, sans-serif', fontSize:'0.95rem', fontWeight:600,
+                  cursor:'pointer', textAlign:'right',
+                }}
               >
-                <span>{item.icon}</span>
+                <span style={{ fontSize:'1.2rem' }}>{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div className="mobile-drawer-footer">
+        <div style={{
+          padding:'1rem 1.25rem', borderTop:'1px solid rgba(255,255,255,.08)', flexShrink:0,
+        }}>
           <div style={{ fontSize:'0.8rem', color:'#C9A96E', fontWeight:700, marginBottom:'0.15rem' }}>{userName}</div>
           <div style={{ fontSize:'0.72rem', color:'#64748b', marginBottom:'0.5rem', direction:'ltr' as const }}>{userEmail}</div>
           <button

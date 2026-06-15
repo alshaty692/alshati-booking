@@ -660,38 +660,39 @@ export default function ReportsPage() {
         /* ── Mobile Responsive ── */
         @media (max-width: 768px) {
           /* Header & export buttons stack */
-          .rpt-header { flex-direction:column; align-items:stretch; text-align:center; }
-          .rpt-actions { flex-direction:column; }
-          .rpt-btn { width:100%; justify-content:center; }
+          .rpt-header { flex-direction:column !important; align-items:stretch !important; text-align:center !important; }
+          .rpt-actions { flex-direction:column !important; }
+          .rpt-btn { width:100% !important; justify-content:center !important; }
 
           /* Filter presets wrap */
-          .rpt-presets { flex-wrap:wrap; justify-content:center; }
-          .rpt-filter-bar { flex-direction:column; align-items:stretch; }
-          .rpt-custom-range { flex-wrap:wrap; justify-content:center; }
-          .rpt-date-input { width:100%; }
+          .rpt-presets { flex-wrap:wrap !important; justify-content:center !important; }
+          .rpt-filter-bar { flex-direction:column !important; align-items:stretch !important; }
+          .rpt-custom-range { flex-wrap:wrap !important; justify-content:center !important; }
+          .rpt-date-input { width:100% !important; }
 
           /* Summary grid 2-col */
-          .rpt-summary-grid { grid-template-columns:1fr 1fr; }
-          .rpt-stat-icon { font-size:1.2rem; }
-          .rpt-stat-value { font-size:1rem; }
+          .rpt-summary-grid { grid-template-columns:1fr 1fr !important; gap:0.75rem !important; }
+          .rpt-stat-icon { font-size:1.2rem !important; }
+          .rpt-stat-value { font-size:1rem !important; }
+          .rpt-stat { padding:0.75rem !important; gap:0.6rem !important; }
 
           /* Tabs: horizontal scroll */
-          .rpt-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; gap:0.25rem; flex-wrap:nowrap; }
-          .rpt-tab { white-space:nowrap; flex-shrink:0; padding:0.5rem 0.875rem; font-size:0.8rem; }
+          .rpt-tabs { overflow-x:auto !important; -webkit-overflow-scrolling:touch; gap:0.25rem !important; flex-wrap:nowrap !important; }
+          .rpt-tab { white-space:nowrap !important; flex-shrink:0 !important; padding:0.5rem 0.875rem !important; font-size:0.8rem !important; }
 
           /* Content cards & grids stack */
-          .rpt-grid-2 { grid-template-columns:1fr; }
-          .rpt-content { padding:0.875rem; }
+          .rpt-grid-2 { grid-template-columns:1fr !important; }
+          .rpt-content { padding:0.875rem !important; }
 
           /* Tables scroll horizontally */
-          .table-container { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+          .table-container { overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
 
           /* Heatmap scroll */
-          .heatmap-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+          .heatmap-wrap { overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
 
           /* Day cards grid */
-          .rpt-grid-7 { grid-template-columns:repeat(3,1fr); }
-          .rpt-day-pct { font-size:1.1rem; }
+          .rpt-grid-7 { grid-template-columns:repeat(3,1fr) !important; }
+          .rpt-day-pct { font-size:1.1rem !important; }
         }
       `}</style>
     </div>
