@@ -1,7 +1,7 @@
 'use client'
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import type { AdminRole } from '@/types'
 
@@ -22,16 +22,25 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
   const [showLogout, setShowLogout] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [open, setOpen] = useState(false)
 
-  // أغلق الـ drawer عند تغيير المسار
-  useEffect(() => { setDrawerOpen(false) }, [pathname])
+  // أغلق عند تغيير المسار
+  useEffect(() => { setOpen(false) }, [pathname])
 
-  // أغلق الـ drawer فوراً ثم انتقل للرابط
+  // منع تمرير الـ body عند فتح القائمة
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [open])
+
   const handleNavClick = useCallback((href: string) => {
-    setDrawerOpen(false)
-    // نأجل قليلاً لإتاحة الإغلاق أولاً
-    setTimeout(() => router.push(href), 50)
+    setOpen(false)
+    document.body.style.overflow = ''
+    router.push(href)
   }, [router])
 
   async function handleLogout() {
@@ -48,13 +57,10 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
     <>
       {/* ── السايدبار الدسكتوب ── */}
       <nav className="sidebar" aria-label="قائمة الإدارة">
-
-        {/* شعار */}
         <div className="sidebar-logo" title="مركز حي الشاطئ">
           <span className="sidebar-logo-icon">🏟️</span>
         </div>
 
-        {/* روابط */}
         <div className="sidebar-nav">
           {visibleNav.map(item => {
             const isActive = item.href === '/admin'
@@ -75,7 +81,6 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
           })}
         </div>
 
-        {/* المستخدم */}
         <div className="sidebar-user">
           <div style={{ position:'relative' }}>
             <button
@@ -115,27 +120,75 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
         </div>
       </nav>
 
-      {/* ══ هيدر الجوال ══ */}
-      <header className="mobile-header">
+      {/* ══ هيدر الجوال الثابت ══ */}
+      <header style={{
+        display:'none',  // يتم تفعيله عبر CSS class
+      }} className="mobile-header">
         <span className="mobile-header-logo">🏟️ مركز حي الشاطئ</span>
         <button
           className="hamburger-btn"
           aria-label="القائمة"
-          onClick={() => setDrawerOpen(v => !v)}
+          onClick={() => setOpen(v => !v)}
         >
-          {drawerOpen ? '✕' : '☰'}
+          {open ? '✕' : '☰'}
         </button>
       </header>
 
-      {/* ══ Drawer الجوال ══ */}
-      {drawerOpen && <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />}
-      <div className={`mobile-drawer ${drawerOpen ? 'open' : ''}`}>
-        <div className="mobile-drawer-header">
+      {/* ══ Overlay — inline styles مباشرة بدون CSS class ══ */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 9998,
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            cursor: 'pointer',
+          }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ══ Drawer الجوال — inline styles مباشرة ══ */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          right: open ? 0 : '-300px',
+          width: '280px',
+          height: '100dvh',
+          background: '#1B2A3B',
+          zIndex: 9999,
+          transition: 'right 0.28s cubic-bezier(.4,0,.2,1)',
+          boxShadow: open ? '-8px 0 32px rgba(0,0,0,.5)' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          overflowY: 'auto',
+        }}
+        aria-label="قائمة التنقل"
+      >
+        {/* رأس الـ drawer */}
+        <div style={{
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '0 1.25rem',
+          borderBottom: '1px solid rgba(201,169,110,.2)',
+          fontSize: '1.1rem',
+          flexShrink: 0,
+        }}>
           <span>🏟️</span>
-          <span style={{ fontWeight:800, color:'#C9A96E' }}>مركز حي الشاطئ</span>
+          <span style={{ fontWeight:800, color:'#C9A96E', fontFamily:'Tajawal, sans-serif' }}>مركز حي الشاطئ</span>
         </div>
 
-        <nav className="mobile-drawer-nav">
+        {/* روابط التنقل */}
+        <nav style={{ padding: '0.75rem 0', overflowY: 'auto' }}>
           {visibleNav.map(item => {
             const isActive = item.href === '/admin'
               ? pathname === '/admin'
@@ -143,20 +196,40 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
             return (
               <button
                 key={item.href}
-                className={`mobile-drawer-link ${isActive ? 'active' : ''}`}
                 onClick={() => handleNavClick(item.href)}
-                style={{ width:'100%', textAlign:'right', cursor:'pointer', background:'none', border:'none' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.875rem',
+                  width: '100%',
+                  padding: '0.875rem 1.25rem',
+                  background: isActive ? 'rgba(201,169,110,.15)' : 'transparent',
+                  border: 'none',
+                  borderRight: isActive ? '3px solid #C9A96E' : '3px solid transparent',
+                  color: isActive ? '#C9A96E' : 'rgba(255,255,255,.65)',
+                  fontFamily: 'Tajawal, sans-serif',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'right',
+                  transition: 'all 0.15s',
+                }}
               >
-                <span>{item.icon}</span>
+                <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             )
           })}
         </nav>
 
-        <div className="mobile-drawer-footer">
-          <div style={{ fontSize:'0.8rem', color:'#C9A96E', fontWeight:700 }}>{userName}</div>
-          <div style={{ fontSize:'0.72rem', color:'#64748b', marginBottom:'0.5rem' }}>{userEmail}</div>
+        {/* Footer — معلومات المستخدم وزر الخروج بدون فراغات */}
+        <div style={{
+          padding: '1rem 1.25rem',
+          borderTop: '1px solid rgba(255,255,255,.08)',
+          flexShrink: 0,
+        }}>
+          <div style={{ fontSize:'0.8rem', color:'#C9A96E', fontWeight:700, marginBottom:'0.2rem' }}>{userName}</div>
+          <div style={{ fontSize:'0.72rem', color:'#64748b', marginBottom:'0.6rem', direction:'ltr' }}>{userEmail}</div>
           <button
             onClick={handleLogout}
             style={{
