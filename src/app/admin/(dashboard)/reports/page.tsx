@@ -1,14 +1,20 @@
 'use client'
 // ============================================================
-// صفحة التقارير الكاملة — /admin/(dashboard)/reports
+// صفحة التقارير — /admin/(dashboard)/reports
+// إصدار v2: فلاتر + filteredBookings + PDF احترافي + Excel متعدد + واتساب مفصّل
 // ============================================================
-import { useState, useEffect, useCallback } from 'react'
-import * as XLSX from 'xlsx'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
 
 // ============================================================
 // الأنواع
 // ============================================================
+interface Booking {
+  id: string; booking_date: string; court_id: string; period_number: number
+  customer_name: string; customer_phone: string; status: string
+  code_used: string | null; final_price: number; discount_amount: number
+  base_price?: number; is_manual: boolean; created_at: string
+}
 interface ReportData {
   meta: { from: string; to: string; generated_at: string }
   summary: {
@@ -29,16 +35,11 @@ interface ReportData {
     code_stats: { code: string; count: number; discount: number; revenue: number }[]
     bookings_with_code: number
   }
-  bookings: {
-    id: string; booking_date: string; court_id: string; period_number: number
-    customer_name: string; customer_phone: string; status: string
-    code_used: string | null; final_price: number; discount_amount: number
-    is_manual: boolean; created_at: string
-  }[]
+  bookings: Booking[]
 }
 
 // ============================================================
-// ثوابت التصميم
+// ثوابت
 // ============================================================
 const PALETTE = {
   navy:  '#1B2A3B',
@@ -48,13 +49,26 @@ const PALETTE = {
 }
 
 const PERIOD_LABELS: Record<number, string> = { 1:'5–7م', 2:'7–9م', 3:'9–11م' }
-const DAY_LABELS: Record<number, string>    = {
+const DAY_LABELS: Record<number, string> = {
   0:'الأحد',1:'الاثنين',2:'الثلاثاء',3:'الأربعاء',4:'الخميس',5:'الجمعة',6:'السبت'
 }
 const STATUS_AR: Record<string,string> = {
   confirmed:'مؤكد', pending:'بانتظار إيصال', uploaded:'قيد المراجعة',
   rejected:'مرفوض', cancelled:'ملغى', expired:'منتهي'
 }
+const COURTS = [
+  { id: 'all',        label: 'كل الملاعب',     icon: '🏟️' },
+  { id: 'football',   label: 'كرة القدم',      icon: '⚽' },
+  { id: 'volleyball', label: 'الكرة الطائرة',  icon: '🏐' },
+  { id: 'multi',      label: 'الملعب المتعدد', icon: '🏟️' },
+]
+const STATUSES = [
+  { id: 'all',       label: 'كل الحالات' },
+  { id: 'confirmed', label: 'مؤكد' },
+  { id: 'pending',   label: 'بانتظار' },
+  { id: 'uploaded',  label: 'قيد المراجعة' },
+  { id: 'cancelled', label: 'ملغى' },
+]
 
 function getRange(preset: string): { from: string; to: string } {
   const now   = new Date()
@@ -70,7 +84,7 @@ function getRange(preset: string): { from: string; to: string } {
 }
 
 // ============================================================
-// Heatmap
+// Heatmap Component
 // ============================================================
 function Heatmap({ data }: { data: Record<number, Record<number, { booked: number; total: number }>> }) {
   function getCellBg(booked: number, total: number): string {
@@ -127,7 +141,7 @@ function Heatmap({ data }: { data: Record<number, Record<number, { booked: numbe
 }
 
 // ============================================================
-// BarChart
+// BarChart Component
 // ============================================================
 function BarChart({ items, max }: { items:{label:string;value:number}[]; max:number }) {
   return (
@@ -153,13 +167,17 @@ function BarChart({ items, max }: { items:{label:string;value:number}[]; max:num
 // صفحة التقارير
 // ============================================================
 export default function ReportsPage() {
-  const [preset, setPreset]    = useState('month')
-  const [customFrom, setCFrom] = useState('')
-  const [customTo,   setCTo]   = useState('')
-  const [activeTab,  setTab]   = useState<'financial'|'customers'|'heatmap'|'codes'>('financial')
-  const [data,       setData]  = useState<ReportData | null>(null)
-  const [loading,    setLoading] = useState(true)
-  const [settings,  setSettings] = useState<Record<string,string>>({})
+  // ── الحالات ──
+  const [preset, setPreset]        = useState('month')
+  const [customFrom, setCFrom]     = useState('')
+  const [customTo,   setCTo]       = useState('')
+  const [activeTab,  setTab]       = useState<'financial'|'customers'|'heatmap'|'codes'>('financial')
+  const [data,       setData]      = useState<ReportData | null>(null)
+  const [loading,    setLoading]   = useState(true)
+  const [settings,   setSettings]  = useState<Record<string,string>>({})
+  // ── فلاتر جديدة ──
+  const [courtFilter,  setCourtFilter]  = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(d => setSettings(d.settings ?? {}))
@@ -181,52 +199,310 @@ export default function ReportsPage() {
 
   const { from, to } = preset === 'custom' ? { from:customFrom, to:customTo } : getRange(preset)
   const centerName   = settings.facility_name ?? 'مركز حي الشاطئ'
-  const s            = data?.summary
 
-  // ── Excel ─────────────────────────────────────────────────
-  function exportExcel() {
+  // ============================================================
+  // filteredBookings — القلب الجديد
+  // ============================================================
+  const filteredBookings = useMemo(() => {
+    if (!data) return []
+    let result = data.bookings
+    if (courtFilter !== 'all') {
+      result = result.filter(b => b.court_id === courtFilter)
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(b => b.status === statusFilter)
+    }
+    return result
+  }, [data, courtFilter, statusFilter])
+
+  // ============================================================
+  // filteredStats — إعادة حساب كل الإحصائيات
+  // ============================================================
+  const filteredStats = useMemo(() => {
+    const all = filteredBookings
+    const confirmed = all.filter(b => b.status === 'confirmed')
+    const totalRevenue  = confirmed.reduce((s, b) => s + (b.final_price ?? 0), 0)
+    const totalDiscount = confirmed.reduce((s, b) => s + (b.discount_amount ?? 0), 0)
+    const avgValue = confirmed.length > 0 ? Math.round(totalRevenue / confirmed.length) : 0
+
+    // حالات
+    const statusCount: Record<string, number> = {}
+    all.forEach(b => { statusCount[b.status] = (statusCount[b.status] ?? 0) + 1 })
+
+    // إيرادات حسب الملعب
+    const courtMap: Record<string, { revenue: number; count: number }> = {}
+    confirmed.forEach(b => {
+      if (!courtMap[b.court_id]) courtMap[b.court_id] = { revenue: 0, count: 0 }
+      courtMap[b.court_id].revenue += b.final_price ?? 0
+      courtMap[b.court_id].count++
+    })
+    const revenueByCourt = Object.entries(courtMap).map(([court_id, v]) => ({ court_id, ...v }))
+
+    // عملاء
+    const custMap: Record<string, { name: string; phone: string; count: number; revenue: number }> = {}
+    confirmed.forEach(b => {
+      if (!custMap[b.customer_phone]) {
+        custMap[b.customer_phone] = { name: b.customer_name, phone: b.customer_phone, count: 0, revenue: 0 }
+      }
+      custMap[b.customer_phone].count++
+      custMap[b.customer_phone].revenue += b.final_price ?? 0
+    })
+    const topCustomers = Object.values(custMap).sort((a, b) => b.revenue - a.revenue)
+
+    // أكواد
+    const codeMap: Record<string, { count: number; discount: number; revenue: number }> = {}
+    confirmed.filter(b => b.code_used).forEach(b => {
+      const code = b.code_used!
+      if (!codeMap[code]) codeMap[code] = { count: 0, discount: 0, revenue: 0 }
+      codeMap[code].count++
+      codeMap[code].discount += b.discount_amount ?? 0
+      codeMap[code].revenue  += b.final_price ?? 0
+    })
+    const codeStats = Object.entries(codeMap)
+      .map(([code, v]) => ({ code, ...v }))
+      .sort((a, b) => b.count - a.count)
+
+    return {
+      total_bookings: all.length,
+      confirmed_bookings: confirmed.length,
+      total_revenue: totalRevenue,
+      total_discount: totalDiscount,
+      avg_booking_value: avgValue,
+      status_count: statusCount,
+      revenue_by_court: revenueByCourt,
+      top_customers: topCustomers,
+      new_customers: topCustomers.filter(c => c.count === 1).length,
+      repeat_customers: topCustomers.filter(c => c.count > 1).length,
+      code_stats: codeStats,
+      bookings_with_code: confirmed.filter(b => b.code_used).length,
+    }
+  }, [filteredBookings])
+
+  // ============================================================
+  // Excel متعدد الشيتات (ExcelJS)
+  // ============================================================
+  async function exportExcel() {
     if (!data) return
-    const rows = data.bookings.map(b => ({
-      'التاريخ': b.booking_date, 'الملعب': getCourtName(b.court_id),
-      'الفترة': getPeriodName(b.period_number), 'الاسم': b.customer_name,
-      'الجوال': b.customer_phone, 'الحالة': STATUS_AR[b.status] ?? b.status,
-      'الكود': b.code_used ?? '', 'الخصم': b.discount_amount,
-      'المبلغ': b.final_price, 'نوع': b.is_manual ? 'يدوي' : 'إلكتروني',
-    }))
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'الحجوزات')
-    XLSX.writeFile(wb, `alshati-report-${from}-${to}.xlsx`)
+    const ExcelJS = (await import('exceljs')).default
+    const wb = new ExcelJS.Workbook()
+    wb.creator = centerName
+    wb.created = new Date()
+
+    const headerFill = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FF1B2A3B' } }
+    const headerFont = { bold:true, color:{ argb:'FFC9A96E' }, size:11, name:'Tahoma' }
+    const confirmedFill = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FFE8F5E9' } }
+    const pendingFill   = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FFFFFDE7' } }
+    const cancelledFill  = { type:'pattern' as const, pattern:'solid' as const, fgColor:{ argb:'FFF5F5F5' } }
+
+    function getStatusFill(status: string) {
+      if (status === 'confirmed') return confirmedFill
+      if (['pending','uploaded'].includes(status)) return pendingFill
+      if (['cancelled','rejected','expired'].includes(status)) return cancelledFill
+      return undefined
+    }
+
+    function styleHeaders(ws: any) {
+      const row = ws.getRow(1)
+      row.eachCell((cell: any) => {
+        cell.fill = headerFill
+        cell.font = headerFont
+        cell.alignment = { horizontal:'right', vertical:'middle' }
+      })
+      row.height = 28
+    }
+
+    const bookingCols = [
+      { header:'الاسم',         key:'name',     width:22 },
+      { header:'الجوال',        key:'phone',    width:16 },
+      { header:'الكود',         key:'code',     width:12 },
+      { header:'الفترة',        key:'period',   width:10 },
+      { header:'التاريخ',       key:'date',     width:14 },
+      { header:'المبلغ الأصلي', key:'base',     width:14 },
+      { header:'الخصم',         key:'discount', width:12 },
+      { header:'المبلغ النهائي', key:'final',    width:14 },
+      { header:'الحالة',        key:'status',   width:14 },
+    ]
+
+    function addBookingsToSheet(ws: any, bookings: Booking[]) {
+      bookings.forEach(b => {
+        const row = ws.addRow({
+          name: b.customer_name,
+          phone: b.customer_phone,
+          code: b.code_used ?? '',
+          period: getPeriodName(b.period_number),
+          date: b.booking_date,
+          base: b.base_price ?? b.final_price + b.discount_amount,
+          discount: b.discount_amount,
+          final: b.final_price,
+          status: STATUS_AR[b.status] ?? b.status,
+        })
+        const fill = getStatusFill(b.status)
+        if (fill) {
+          row.eachCell((cell: any) => { cell.fill = fill })
+        }
+      })
+    }
+
+    // ── شيت ١: ملخص عام ──
+    const ws1 = wb.addWorksheet('ملخص عام')
+    ws1.columns = [
+      { header:'البند', key:'label', width:25 },
+      { header:'القيمة', key:'value', width:20 },
+    ]
+    styleHeaders(ws1)
+    ws1.addRow({ label:'إجمالي الحجوزات', value: filteredStats.total_bookings })
+    ws1.addRow({ label:'الحجوزات المؤكدة', value: filteredStats.confirmed_bookings })
+    ws1.addRow({ label:'إجمالي الإيرادات', value: filteredStats.total_revenue })
+    ws1.addRow({ label:'إجمالي الخصومات', value: filteredStats.total_discount })
+    ws1.addRow({ label:'متوسط قيمة الحجز', value: filteredStats.avg_booking_value })
+    ws1.addRow({})
+    ws1.addRow({ label:'── مقارنة الملاعب ──', value:'' })
+    const cmpHeaders = ws1.addRow({ label:'الملعب', value:'الحجوزات' })
+    // Add revenue column
+    ws1.getColumn(3).header = 'الإيرادات'
+    ws1.getColumn(3).width = 18
+    cmpHeaders.getCell(3).value = 'الإيرادات'
+    cmpHeaders.eachCell(cell => { cell.fill = headerFill; cell.font = headerFont })
+    filteredStats.revenue_by_court.forEach(c => {
+      ws1.addRow({ label: getCourtName(c.court_id), value: c.count }).getCell(3).value = c.revenue
+    })
+
+    // ── شيت ٢-٤: حسب الملعب ──
+    const courtIds = ['football', 'volleyball', 'multi'] as const
+    const courtNames: Record<string, string> = { football:'كرة القدم', volleyball:'الكرة الطائرة', multi:'الملعب المتعدد' }
+    courtIds.forEach(courtId => {
+      const courtBookings = filteredBookings.filter(b => b.court_id === courtId)
+      const ws = wb.addWorksheet(courtNames[courtId])
+      ws.columns = bookingCols
+      styleHeaders(ws)
+      addBookingsToSheet(ws, courtBookings)
+    })
+
+    // ── شيت ٥: العملاء ──
+    const ws5 = wb.addWorksheet('العملاء')
+    ws5.columns = [
+      { header:'الاسم',         key:'name',    width:22 },
+      { header:'الجوال',        key:'phone',   width:16 },
+      { header:'عدد الحجوزات', key:'count',   width:14 },
+      { header:'إجمالي المدفوعات', key:'revenue', width:18 },
+    ]
+    styleHeaders(ws5)
+    filteredStats.top_customers.forEach(c => {
+      ws5.addRow({ name:c.name, phone:c.phone, count:c.count, revenue:c.revenue })
+    })
+
+    // حفظ
+    const buf = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${centerName}-تقرير-${from}-${to}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
-  // ── واتساب ────────────────────────────────────────────────
+  // ============================================================
+  // واتساب مفصّل
+  // ============================================================
   function shareWhatsApp() {
     if (!data) return
-    const text = [
+    const confirmed = filteredBookings.filter(b => b.status === 'confirmed')
+
+    function courtStats(courtId: string, icon: string, name: string): string {
+      const courtAll = filteredBookings.filter(b => b.court_id === courtId)
+      const courtConf = courtAll.filter(b => b.status === 'confirmed')
+      if (courtAll.length === 0) return ''
+      const rev = courtConf.reduce((s,b) => s + (b.final_price ?? 0), 0)
+      const disc = courtConf.reduce((s,b) => s + (b.discount_amount ?? 0), 0)
+      // أكثر فترة طلباً
+      const periodCount: Record<number, number> = {}
+      courtConf.forEach(b => { periodCount[b.period_number] = (periodCount[b.period_number] ?? 0) + 1 })
+      const topPeriod = Object.entries(periodCount).sort((a,b) => Number(b[1]) - Number(a[1]))[0]
+      const topPeriodLabel = topPeriod ? PERIOD_LABELS[Number(topPeriod[0])] ?? '' : '—'
+
+      return [
+        `━━━━━━━━━━━━━━━━━━━━━`,
+        `${icon} *${name}*`,
+        `الحجوزات: ${courtAll.length} (مؤكدة: ${courtConf.length})`,
+        `الإيرادات: ${formatAmount(rev)}`,
+        `الخصومات: ${formatAmount(disc)}`,
+        `أكثر فترة طلباً: ${topPeriodLabel}`,
+      ].join('\n')
+    }
+
+    const statusCounts = filteredStats.status_count
+    const lines = [
       `📊 *تقرير ${centerName}*`,
-      `📅 من ${from} إلى ${to}`, ``,
-      `✅ الحجوزات المؤكدة: ${data.summary.confirmed_bookings}`,
-      `💰 إجمالي الإيرادات: ${formatAmount(data.summary.total_revenue)}`,
-      `🎁 إجمالي الخصومات: ${formatAmount(data.summary.total_discount)}`,
-      `📊 متوسط قيمة الحجز: ${formatAmount(data.summary.avg_booking_value)}`,
-    ].join('\n')
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+      `📅 من ${from} إلى ${to}`,
+      `🕐 صدر: ${new Date().toLocaleString('ar-SA')}`,
+      '',
+    ]
+
+    // إضافة إحصائيات كل ملعب (فقط لو فيه بيانات)
+    if (courtFilter === 'all') {
+      const f = courtStats('football', '⚽', 'كرة القدم')
+      const v = courtStats('volleyball', '🏐', 'الكرة الطائرة')
+      const m = courtStats('multi', '🏟️', 'الملعب المتعدد')
+      if (f) lines.push(f)
+      if (v) lines.push(v)
+      if (m) lines.push(m)
+    } else {
+      const info = COURTS.find(c => c.id === courtFilter)
+      if (info) {
+        const s = courtStats(courtFilter, info.icon, info.label)
+        if (s) lines.push(s)
+      }
+    }
+
+    lines.push(
+      '',
+      `━━━━━━━━━━━━━━━━━━━━━`,
+      `📦 *الإجمالي*`,
+      `إجمالي الحجوزات: ${filteredStats.total_bookings}`,
+      `✅ مؤكدة: ${filteredStats.confirmed_bookings} | 🟡 معلقة: ${(statusCounts['pending'] ?? 0) + (statusCounts['uploaded'] ?? 0)} | ❌ ملغاة: ${statusCounts['cancelled'] ?? 0}`,
+      `💰 إجمالي الإيرادات: ${formatAmount(filteredStats.total_revenue)}`,
+      `🎁 إجمالي الخصومات: ${formatAmount(filteredStats.total_discount)}`,
+      `📊 متوسط الحجز: ${formatAmount(filteredStats.avg_booking_value)}`,
+    )
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
   }
 
-  // ── PDF (html2canvas) ──────────────────────────────────────
+  // ============================================================
+  // PDF احترافي
+  // ============================================================
   async function exportPDF() {
     if (!data) return
-    const { generatePDFFromElement } = await import('@/lib/pdf-generator')
-    const tabNames: Record<string,string> = {
-      financial:'التقرير-المالي', customers:'تقرير-العملاء',
-      heatmap:'تقرير-الإشغال', codes:'تقرير-الأكواد',
-    }
-    await generatePDFFromElement({
-      elementId: 'report-printable',
-      filename: `${centerName}-${tabNames[activeTab]}-${from}-${to}.pdf`,
+    const { generateReport } = await import('@/lib/pdf-generator')
+    await generateReport({
+      centerName,
+      from, to,
+      summary: {
+        total_bookings: filteredStats.total_bookings,
+        confirmed_bookings: filteredStats.confirmed_bookings,
+        total_revenue: filteredStats.total_revenue,
+        total_discount: filteredStats.total_discount,
+        avg_booking_value: filteredStats.avg_booking_value,
+        status_count: filteredStats.status_count,
+      },
+      revenueByCourt: filteredStats.revenue_by_court.map(c => ({
+        court: getCourtName(c.court_id), count: c.count, revenue: c.revenue,
+      })),
+      bookings: filteredBookings.map(b => ({
+        customer_name: b.customer_name,
+        customer_phone: b.customer_phone,
+        court: getCourtName(b.court_id),
+        period: getPeriodName(b.period_number),
+        booking_date: b.booking_date,
+        final_price: b.final_price,
+        discount_amount: b.discount_amount,
+        status: b.status,
+      })),
     })
   }
 
-  const maxCourtRevenue = Math.max(1, ...(data?.financial.revenue_by_court.map(c => c.revenue) ?? []))
+  const maxCourtRevenue = Math.max(1, ...filteredStats.revenue_by_court.map(c => c.revenue))
 
   // ============================================================
   // UI
@@ -250,7 +526,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* فلتر المدة */}
+      {/* ── فلتر المدة + الملعب + الحالة ── */}
       <div className="rpt-filter-bar">
         <div className="rpt-presets">
           {[
@@ -270,16 +546,40 @@ export default function ReportsPage() {
             <input type="date" className="input rpt-date-input" value={customTo}   onChange={e => setCTo(e.target.value)} />
           </div>
         )}
+
+        {/* فلتر الملعب */}
+        <select
+          id="filter-court"
+          className="rpt-select"
+          value={courtFilter}
+          onChange={e => setCourtFilter(e.target.value)}
+        >
+          {COURTS.map(c => (
+            <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+          ))}
+        </select>
+
+        {/* فلتر الحالة */}
+        <select
+          id="filter-status"
+          className="rpt-select"
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+        >
+          {STATUSES.map(s => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
       </div>
 
-      {/* بطاقات الملخص */}
+      {/* بطاقات الملخص — من filteredStats */}
       <div className="rpt-summary-grid">
         {[
-          {label:'إجمالي الحجوزات',  value:s?.total_bookings,       icon:'📋', type:'count'},
-          {label:'الحجوزات المؤكدة', value:s?.confirmed_bookings,   icon:'✅', type:'count'},
-          {label:'إجمالي الإيرادات', value:s?.total_revenue,        icon:'💰', type:'amount'},
-          {label:'إجمالي الخصومات', value:s?.total_discount,        icon:'🏷️', type:'amount'},
-          {label:'متوسط قيمة الحجز',value:s?.avg_booking_value,     icon:'📊', type:'amount'},
+          {label:'إجمالي الحجوزات',  value:filteredStats.total_bookings,       icon:'📋', type:'count'},
+          {label:'الحجوزات المؤكدة', value:filteredStats.confirmed_bookings,   icon:'✅', type:'count'},
+          {label:'إجمالي الإيرادات', value:filteredStats.total_revenue,        icon:'💰', type:'amount'},
+          {label:'إجمالي الخصومات', value:filteredStats.total_discount,        icon:'🏷️', type:'amount'},
+          {label:'متوسط قيمة الحجز',value:filteredStats.avg_booking_value,     icon:'📊', type:'amount'},
         ].map((c,i) => (
           <div key={i} className="rpt-stat" style={{ animationDelay:`${i*0.07}s` }}>
             <div className="rpt-stat-icon">{c.icon}</div>
@@ -307,22 +607,8 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* ===== المحتوى — مُغلَّف بـ id للـ PDF ===== */}
+      {/* ===== المحتوى ===== */}
       <div id="report-printable" className="rpt-content">
-        {/* هيدر الطباعة (مخفي في الشاشة، يظهر في الـ PDF) */}
-        <div className="print-header" aria-hidden>
-          <div className="print-header-top">
-            <span className="print-center-name">{centerName}</span>
-            <span className="print-report-type">
-              {{ financial:'التقرير المالي', customers:'تقرير العملاء',
-                 heatmap:'تقرير الإشغال', codes:'تقرير الأكواد' }[activeTab]}
-            </span>
-          </div>
-          <div className="print-meta">
-            الفترة: {from} إلى {to} · تاريخ الإصدار: {new Date().toLocaleDateString('ar-SA')}
-          </div>
-        </div>
-
         {loading ? (
           <div className="rpt-loading">
             <div className="spinner" style={{ width:'2rem',height:'2rem',borderWidth:'3px' }} />
@@ -338,9 +624,9 @@ export default function ReportsPage() {
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">🏟️ الإيرادات حسب الملعب</h3>
                   <BarChart max={maxCourtRevenue}
-                    items={data.financial.revenue_by_court.map(c => ({ label:getCourtName(c.court_id), value:c.revenue }))} />
+                    items={filteredStats.revenue_by_court.map(c => ({ label:getCourtName(c.court_id), value:c.revenue }))} />
                   <div style={{ marginTop:'1.25rem' }}>
-                    {data.financial.revenue_by_court.map(c => (
+                    {filteredStats.revenue_by_court.map(c => (
                       <div key={c.court_id} className="rpt-detail-row">
                         <span>{getCourtName(c.court_id)}</span>
                         <span>{c.count} حجز</span>
@@ -352,8 +638,8 @@ export default function ReportsPage() {
 
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">📊 توزيع الحالات</h3>
-                  {Object.entries(data.summary.status_count).sort((a,b) => b[1]-a[1]).map(([status,count]) => {
-                    const total = data.summary.total_bookings
+                  {Object.entries(filteredStats.status_count).sort((a,b) => b[1]-a[1]).map(([status,count]) => {
+                    const total = filteredStats.total_bookings
                     const pct   = total>0 ? Math.round(count/total*100) : 0
                     const COLOR: Record<string,string> = {
                       confirmed:'#2D5C4E', uploaded:'#0ea5e9', pending:'#f59e0b',
@@ -374,15 +660,15 @@ export default function ReportsPage() {
                 </div>
 
                 <div className="rpt-card" style={{ gridColumn:'1/-1' }}>
-                  <h3 className="rpt-card-title">📋 الحجوزات المؤكدة ({data.bookings.filter(b=>b.status==='confirmed').length})</h3>
+                  <h3 className="rpt-card-title">📋 الحجوزات المؤكدة ({filteredBookings.filter(b=>b.status==='confirmed').length})</h3>
                   <div className="table-container">
                     <table className="table">
                       <thead><tr><th>التاريخ</th><th>الملعب</th><th>الفترة</th><th>العميل</th><th>الكود</th><th>الخصم</th><th>المبلغ</th></tr></thead>
                       <tbody>
-                        {data.bookings.filter(b=>b.status==='confirmed').length===0 && (
+                        {filteredBookings.filter(b=>b.status==='confirmed').length===0 && (
                           <tr><td colSpan={7} style={{ textAlign:'center',color:'#94a3b8',padding:'2rem' }}>لا توجد حجوزات مؤكدة</td></tr>
                         )}
-                        {data.bookings.filter(b=>b.status==='confirmed').map(b => (
+                        {filteredBookings.filter(b=>b.status==='confirmed').map(b => (
                           <tr key={b.id}>
                             <td>{b.booking_date}</td>
                             <td>{getCourtName(b.court_id)}</td>
@@ -409,10 +695,10 @@ export default function ReportsPage() {
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">👥 ملخص العملاء</h3>
                   {[
-                    {label:'إجمالي العملاء',    value:String(data.customers.top_customers.length)},
-                    {label:'عملاء جدد',         value:String(data.customers.new_customers)},
-                    {label:'عملاء متكررون',     value:String(data.customers.repeat_customers)},
-                    {label:'إجمالي الإيرادات',  value:formatAmount(data.summary.total_revenue)},
+                    {label:'إجمالي العملاء',    value:String(filteredStats.top_customers.length)},
+                    {label:'عملاء جدد',         value:String(filteredStats.new_customers)},
+                    {label:'عملاء متكررون',     value:String(filteredStats.repeat_customers)},
+                    {label:'إجمالي الإيرادات',  value:formatAmount(filteredStats.total_revenue)},
                   ].map((r,i) => (
                     <div key={i} className="rpt-detail-row">
                       <span>{r.label}</span>
@@ -422,7 +708,7 @@ export default function ReportsPage() {
                 </div>
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">⭐ أفضل العملاء إيراداً</h3>
-                  {data.customers.top_customers.slice(0,8).map((c,i) => (
+                  {filteredStats.top_customers.slice(0,8).map((c,i) => (
                     <div key={i} className="rpt-detail-row">
                       <span style={{ fontSize:'0.82rem' }}>
                         <span style={{ fontWeight:700,color:PALETTE.gold,marginLeft:'0.4rem' }}>#{i+1}</span>
@@ -442,7 +728,7 @@ export default function ReportsPage() {
                     <table className="table">
                       <thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>الحجوزات</th><th>الإيرادات</th></tr></thead>
                       <tbody>
-                        {data.customers.top_customers.map((c,i) => (
+                        {filteredStats.top_customers.map((c,i) => (
                           <tr key={i}>
                             <td style={{ color:PALETTE.gold,fontWeight:700 }}>{i+1}</td>
                             <td style={{ fontWeight:600 }}>{c.name}</td>
@@ -459,7 +745,7 @@ export default function ReportsPage() {
             )}
 
             {/* ── تبويب: خريطة الإشغال ── */}
-            {activeTab === 'heatmap' && (
+            {activeTab === 'heatmap' && data.heatmap && (
               <div className="animate-fade-in">
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">🔥 خريطة حرارة الإشغال</h3>
@@ -491,10 +777,10 @@ export default function ReportsPage() {
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">🏷️ ملخص الأكواد</h3>
                   {[
-                    {label:'عدد الأكواد المستخدمة', value:String(data.codes.code_stats.length)},
-                    {label:'حجوزات بكود',            value:String(data.codes.bookings_with_code)},
-                    {label:'بدون كود',                value:String(data.summary.confirmed_bookings-data.codes.bookings_with_code)},
-                    {label:'إجمالي الخصومات',        value:formatAmount(data.summary.total_discount)},
+                    {label:'عدد الأكواد المستخدمة', value:String(filteredStats.code_stats.length)},
+                    {label:'حجوزات بكود',            value:String(filteredStats.bookings_with_code)},
+                    {label:'بدون كود',                value:String(filteredStats.confirmed_bookings-filteredStats.bookings_with_code)},
+                    {label:'إجمالي الخصومات',        value:formatAmount(filteredStats.total_discount)},
                   ].map((r,i) => (
                     <div key={i} className="rpt-detail-row">
                       <span>{r.label}</span>
@@ -504,7 +790,7 @@ export default function ReportsPage() {
                 </div>
                 <div className="rpt-card">
                   <h3 className="rpt-card-title">🏆 أكثر الأكواد استخداماً</h3>
-                  {data.codes.code_stats.slice(0,8).map((c,i) => (
+                  {filteredStats.code_stats.slice(0,8).map((c,i) => (
                     <div key={i} className="rpt-detail-row">
                       <span>
                         <strong style={{ fontSize:'0.95rem',letterSpacing:'0.05em',marginLeft:'0.5rem' }}>{c.code}</strong>
@@ -523,10 +809,10 @@ export default function ReportsPage() {
                     <table className="table">
                       <thead><tr><th>الكود</th><th>الاستخدامات</th><th>إجمالي الخصم</th><th>إجمالي الإيرادات</th></tr></thead>
                       <tbody>
-                        {data.codes.code_stats.length===0 && (
+                        {filteredStats.code_stats.length===0 && (
                           <tr><td colSpan={4} style={{ textAlign:'center',color:'#94a3b8',padding:'2rem' }}>لا توجد أكواد مستخدمة</td></tr>
                         )}
-                        {data.codes.code_stats.map((c,i) => (
+                        {filteredStats.code_stats.map((c,i) => (
                           <tr key={i}>
                             <td><strong style={{ letterSpacing:'0.08em',fontSize:'1rem' }}>{c.code}</strong></td>
                             <td style={{ textAlign:'center',fontWeight:700 }}>{c.count}</td>
@@ -583,6 +869,15 @@ export default function ReportsPage() {
           font-size:0.85rem;font-weight:600;color:${PALETTE.navy};
         }
         .rpt-date-input { width:150px;font-size:0.85rem;padding:0.4rem 0.6rem; }
+
+        /* ── فلتر Select ── */
+        .rpt-select {
+          padding:0.4rem 0.875rem;border-radius:0.5rem;font-size:0.85rem;font-weight:600;
+          border:1.5px solid ${PALETTE.navy}25;background:#fff;color:${PALETTE.navy};
+          font-family:'Tajawal',sans-serif;cursor:pointer;min-width:130px;
+          appearance:auto;
+        }
+        .rpt-select:focus { outline:none;border-color:${PALETTE.gold};box-shadow:0 0 0 3px ${PALETTE.gold}33; }
 
         .rpt-summary-grid {
           display:grid !important;grid-template-columns:1fr 1fr !important;gap:0.75rem !important;margin-bottom:1.25rem;
@@ -648,49 +943,30 @@ export default function ReportsPage() {
         .rpt-day-pct   { font-size:1.4rem;font-weight:800;margin-bottom:0.2rem; }
         .rpt-day-count { font-size:0.7rem;color:#94a3b8; }
 
-        /* هيدر الطباعة */
-        .print-header     { display:none; }
-        .print-header-top { display:flex;justify-content:space-between;align-items:center;
-          background:${PALETTE.navy};color:#fff;padding:0.875rem 1.25rem;border-radius:0.75rem 0.75rem 0 0;margin-bottom:0; }
-        .print-center-name  { font-weight:800;font-size:1.1rem;color:${PALETTE.gold}; }
-        .print-report-type  { font-weight:600;font-size:0.95rem; }
-        .print-meta { background:${PALETTE.beige};padding:0.5rem 1.25rem;font-size:0.82rem;
-          color:${PALETTE.navy};border-radius:0 0 0.75rem 0.75rem;margin-bottom:1rem; }
-
         /* ── Mobile Responsive ── */
         @media (max-width: 768px) {
-          /* Header & export buttons stack */
           .rpt-header { flex-direction:column !important; align-items:stretch !important; text-align:center !important; }
           .rpt-actions { flex-direction:column !important; }
           .rpt-btn { width:100% !important; justify-content:center !important; }
 
-          /* Filter presets wrap */
           .rpt-presets { flex-wrap:wrap !important; justify-content:center !important; }
           .rpt-filter-bar { flex-direction:column !important; align-items:stretch !important; }
           .rpt-custom-range { flex-wrap:wrap !important; justify-content:center !important; }
           .rpt-date-input { width:100% !important; }
+          .rpt-select { width:100% !important; }
 
-          /* Summary grid 2-col */
           .rpt-summary-grid { grid-template-columns:1fr 1fr !important; gap:0.75rem !important; }
           .rpt-stat-icon { font-size:1.2rem !important; }
           .rpt-stat-value { font-size:1rem !important; }
           .rpt-stat { padding:0.75rem !important; gap:0.6rem !important; }
 
-          /* Tabs: horizontal scroll */
           .rpt-tabs { overflow-x:auto !important; -webkit-overflow-scrolling:touch; gap:0.25rem !important; flex-wrap:nowrap !important; }
           .rpt-tab { white-space:nowrap !important; flex-shrink:0 !important; padding:0.5rem 0.875rem !important; font-size:0.8rem !important; }
 
-          /* Content cards & grids stack */
           .rpt-grid-2 { grid-template-columns:1fr !important; }
           .rpt-content { padding:0.875rem !important; }
-
-          /* Tables scroll horizontally */
           .table-container { overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
-
-          /* Heatmap scroll */
           .heatmap-wrap { overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
-
-          /* Day cards grid */
           .rpt-grid-7 { grid-template-columns:repeat(3,1fr) !important; }
           .rpt-day-pct { font-size:1.1rem !important; }
         }
