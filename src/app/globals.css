@@ -634,13 +634,13 @@ body {
 .card:hover { box-shadow: var(--shadow-md); }
 
 /* ============================================================
-   Responsive — Desktop (≥769px) vs Mobile (<768px)
+   Responsive — Desktop (≥769px) vs Mobile (≤768px)
    ============================================================ */
 
 /* ── عناصر الجوال: مخفية تماماً على الدسكتوب ── */
-.mobile-header  { display: none; }
-.mobile-drawer  { display: none; }
-.drawer-overlay { display: none; }
+.mobile-header  { display: none !important; }
+.mobile-drawer  { display: none !important; }
+.drawer-overlay { display: none !important; }
 
 /* ── الدسكتوب: السايدبار دائماً ظاهر ── */
 @media (min-width: 769px) {
@@ -648,7 +648,7 @@ body {
   .admin-main  { margin-right: 64px; }
 }
 
-/* ── الجوال: السايدبار مخفي، الهيدر والـ drawer يظهران ── */
+/* ── الجوال ── */
 @media (max-width: 768px) {
   /* إخفاء السايدبار */
   .sidebar { display: none !important; }
@@ -666,14 +666,18 @@ body {
   .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .table { min-width: 540px; }
 
-  /* شبكة الكروت 2×2 */
-  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 0.75rem !important; }
+  /* شبكة الكروت 2×2 على الجوال */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
   .stat-card-v2 { padding: 0.875rem !important; }
   .stat-card-v2-value { font-size: 1.3rem !important; }
 
   /* ── هيدر الجوال الثابت ── */
   .mobile-header {
-    display: flex;
+    display: flex !important;
     position: fixed;
     top: 0;
     left: 0;
@@ -689,30 +693,35 @@ body {
 
   /* ── Overlay خلف الـ drawer ── */
   .drawer-overlay {
-    display: block;
+    display: block !important;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,.5);
-    z-index: 250;
+    background: rgba(0,0,0,.55);
+    z-index: 9998;
     backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     animation: fadeIn 0.2s ease;
   }
 
   /* ── Drawer الجوال ── */
   .mobile-drawer {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     position: fixed;
     top: 0;
-    right: -280px;
+    right: -300px;
     width: 280px;
     height: 100vh;
+    height: 100dvh;
     background: #1B2A3B;
-    z-index: 300;
+    z-index: 9999;
     transition: right 0.28s cubic-bezier(.4,0,.2,1);
     box-shadow: -8px 0 32px rgba(0,0,0,.4);
+    overflow-y: auto;
   }
-  .mobile-drawer.open { right: 0; }
+  .mobile-drawer.open {
+    right: 0;
+  }
 }
 
 /* ── أنماط مشتركة لعناصر الجوال (تطبَّق فقط عندما تكون ظاهرة) ── */
@@ -747,16 +756,20 @@ body {
   padding: 0 1.25rem;
   border-bottom: 1px solid rgba(201,169,110,.2);
   font-size: 1.1rem;
+  flex-shrink: 0;
 }
 .mobile-drawer-nav {
-  flex: 1;
+  flex: 0 1 auto;
   padding: 0.75rem 0;
   overflow-y: auto;
 }
+
+/* روابط الـ drawer — تدعم <a> و <button> */
 .mobile-drawer-link {
   display: flex;
   align-items: center;
   gap: 0.875rem;
+  width: 100%;
   padding: 0.875rem 1.25rem;
   color: rgba(255,255,255,.6);
   text-decoration: none;
@@ -764,7 +777,11 @@ body {
   font-weight: 600;
   font-family: 'Tajawal', sans-serif;
   transition: all 0.15s;
+  border: none;
   border-right: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: right;
 }
 .mobile-drawer-link:hover {
   background: rgba(201,169,110,.1);
@@ -776,27 +793,10 @@ body {
   border-right-color: #C9A96E;
 }
 .mobile-drawer-link span:first-child { font-size: 1.2rem; }
-/* دعم الـ button داخل الـ drawer بنفس تصميم الـ link */
-button.mobile-drawer-link {
-  font-family: 'Tajawal', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: rgba(255,255,255,.6);
-  text-align: right;
-  padding: 0.875rem 1.25rem;
-  transition: all 0.15s;
-  border-right: 3px solid transparent;
-}
-button.mobile-drawer-link:hover {
-  background: rgba(201,169,110,.1);
-  color: #C9A96E;
-}
-button.mobile-drawer-link.active {
-  background: rgba(201,169,110,.15);
-  color: #C9A96E;
-  border-right-color: #C9A96E;
-}
+
 .mobile-drawer-footer {
   padding: 1rem 1.25rem;
   border-top: 1px solid rgba(255,255,255,.08);
+  flex-shrink: 0;
 }
+
