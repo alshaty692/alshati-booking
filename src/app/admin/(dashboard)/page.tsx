@@ -212,26 +212,25 @@ export default async function AdminDashboard() {
         }
         .btn-gold:hover { background: #d4b77a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,169,110,.4); }
 
-        /* ── بطاقات الإحصاء ── */
+        /* ── بطاقات الإحصاء — mobile-first ── */
         .stats-grid {
-          display: grid;
-          grid-template-columns: repeat(4,1fr);
-          gap: 1rem;
+          display: grid !important;
+          grid-template-columns: 1fr 1fr !important;
+          gap: 0.75rem !important;
           margin-bottom: 1.5rem;
         }
-        @media (max-width: 900px) {
-          .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+        @media (min-width: 769px) {
+          .stats-grid {
+            grid-template-columns: repeat(4,1fr) !important;
+            gap: 1rem !important;
+          }
         }
         @media (max-width: 768px) {
-          .stats-grid {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 0.75rem !important;
-          }
-          .dash-topbar { flex-direction: column; align-items: stretch; text-align: center; gap: 0.75rem; }
-          .btn-gold { width: 100%; text-align: center; }
-          .stat-card-v2-icon { width: 2.5rem; height: 2.5rem; font-size: 1.1rem; }
+          .dash-topbar { flex-direction: column !important; align-items: stretch !important; text-align: center; gap: 0.75rem; }
+          .btn-gold { width: 100% !important; text-align: center; }
+          .stat-card-v2-icon { width: 2.5rem !important; height: 2.5rem !important; font-size: 1.1rem !important; }
           .stat-card-v2-value { font-size: 1.2rem !important; }
-          .table-container { overflow-x: auto; }
+          .table-container { overflow-x: auto !important; }
         }
 
         .stat-card-v2 {
@@ -254,13 +253,13 @@ export default async function AdminDashboard() {
         .stat-card-v2-value { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-bottom: 0.2rem; }
         .stat-card-v2-label { font-size: 0.78rem; font-weight: 500; }
 
-        /* ── شبكة الداشبورد ── */
+        /* ── شبكة الداشبورد — mobile-first ── */
         .dashboard-grid {
-          display: grid;
-          grid-template-columns: 1.4fr 1fr;
+          display: grid !important;
+          grid-template-columns: 1fr !important;
           gap: 1.25rem;
         }
-        @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        @media (min-width: 901px) { .dashboard-grid { grid-template-columns: 1.4fr 1fr !important; } }
 
         /* ── كرت الداشبورد ── */
         .dash-card {

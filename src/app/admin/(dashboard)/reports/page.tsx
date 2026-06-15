@@ -585,10 +585,10 @@ export default function ReportsPage() {
         .rpt-date-input { width:150px;font-size:0.85rem;padding:0.4rem 0.6rem; }
 
         .rpt-summary-grid {
-          display:grid;grid-template-columns:repeat(5,1fr);gap:0.875rem;margin-bottom:1.25rem;
+          display:grid !important;grid-template-columns:1fr 1fr !important;gap:0.75rem !important;margin-bottom:1.25rem;
         }
-        @media(max-width:1000px) { .rpt-summary-grid { grid-template-columns:repeat(3,1fr); } }
-        @media(max-width:600px)  { .rpt-summary-grid { grid-template-columns:repeat(2,1fr); } }
+        @media(min-width:601px)  { .rpt-summary-grid { grid-template-columns:repeat(3,1fr) !important; gap:0.875rem !important; } }
+        @media(min-width:1001px) { .rpt-summary-grid { grid-template-columns:repeat(5,1fr) !important; gap:0.875rem !important; } }
         .rpt-stat {
           background:#fff;border-radius:0.875rem;border:1px solid #e2e8f0;padding:1rem;
           display:flex;align-items:center;gap:0.875rem;
@@ -618,10 +618,10 @@ export default function ReportsPage() {
 
         .rpt-card       { background:#fff;border-radius:0.875rem;border:1px solid #e2e8f0;padding:1.25rem; }
         .rpt-card-title { font-size:0.95rem;font-weight:800;color:${PALETTE.navy};margin:0 0 1rem; }
-        .rpt-grid-2     { display:grid;grid-template-columns:1fr 1fr;gap:1.25rem; }
-        .rpt-grid-7     { display:grid;grid-template-columns:repeat(7,1fr);gap:0.75rem; }
-        @media(max-width:900px) { .rpt-grid-2 { grid-template-columns:1fr; } .rpt-grid-7 { grid-template-columns:repeat(4,1fr); } }
-        @media(max-width:480px) { .rpt-grid-7 { grid-template-columns:repeat(2,1fr); } }
+        .rpt-grid-2     { display:grid !important;grid-template-columns:1fr !important;gap:1.25rem; }
+        .rpt-grid-7     { display:grid !important;grid-template-columns:repeat(2,1fr) !important;gap:0.75rem; }
+        @media(min-width:481px) { .rpt-grid-7 { grid-template-columns:repeat(4,1fr) !important; } }
+        @media(min-width:901px) { .rpt-grid-2 { grid-template-columns:1fr 1fr !important; } .rpt-grid-7 { grid-template-columns:repeat(7,1fr) !important; } }
 
         .rpt-detail-row {
           display:flex;align-items:center;justify-content:space-between;
