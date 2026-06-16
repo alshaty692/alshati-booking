@@ -110,7 +110,51 @@ export default function AvailabilityPage() {
     setTimeout(() => setToast(null), 3500)
   }, [])
 
-  /* ── جلب الإعدادات عند التحميل ── */
+  /* ── حالة إيقافات الملاعب ── */
+  const [venueClosures, setVenueClosures] = useState<{id:string;court_id:string;start_date:string;end_date:string;reason:string|null;created_at:string}[]>([])
+  const [vcLoading, setVcLoading] = useState(false)
+  const [vcForm, setVcForm] = useState({ court_id:'football', start_date:'', end_date:'', reason:'صيانة' })
+  const [vcSaving, setVcSaving] = useState(false)
+
+  const fetchClosures = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/venue-closures')
+      const data = await r.json()
+      setVenueClosures(data.closures ?? [])
+    } catch {}
+  }, [])
+
+  const addClosure = async () => {
+    if (!vcForm.start_date || !vcForm.end_date) { showToast('err', 'حدد تاريخ البداية والنهاية'); return }
+    setVcSaving(true)
+    try {
+      const r = await fetch('/api/admin/venue-closures', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vcForm),
+      })
+      if (r.ok) {
+        showToast('ok', 'تم إضافة الإيقاف')
+        setVcForm(f => ({ ...f, start_date:'', end_date:'', reason:'صيانة' }))
+        fetchClosures()
+      } else {
+        const d = await r.json()
+        showToast('err', d.error ?? 'فشل الحفظ')
+      }
+    } catch { showToast('err', 'خطأ في الاتصال') }
+    finally { setVcSaving(false) }
+  }
+
+  const deleteClosure = async (id: string) => {
+    try {
+      const r = await fetch('/api/admin/venue-closures', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (r.ok) { showToast('ok', 'تم حذف الإيقاف'); fetchClosures() }
+    } catch {}
+  }
+
+  /* ── جلب الإعدادات + الإيقافات عند التحميل ── */
   useEffect(() => {
     fetch('/api/admin/settings')
       .then(r => r.json())
@@ -122,7 +166,8 @@ export default function AvailabilityPage() {
         setClosureMessage(settings.closure_message ?? '')
       })
       .catch(() => {})
-  }, [])
+    fetchClosures()
+  }, [fetchClosures])
 
   /* ── جلب بيانات الشبكة ── */
   const fetchGrid = useCallback(async (monday: Date) => {
@@ -1008,6 +1053,118 @@ export default function AvailabilityPage() {
           </div>
         </div>
       )}
+      {/* ═══════════════════════════════════════════════════════
+         قسم إيقافات الملاعب
+         ═══════════════════════════════════════════════════════ */}
+      <div style={{
+        marginTop:'2.5rem', padding:'1.5rem', background:'#fff',
+        border:'1px solid #e5e7eb', borderRadius:12,
+      }}>
+        <h2 style={{ fontSize:'1.15rem', marginBottom:'1rem', color:'#1B2A3B', fontWeight:800 }}>
+          🔒 إيقافات الملاعب
+        </h2>
+        <p style={{ fontSize:'0.8rem', color:'#999', marginBottom:'1.25rem' }}>
+          أوقف ملعب لفترة زمنية (صيانة/فعالية). الإيقافات المنتهية تبقى كسجل تاريخي.
+        </p>
+
+        {/* نموذج إضافة إيقاف */}
+        <div style={{
+          display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr auto', gap:'0.75rem',
+          alignItems:'end', marginBottom:'1.25rem', padding:'1rem',
+          background:'#f9fafb', borderRadius:8, border:'1px solid #e5e7eb',
+        }}>
+          <div>
+            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>الملعب</label>
+            <select className="input" value={vcForm.court_id}
+              onChange={e => setVcForm(f => ({ ...f, court_id: e.target.value }))}>
+              {COURTS.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>من تاريخ</label>
+            <input type="date" className="input" value={vcForm.start_date}
+              onChange={e => setVcForm(f => ({ ...f, start_date: e.target.value }))} />
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>إلى تاريخ</label>
+            <input type="date" className="input" value={vcForm.end_date}
+              onChange={e => setVcForm(f => ({ ...f, end_date: e.target.value }))} />
+          </div>
+          <div>
+            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>السبب</label>
+            <select className="input" value={vcForm.reason}
+              onChange={e => setVcForm(f => ({ ...f, reason: e.target.value }))}>
+              {CLOSURE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <button className="av-btn av-btn-primary" onClick={addClosure} disabled={vcSaving}
+            style={{ height:'2.5rem', whiteSpace:'nowrap' }}>
+            {vcSaving ? '⏳...' : '➕ إضافة'}
+          </button>
+        </div>
+
+        {/* جدول الإيقافات */}
+        {venueClosures.length === 0 ? (
+          <p style={{ textAlign:'center', color:'#999', padding:'1.5rem', fontSize:'0.9rem' }}>
+            لا توجد إيقافات حالياً
+          </p>
+        ) : (
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.875rem' }}>
+              <thead>
+                <tr style={{ background:'#f3f4f6', textAlign:'right' }}>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>الملعب</th>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>من</th>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>إلى</th>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>السبب</th>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>الحالة</th>
+                  <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>إجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {venueClosures.map(vc => {
+                  const today = new Date().toISOString().slice(0,10)
+                  const isActive = vc.start_date <= today && vc.end_date >= today
+                  const isExpired = vc.end_date < today
+                  const court = COURTS.find(c => c.id === vc.court_id)
+                  return (
+                    <tr key={vc.id} style={{
+                      borderBottom:'1px solid #e5e7eb',
+                      opacity: isExpired ? 0.5 : 1,
+                      background: isActive ? 'rgba(220,38,38,.04)' : 'transparent',
+                    }}>
+                      <td style={{ padding:'0.6rem 0.75rem' }}>
+                        {court?.icon} {court?.label ?? vc.court_id}
+                      </td>
+                      <td style={{ padding:'0.6rem 0.75rem', fontFamily:'monospace', fontSize:'0.82rem' }}>{vc.start_date}</td>
+                      <td style={{ padding:'0.6rem 0.75rem', fontFamily:'monospace', fontSize:'0.82rem' }}>{vc.end_date}</td>
+                      <td style={{ padding:'0.6rem 0.75rem' }}>{vc.reason ?? '—'}</td>
+                      <td style={{ padding:'0.6rem 0.75rem' }}>
+                        {isActive ? (
+                          <span style={{ background:'#dc2626', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem', fontWeight:700 }}>نشط</span>
+                        ) : isExpired ? (
+                          <span style={{ background:'#9ca3af', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem' }}>منتهي</span>
+                        ) : (
+                          <span style={{ background:'#f59e0b', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem', fontWeight:700 }}>قادم</span>
+                        )}
+                      </td>
+                      <td style={{ padding:'0.6rem 0.75rem' }}>
+                        {!isExpired && (
+                          <button className="av-btn av-btn-ghost" style={{ fontSize:'0.8rem', color:'#dc2626' }}
+                            onClick={() => deleteClosure(vc.id)}>
+                            🗑️ حذف
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </>
   )
 }

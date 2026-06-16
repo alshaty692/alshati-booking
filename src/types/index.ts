@@ -67,6 +67,7 @@ export interface Booking {
   base_price: number
   discount_amount: number
   final_price: number
+  water_quantity: number
   status: BookingStatus
   receipt_url: string | null
   receipt_uploaded_at: string | null
@@ -209,13 +210,38 @@ export interface ApiResponse<T = unknown> {
 }
 
 // ============================================================
+// جداول جديدة
+// ============================================================
+
+export interface VenueClosure {
+  id: string
+  court_id: Court
+  start_date: string
+  end_date: string
+  reason: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface SlotHold {
+  id: string
+  court_id: Court
+  booking_date: string
+  period_number: Period
+  phone: string
+  held_at: string
+  expires_at: string
+}
+
+// ============================================================
 // Settings Keys (للاستخدام الآمن)
 // ============================================================
 
 export type SettingKey =
-  | 'facility_name' | 'facility_city' | 'whatsapp_number' | 'booking_window_days'
+  | 'facility_name' | 'facility_city' | 'facility_phone' | 'facility_location'
+  | 'whatsapp_number' | 'booking_window_days'
   | 'bank_name' | 'bank_account_name' | 'bank_iban' | 'bank_account_number'
-  | 'receipt_timeout_hours' | 'max_pending_per_phone'
+  | 'receipt_timeout_hours' | 'max_pending_per_phone' | 'max_pending_bookings' | 'pending_expiry_hours'
   | 'gold_min_bookings' | 'gold_min_days' | 'inactive_days'
   | 'period_1_label' | 'period_1_start' | 'period_1_end'
   | 'period_2_label' | 'period_2_start' | 'period_2_end'
@@ -223,3 +249,6 @@ export type SettingKey =
   | 'price_football_normal' | 'price_football_permanent' | 'price_football_charity'
   | 'price_volleyball_normal' | 'price_volleyball_permanent' | 'price_volleyball_charity'
   | 'price_multi_normal' | 'price_multi_permanent' | 'price_multi_charity'
+  | 'water_price_per_carton' | 'water_max_cartons'
+  | 'venue_1_name' | 'venue_2_name' | 'venue_3_name'
+  | 'closure_active' | 'closure_reason' | 'closure_return_date' | 'closure_message'

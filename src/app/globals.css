@@ -654,6 +654,139 @@ body {
   .admin-main  { margin-right: 64px; }
 }
 
+/* ============================================================
+   Desktop Enhanced (≥1024px) — صفحة الحجز
+   ============================================================ */
+@media (min-width: 1024px) {
+  /* ── book page: عمودين ── */
+  .book-main {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  .book-step { grid-column: 1; }
+
+  /* ── Stepper أفقي ── */
+  .stepper {
+    flex-direction: row;
+    justify-content: center;
+    gap: 2.5rem;
+  }
+  .stepper .step { flex-direction: column; align-items: center; }
+  .stepper .step-label { display: block; font-size: 0.8rem; margin-top: 0.3rem; }
+
+  /* ── أزرار الأيام أفقية ── */
+  .dates-scroll { flex-wrap: wrap; gap: 0.5rem; }
+  .date-pill { min-width: 100px; }
+
+  /* ── الملاعب في صف واحد ── */
+  .courts-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  /* ── Live summary ثابت ── */
+  .live-summary-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
+/* ============================================================
+   Desktop Enhanced (≥1280px) — لوحة الأدمن
+   ============================================================ */
+@media (min-width: 1280px) {
+  /* ── sidebar مفتوح بالكامل مع labels ── */
+  .sidebar {
+    width: 260px;
+  }
+  .sidebar .nav-label { display: inline; }
+  .sidebar .sidebar-logo-text { display: block; }
+  .admin-main {
+    margin-right: 260px;
+    padding: 2rem 2.5rem;
+  }
+
+  /* ── Stats: 4 في صف ── */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  /* ── جداول كاملة العرض ── */
+  .table-container { overflow-x: visible; }
+  .table { min-width: 0; width: 100%; }
+}
+
+/* ============================================================
+   عام — max-width + hover states + transitions
+   ============================================================ */
+.admin-main {
+  max-width: 1400px;
+}
+
+/* ── Hover states على الأزرار ── */
+.btn { transition: all 0.2s ease; }
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-secondary:hover:not(:disabled) { background: rgba(27,42,59,.08); }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-success:hover:not(:disabled) { filter: brightness(1.08); }
+
+/* ── Hover states على صفوف الجداول ── */
+.table tbody tr { transition: background 0.15s ease; }
+.table tbody tr:hover { background: rgba(27,42,59,.03); }
+
+/* ── Period chip transitions ── */
+.period-chip { transition: all 0.2s ease; }
+.period-chip-available:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45,92,78,.2);
+}
+
+/* ── Court closed style ── */
+.court-closed {
+  opacity: 0.5;
+  pointer-events: none;
+  filter: grayscale(0.5);
+}
+
+/* ── Period chip held (قيد الحجز) ── */
+.period-chip-held {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #92400e !important;
+  cursor: not-allowed;
+}
+.period-chip-held .period-chip-dot {
+  background: #f59e0b !important;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Date pill hover ── */
+.date-pill { transition: all 0.2s ease; }
+.date-pill:hover:not(:disabled):not(.selected) {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(0,0,0,.1);
+}
+
+/* ── Card hover ── */
+.card { transition: box-shadow 0.2s ease, transform 0.2s ease; }
+.card:hover { transform: translateY(-1px); }
+
 /* ── الجوال ── */
 @media (max-width: 768px) {
   /* إخفاء السايدبار */

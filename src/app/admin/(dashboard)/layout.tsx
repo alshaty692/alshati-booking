@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
 export const metadata: Metadata = { title: { default: 'الإدارة', template: '%s | إدارة مركز حي الشاطئ' } }
@@ -11,8 +11,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin/login')
 
-  // جلب دور المستخدم
-  const { data: adminUser } = await supabase
+  // جلب دور المستخدم — نستخدم Admin Client لتجاوز RLS
+  const adminSupabase = createAdminClient()
+  const { data: adminUser } = await adminSupabase
     .from('admin_users')
     .select('role, full_name')
     .eq('id', user.id)
@@ -20,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // لو لم يُضَف بعد → يعني أول دخول، نضيفه كـ admin
   if (!adminUser) {
-    await supabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
+    await adminSupabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
   }
 
   const role = adminUser?.role ?? 'admin'

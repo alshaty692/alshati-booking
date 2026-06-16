@@ -130,6 +130,31 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {/* ── أسماء الملاعب ── */}
+        <div className="card" style={{ marginBottom:'1.25rem' }}>
+          <h2 style={{ fontSize:'1rem', marginBottom:'1rem', color:'#1B2A3B' }}>🏟️ أسماء الملاعب</h2>
+          <p style={{ color:'var(--text-muted)', fontSize:'0.8rem', marginBottom:'1rem' }}>
+            تُعرض هذه الأسماء في موقع العملاء ولوحة الإدارة
+          </p>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem' }}>
+            <Field name="venue_1_name" label="⚽ الملعب ١ (football)" placeholder="كرة القدم" />
+            <Field name="venue_2_name" label="🏐 الملعب ٢ (volleyball)" placeholder="الكرة الطائرة" />
+            <Field name="venue_3_name" label="🏅 الملعب ٣ (multi)" placeholder="الملعب المتعدد" />
+          </div>
+        </div>
+
+        {/* ── المياه ── */}
+        <div className="card" style={{ marginBottom:'1.25rem' }}>
+          <h2 style={{ fontSize:'1rem', marginBottom:'1rem', color:'#1B2A3B' }}>💧 إعدادات المياه</h2>
+          <p style={{ color:'var(--text-muted)', fontSize:'0.8rem', marginBottom:'1rem' }}>
+            يظهر خيار شراء كراتين المياه للعملاء أثناء الحجز
+          </p>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+            <Field name="water_price_per_carton" label="سعر الكرتون (ريال)" type="number" placeholder="20" />
+            <Field name="water_max_cartons"      label="الحد الأقصى لكل حجز" type="number" placeholder="10" />
+          </div>
+        </div>
+
         <button
           id="btn-save-settings"
           type="submit"

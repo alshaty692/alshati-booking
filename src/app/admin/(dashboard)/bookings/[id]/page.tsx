@@ -71,6 +71,32 @@ async function addNote(formData: FormData) {
   revalidatePath(`/admin/bookings/${id}`)
 }
 
+async function cancelBookingAdmin(formData: FormData) {
+  'use server'
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return
+
+  const supabase = createAdminClient()
+  const id = formData.get('booking_id') as string
+  const reason = formData.get('cancellation_reason') as string
+  const refunded = formData.get('refunded') === 'on'
+
+  await supabase.from('bookings').update({
+    status: 'cancelled',
+    internal_note: `إلغاء إداري: ${reason}${refunded ? ' (تم الاسترداد)' : ''}`,
+  }).eq('id', id)
+
+  await supabase.from('audit_log').insert({
+    table_name: 'bookings', record_id: id, action: 'update',
+    performed_by: user.id,
+    notes: `إلغاء إداري: ${reason}${refunded ? ' | تم استرداد المبلغ' : ''}`,
+  })
+  revalidatePath('/admin/bookings')
+  revalidatePath('/admin')
+  redirect('/admin/bookings')
+}
+
 // ============================================================
 // الصفحة
 // ============================================================
@@ -93,9 +119,13 @@ export default async function BookingDetailPage({ params }: Props) {
 
   if (!booking) notFound()
 
-  // جلب دور المستخدم
-  const { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
-  const role = adminUser?.role ?? 'viewer'
+  // جلب دور المستخدم — لو ما موجود ننشئه (مثل اللايوت)
+  let { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
+  if (!adminUser && user) {
+    await supabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
+    adminUser = { role: 'admin' }
+  }
+  const role = adminUser?.role ?? 'admin'
   const canEdit = ['admin', 'editor'].includes(role)
 
   return (
@@ -159,6 +189,30 @@ export default async function BookingDetailPage({ params }: Props) {
                 <button id={`btn-reject-${booking.id}`} type="submit" className="btn btn-danger btn-full">
                   ✕ رفض الحجز
                 </button>
+              </form>
+            </div>
+          )}
+
+          {/* إلغاء الحجز (من الأدمن) — لكل الحالات النشطة */}
+          {canEdit && ['pending', 'uploaded', 'confirmed'].includes(booking.status) && (
+            <div className="card" style={{ borderColor: 'rgba(239,68,68,.3)' }}>
+              <h2 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#dc2626' }}>❌ إلغاء الحجز</h2>
+              <form action={cancelBookingAdmin}>
+                <input type="hidden" name="booking_id" value={booking.id} />
+                <textarea name="cancellation_reason" className="input" placeholder="سبب الإلغاء..." required
+                  style={{ marginBottom: '0.75rem', resize: 'vertical', minHeight: '70px' }} />
+                {booking.status === 'confirmed' && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                    <input type="checkbox" name="refunded" style={{ width: '1.1rem', height: '1.1rem', accentColor: '#2D5C4E' }} />
+                    <span>تم استرداد المبلغ للعميل</span>
+                  </label>
+                )}
+                <button type="submit" className="btn btn-danger btn-full">
+                  🗑️ تأكيد الإلغاء
+                </button>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', textAlign: 'center' }}>
+                  ⚠️ هذا الإجراء لا يمكن التراجع عنه — ستتحرر الفترة
+                </p>
               </form>
             </div>
           )}

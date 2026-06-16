@@ -2,7 +2,7 @@
 // ============================================================
 // صفحة الحجز — 5 خطوات (التاريخ+الملعب مدمجان في خطوة واحدة)
 // ============================================================
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDate, formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
 import type { AvailableSlot, PriceCalculation } from '@/types'
@@ -15,6 +15,7 @@ interface BookingState {
   customer_name: string
   code: string
   price: PriceCalculation | null
+  water_quantity: number
 }
 
 // ── الخطوات الـ٥ ─────────────────────────────────────────────
@@ -47,7 +48,7 @@ export default function BookPage() {
   const [courtPrices,  setCourtPrices] = useState<Record<string,number>>({ football:0, volleyball:0, multi:0 })
   const [closureBanner,setClosure]     = useState<{active:boolean;msg:string;date:string}|null>(null)
   const [booking,      setBooking]     = useState<BookingState>({
-    date:'', court_id:'', period_number:0, customer_name:'', code:'', price:null,
+    date:'', court_id:'', period_number:0, customer_name:'', code:'', price:null, water_quantity:0,
   })
   const [codeError,   setCodeError]   = useState('')
   const [codeLoading, setCodeLoading] = useState(false)
@@ -58,6 +59,33 @@ export default function BookPage() {
   const [error,       setError]       = useState('')
   const [settings,    setSettings]    = useState<Record<string,string>>({})
   const [isReturning, setIsReturning] = useState(false)
+  const [holdExpiry,  setHoldExpiry]  = useState<string|null>(null)
+  const [venueClosures, setVenueClosures] = useState<{court_id:string;start_date:string;end_date:string;reason:string}[]>([])
+
+  // ── حجز/تحرير مؤقت للفترة ──────────────────────────────────
+  const holdSlot = useCallback(async (court_id: string, booking_date: string, period_number: number) => {
+    try {
+      const res = await fetch('/api/booking/hold-slot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ court_id, booking_date, period_number }),
+      })
+      const data = await res.json()
+      if (res.ok && data.expires_at) setHoldExpiry(data.expires_at)
+      return res.ok
+    } catch { return false }
+  }, [])
+
+  const releaseSlot = useCallback(async () => {
+    try {
+      await fetch('/api/booking/release-slot', { method: 'POST' })
+      setHoldExpiry(null)
+    } catch { /* silent */ }
+  }, [])
+
+  // ── تنظيف عند مغادرة الصفحة ────────────────────────────────
+  useEffect(() => {
+    return () => { fetch('/api/booking/release-slot', { method: 'POST' }).catch(() => {}) }
+  }, [])
 
   // ── جلب البيانات + التعرف على العميل ──────────────────────
   useEffect(() => {
@@ -74,12 +102,16 @@ export default function BookPage() {
       if (s.closure_active === '1') {
         setClosure({ active:true, msg: s.closure_message ?? '', date: s.closure_return_date ?? '' })
       }
-      // ── التعرف التلقائي على العميل ──
       if (customerData?.found && customerData.name) {
         setBooking(b => ({ ...b, customer_name: customerData.name }))
         setIsReturning(true)
       }
     }).finally(() => setLoadingSlots(false))
+
+    // جلب إيقافات الملاعب
+    fetch('/api/admin/venue-closures').then(r => r.ok ? r.json() : { closures: [] })
+      .then(d => setVenueClosures(d.closures ?? []))
+      .catch(() => {})
   }, [])
 
   const uniqueDates   = [...new Set(slots.map(s => s.day_date))].sort()
@@ -89,6 +121,17 @@ export default function BookPage() {
   const isSlotSelected = (courtId: string, period: number) =>
     booking.court_id === courtId && booking.period_number === period
   const canProceedStep0 = Boolean(booking.date && booking.court_id && booking.period_number)
+
+  // ── حساب سعر المياه ────────────────────────────────────────
+  const waterPrice = Number(settings.water_price_per_carton) || 20
+  const waterMax   = Number(settings.water_max_cartons) || 10
+  const waterTotal = booking.water_quantity * waterPrice
+
+  // ── التحقق من إيقاف ملعب في تاريخ معين ─────────────────────
+  const isCourtClosed = (courtId: string, date: string) =>
+    venueClosures.some(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)
+  const getClosureReason = (courtId: string, date: string) =>
+    venueClosures.find(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)?.reason ?? 'صيانة'
 
   // ── تعيين السعر عند الوصول لخطوة بياناتك ─────────────────
   useEffect(() => {
@@ -133,6 +176,7 @@ export default function BookPage() {
           booking_date: booking.date, court_id: booking.court_id,
           period_number: booking.period_number, customer_name: booking.customer_name,
           code_used: booking.code.toUpperCase() || undefined,
+          water_quantity: booking.water_quantity,
         }),
       })
       const data = await res.json()
@@ -159,8 +203,9 @@ export default function BookPage() {
 
   // ── إعادة ضبط ─────────────────────────────────────────────
   function resetBooking() {
+    releaseSlot()
     setStep(0)
-    setBooking({ date:'', court_id:'', period_number:0, customer_name:'', code:'', price:null })
+    setBooking({ date:'', court_id:'', period_number:0, customer_name:'', code:'', price:null, water_quantity:0 })
     setBookingId(''); setUploadFile(null); setError(''); setCodeError('')
   }
 
@@ -278,46 +323,63 @@ export default function BookPage() {
               <div className="courts-container animate-fade-in">
                 {COURTS.map(courtId => {
                   const courtSlots = slotsForDate.filter(s => s.court_id === courtId)
+                  const closed = isCourtClosed(courtId, booking.date)
                   return (
-                    <div key={courtId} className="court-block">
+                    <div key={courtId} className={`court-block ${closed ? 'court-closed' : ''}`}>
                       <div className="court-block-header">
                         <span className="court-block-icon">{COURT_ICONS[courtId]}</span>
                         <span className="court-block-name">{getCourtName(courtId)}</span>
-                        {basePrice(courtId) > 0 && (
+                        {closed ? (
+                          <span className="court-block-price" style={{ color:'#dc2626', fontSize:'0.75rem' }}>🔒 غير متاح — {getClosureReason(courtId, booking.date)}</span>
+                        ) : basePrice(courtId) > 0 ? (
                           <span className="court-block-price">{formatAmount(basePrice(courtId))}</span>
-                        )}
+                        ) : null}
                       </div>
-                      <div className="court-periods">
-                        {courtSlots.length === 0 ? (
-                          <div className="no-slots">لا توجد فترات</div>
-                        ) : [...courtSlots].sort((a,b) => a.period_number - b.period_number).map(slot => {
-                          const sel    = isSlotSelected(courtId, slot.period_number)
-                          const status = !slot.is_available ? 'booked' : sel ? 'selected' : 'available'
-                          return (
-                            <button
-                              key={slot.period_number}
-                              id={`slot-${courtId}-${slot.period_number}`}
-                              className={`period-chip period-chip-${status}`}
-                              disabled={!slot.is_available}
-                              onClick={() => {
-                                if (!slot.is_available) return
-                                setBooking(b => ({
-                                  ...b,
-                                  court_id: courtId,
-                                  period_number: slot.period_number,
-                                  price: null,
-                                }))
-                              }}
-                            >
-                              <span className="period-chip-time">{getPeriodName(slot.period_number)}</span>
-                              <span className="period-chip-dot" />
-                              <span className="period-chip-label">
-                                {status==='booked'?'محجوز':status==='selected'?'مختار ✓':'متاح'}
-                              </span>
-                            </button>
-                          )
-                        })}
-                      </div>
+                      {closed ? (
+                        <div className="no-slots" style={{ color:'#999', fontStyle:'italic' }}>الملعب موقوف مؤقتاً</div>
+                      ) : (
+                        <div className="court-periods">
+                          {courtSlots.length === 0 ? (
+                            <div className="no-slots">لا توجد فترات</div>
+                          ) : [...courtSlots].sort((a,b) => a.period_number - b.period_number).map(slot => {
+                            const sel    = isSlotSelected(courtId, slot.period_number)
+                            const isHeld = (slot as AvailableSlot & { is_held?: boolean }).is_held
+                            const status = !slot.is_available ? (isHeld ? 'held' : 'booked') : sel ? 'selected' : 'available'
+                            return (
+                              <button
+                                key={slot.period_number}
+                                id={`slot-${courtId}-${slot.period_number}`}
+                                className={`period-chip period-chip-${status}`}
+                                disabled={!slot.is_available}
+                                onClick={async () => {
+                                  if (!slot.is_available) return
+                                  // حجز مؤقت
+                                  const ok = await holdSlot(courtId, booking.date, slot.period_number)
+                                  if (!ok) {
+                                    // إعادة جلب الفترات لو الحجز المؤقت فشل
+                                    const res = await fetch('/api/booking/slots')
+                                    const data = await res.json()
+                                    setSlots(data.slots ?? [])
+                                    return
+                                  }
+                                  setBooking(b => ({
+                                    ...b,
+                                    court_id: courtId,
+                                    period_number: slot.period_number,
+                                    price: null,
+                                  }))
+                                }}
+                              >
+                                <span className="period-chip-time">{getPeriodName(slot.period_number)}</span>
+                                <span className="period-chip-dot" />
+                                <span className="period-chip-label">
+                                  {status==='held'?'🔄 قيد الحجز':status==='booked'?'محجوز':status==='selected'?'مختار ✓':'متاح'}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -352,7 +414,7 @@ export default function BookPage() {
         {/* ========== الخطوة 1: بياناتك ========== */}
         {step === 1 && (
           <div className="book-step animate-slide-up">
-            <button className="step-back" onClick={() => setStep(0)}>← رجوع</button>
+            <button className="step-back" onClick={() => { releaseSlot(); setStep(0) }}>← رجوع</button>
             <h2 className="step-title">بيانات الحجز</h2>
 
             {/* ملخص مصغّر */}
@@ -401,6 +463,36 @@ export default function BookPage() {
               {codeError && <div className="form-error" style={{ marginTop:'0.5rem' }}>{codeError}</div>}
             </div>
 
+            {/* ── قسم المياه ── */}
+            <div className="form-group">
+              <label>💧 كراتين مياه (اختياري)</label>
+              <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'0 0 0.5rem' }}>
+                كل كرتون {formatAmount(waterPrice)}
+              </p>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                <button type="button" className="btn btn-secondary"
+                  style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
+                  disabled={booking.water_quantity <= 0}
+                  onClick={() => setBooking(b => ({ ...b, water_quantity: Math.max(0, b.water_quantity - 1) }))}>
+                  ➖
+                </button>
+                <span style={{ fontSize:'1.4rem', fontWeight:800, minWidth:'2rem', textAlign:'center', color:C.navy }}>
+                  {booking.water_quantity}
+                </span>
+                <button type="button" className="btn btn-secondary"
+                  style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
+                  disabled={booking.water_quantity >= waterMax}
+                  onClick={() => setBooking(b => ({ ...b, water_quantity: Math.min(waterMax, b.water_quantity + 1) }))}>
+                  ➕
+                </button>
+                {booking.water_quantity > 0 && (
+                  <span style={{ fontSize:'0.85rem', color:C.green, fontWeight:700 }}>
+                    = {formatAmount(waterTotal)}
+                  </span>
+                )}
+              </div>
+            </div>
+
             {booking.price && (
               <div className="price-box animate-fade-in">
                 <div className="price-row">
@@ -413,9 +505,15 @@ export default function BookPage() {
                     <span>- {formatAmount(booking.price.discount_amount)}</span>
                   </div>
                 )}
+                {booking.water_quantity > 0 && (
+                  <div className="price-row">
+                    <span>💧 مياه ({booking.water_quantity} كرتون)</span>
+                    <span>{formatAmount(waterTotal)}</span>
+                  </div>
+                )}
                 <div className="price-row total">
                   <span>الإجمالي</span>
-                  <strong>{formatAmount(booking.price.final_price)}</strong>
+                  <strong>{formatAmount((booking.price.final_price ?? 0) + waterTotal)}</strong>
                 </div>
               </div>
             )}
@@ -443,6 +541,7 @@ export default function BookPage() {
                 ['الفترة',    getPeriodName(booking.period_number)],
                 ['الاسم',     booking.customer_name],
                 ...(booking.code ? [['الكود', booking.code]] : []),
+                ...(booking.water_quantity > 0 ? [['💧 مياه', `${booking.water_quantity} كرتون (${formatAmount(waterTotal)})`]] : []),
               ].map(([label,value]) => (
                 <div key={label} className="review-row">
                   <span className="review-label">{label}</span>
@@ -451,7 +550,7 @@ export default function BookPage() {
               ))}
               <div className="review-row total-row">
                 <span className="review-label">المبلغ المطلوب</span>
-                <strong className="review-total">{formatAmount(booking.price?.final_price ?? 0)}</strong>
+                <strong className="review-total">{formatAmount((booking.price?.final_price ?? 0) + waterTotal)}</strong>
               </div>
             </div>
 

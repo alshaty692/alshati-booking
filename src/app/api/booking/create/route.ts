@@ -1,5 +1,6 @@
 // ============================================================
 // API Route — إنشاء حجز جديد
+// يدعم: حجز مؤقت (hold) + إيقاف ملاعب + المياه
 // ============================================================
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { booking_date, court_id, period_number, customer_name, code_used } = body
+    const { booking_date, court_id, period_number, customer_name, code_used, water_quantity } = body
 
     // تحقق أساسي
     if (!booking_date || !court_id || !period_number || !customer_name) {
@@ -27,7 +28,23 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // التحقق من حد الحجوزات المعلّقة لهذا الجوال
+    // ── التحقق من إيقاف الملعب ──────────────────────────────
+    const { data: closures } = await supabase
+      .from('venue_closures')
+      .select('id, reason')
+      .eq('court_id', court_id)
+      .lte('start_date', booking_date)
+      .gte('end_date', booking_date)
+      .limit(1)
+
+    if (closures && closures.length > 0) {
+      return Response.json(
+        { error: `الملعب موقوف: ${closures[0].reason ?? 'صيانة'}` },
+        { status: 400 }
+      )
+    }
+
+    // ── التحقق من حد الحجوزات المعلّقة لهذا الجوال ─────────
     const { data: limitOk } = await supabase.rpc('check_pending_limit', {
       p_phone: phone,
     })
@@ -38,7 +55,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // التحقق من أن العميل غير موقوف
+    // ── التحقق من أن العميل غير موقوف ────────────────────────
     const { data: customer } = await supabase
       .from('customers')
       .select('is_suspended, suspension_reason')
@@ -52,7 +69,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // حساب السعر
+    // ── حساب السعر ──────────────────────────────────────────
     const { data: priceData } = await supabase.rpc('calculate_price', {
       p_court_id: court_id,
       p_code: code_used || null,
@@ -62,7 +79,25 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: priceData.error }, { status: 400 })
     }
 
-    // إنشاء الحجز — الـ UNIQUE constraint يمنع التضارب تلقائياً
+    // ── حساب سعر المياه ─────────────────────────────────────
+    let waterTotal = 0
+    const waterQty = Math.max(0, Math.min(Number(water_quantity) || 0, 50)) // حد أمان
+    if (waterQty > 0) {
+      const { data: waterSettings } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['water_price_per_carton', 'water_max_cartons'])
+      
+      const pricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
+      const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+      
+      const clampedQty = Math.min(waterQty, maxCartons)
+      waterTotal = clampedQty * pricePerCarton
+    }
+
+    const finalPrice = (priceData.final_price ?? 0) + waterTotal
+
+    // ── إنشاء الحجز — الـ UNIQUE constraint يمنع التضارب ────
     const { data: booking, error } = await supabase
       .from('bookings')
       .insert({
@@ -74,7 +109,8 @@ export async function POST(request: NextRequest) {
         code_used: code_used || null,
         base_price: priceData.base_price,
         discount_amount: priceData.discount_amount,
-        final_price: priceData.final_price,
+        final_price: finalPrice,
+        water_quantity: waterQty,
         status: 'pending',
         is_manual: false,
       })
@@ -92,21 +128,34 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    // تحديث عداد استخدام الكود
+    // ── تحديث عداد استخدام الكود ─────────────────────────────
     if (code_used) {
-      await supabase
+      const { data: codeData } = await supabase
         .from('codes')
-        .update({ used_count: supabase.rpc('used_count + 1' as never) })
+        .select('used_count')
         .eq('code', code_used)
+        .single()
+      if (codeData) {
+        await supabase
+          .from('codes')
+          .update({ used_count: (codeData.used_count ?? 0) + 1 })
+          .eq('code', code_used)
+      }
     }
 
-    // تسجيل في audit_log
+    // ── حذف الحجز المؤقت (hold) بعد نجاح الحجز الفعلي ──────
+    await supabase
+      .from('slot_holds')
+      .delete()
+      .eq('phone', phone)
+
+    // ── تسجيل في audit_log ───────────────────────────────────
     await supabase.from('audit_log').insert({
       table_name: 'bookings',
       record_id: booking.id,
       action: 'insert',
       new_data: booking,
-      notes: `حجز جديد من ${phone}`,
+      notes: `حجز جديد من ${phone}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
     })
 
     return Response.json({ success: true, booking_id: booking.id })
@@ -115,3 +164,4 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'حدث خطأ، حاول مرة أخرى' }, { status: 500 })
   }
 }
+
