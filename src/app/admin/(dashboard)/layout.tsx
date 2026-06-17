@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import AdminSidebar from '@/components/admin/AdminSidebar'
+import AdminShell from '@/components/admin/AdminShell'
 
 export const metadata: Metadata = { title: { default: 'الإدارة', template: '%s | إدارة مركز حي الشاطئ' } }
 
@@ -28,11 +27,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const name = adminUser?.full_name ?? user.email ?? 'المدير'
 
   return (
-    <div className="admin-layout">
-      <AdminSidebar role={role} userName={name} userEmail={user.email ?? ''} />
-      <main className="admin-main">
-        {children}
-      </main>
-    </div>
+    <AdminShell role={role} userName={name} userEmail={user.email ?? ''}>
+      {children}
+    </AdminShell>
   )
 }

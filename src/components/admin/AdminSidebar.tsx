@@ -18,13 +18,33 @@ const NAV = [
   { href:'/admin/settings',     icon:'⚙️', label:'الإعدادات',  roles:['admin'] },
 ]
 
+const LS_KEY = 'admin_sidebar_expanded'
+
 export default function AdminSidebar({ role, userName, userEmail }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
   const [showLogout, setShowLogout] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false)                    // mobile drawer
+  const [expanded, setExpanded] = useState(false)             // desktop sidebar
 
-  // أغلق عند تغيير المسار
+  // استرجاع حالة الـ sidebar من localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LS_KEY)
+      if (saved === '1') setExpanded(true)
+    } catch {}
+  }, [])
+
+  // حفظ حالة الـ sidebar
+  const toggleExpanded = useCallback(() => {
+    setExpanded(prev => {
+      const next = !prev
+      try { localStorage.setItem(LS_KEY, next ? '1' : '0') } catch {}
+      return next
+    })
+  }, [])
+
+  // أغلق drawer عند تغيير المسار
   useEffect(() => { setOpen(false) }, [pathname])
 
   // منع تمرير الـ body عند فتح القائمة
@@ -57,13 +77,29 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
 
   const visibleNav = NAV.filter(item => item.roles.includes(role))
   const initials = userName.charAt(0).toUpperCase()
+  const sidebarWidth = expanded ? 220 : 64
 
   return (
     <>
       {/* ══ السايدبار — دسكتوب فقط ══ */}
-      <nav className="sidebar" aria-label="قائمة الإدارة">
-        <div className="sidebar-logo" title="مركز حي الشاطئ">
-          <span className="sidebar-logo-icon">🏟️</span>
+      <nav
+        className={`sidebar ${expanded ? 'sidebar-expanded' : ''}`}
+        aria-label="قائمة الإدارة"
+        style={{ width: sidebarWidth }}
+      >
+        {/* زر toggle + شعار */}
+        <div className="sidebar-logo">
+          <button
+            className="sidebar-toggle"
+            onClick={toggleExpanded}
+            aria-label={expanded ? 'طي القائمة' : 'توسيع القائمة'}
+            title={expanded ? 'طي القائمة' : 'توسيع القائمة'}
+          >
+            ☰
+          </button>
+          {expanded && (
+            <span className="sidebar-logo-text">مركز حي الشاطئ</span>
+          )}
         </div>
 
         <div className="sidebar-nav">
@@ -80,14 +116,15 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
                 data-tooltip={item.label}
                 aria-label={item.label}
               >
-                <span style={{ fontSize:'1.3rem', lineHeight:1 }}>{item.icon}</span>
+                <span className="sidebar-link-icon">{item.icon}</span>
+                {expanded && <span className="sidebar-link-label">{item.label}</span>}
               </Link>
             )
           })}
         </div>
 
         <div className="sidebar-user">
-          <div style={{ position:'relative' }}>
+          <div style={{ position:'relative', width:'100%', display:'flex', flexDirection:'column', alignItems:'center' }}>
             <button
               id="btn-sidebar-user"
               className="sidebar-user-btn"
@@ -100,7 +137,10 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
 
             {showLogout && (
               <div style={{
-                position:'absolute', left:'calc(100% + 10px)', bottom:0,
+                position:'absolute', left: expanded ? 'auto' : 'calc(100% + 10px)',
+                right: expanded ? 0 : 'auto',
+                bottom: expanded ? '100%' : 0,
+                marginBottom: expanded ? '0.5rem' : 0,
                 background:'#1B2A3B', border:'1px solid rgba(201,169,110,.3)',
                 borderRadius:'0.625rem', padding:'0.75rem', minWidth:180,
                 boxShadow:'0 8px 24px rgba(0,0,0,.4)', zIndex:300,
@@ -137,7 +177,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
         </button>
       </header>
 
-      {/* ══ Overlay — inline styles تتجاوز Tailwind ══ */}
+      {/* ══ Overlay ══ */}
       {open && (
         <div
           onClick={closeDrawer}
@@ -152,7 +192,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
         />
       )}
 
-      {/* ══ Drawer الجوال — inline styles ══ */}
+      {/* ══ Drawer الجوال ══ */}
       <div
         className="mobile-drawer"
         style={{
