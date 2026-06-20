@@ -239,13 +239,34 @@ export async function GET(request: NextRequest) {
     const repeatCustomers = topList.length - newCustomers
     const repeatRate      = topList.length > 0 ? Math.round(repeatCustomers / topList.length * 100) : 0
 
+    // متوسط رضا العملاء من booking_ratings للحجوزات ضمن الفترة
+    let avgRating: number | null = null
+    try {
+      const bookingIdsInPeriod = confirmed.map(b => b.id)
+      if (bookingIdsInPeriod.length > 0) {
+        const { data: ratingsData } = await admin
+          .from('booking_ratings')
+          .select('rating')
+          .in('booking_id', bookingIdsInPeriod)
+        if (ratingsData && ratingsData.length > 0) {
+          const sum = ratingsData.reduce((s, r) => s + (r.rating ?? 0), 0)
+          avgRating = Math.round((sum / ratingsData.length) * 10) / 10
+        }
+      }
+    } catch (_e) {
+      // جدول booking_ratings قد لا يكون موجوداً بعد
+      avgRating = null
+    }
+
     const customers: ReportCustomers = {
       total_unique:     topList.length,
       new_customers:    newCustomers,
       repeat_customers: repeatCustomers,
       repeat_rate:      repeatRate,
+      avg_rating:       avgRating,
       top_list:         topList,
     }
+
 
     // ──────────────────────────────────────────────────────────
     // ١١. قسم الأكواد

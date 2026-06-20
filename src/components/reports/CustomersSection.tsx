@@ -54,6 +54,13 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
             },
             { label: 'عملاء متكررون',   value: String(customers.repeat_customers), color: '#2D5C4E' },
             { label: 'معدل التكرار',    value: `${customers.repeat_rate}%`,          color: '#C9A96E' },
+            {
+              label: 'متوسط رضا العملاء ⭐',
+              value: customers.avg_rating != null
+                ? `${customers.avg_rating} / 5`
+                : 'لا تقييمات بعد',
+              color: '#f59e0b',
+            },
           ].map((r, i) => (
             <div key={i} className="rpt-detail-row">
               <div>

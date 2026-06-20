@@ -111,6 +111,7 @@ export interface ReportCustomers {
   new_customers:     number   // first_booking_at >= from (حقيقي)
   repeat_customers:  number
   repeat_rate:       number   // نسبة مئوية
+  avg_rating:        number | null   // AVG(rating) من booking_ratings للفترة
   top_list:          CustomerEntry[]
 }
 
