@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Plus, X, AlertCircle, ArrowRight } from 'lucide-react'
 
 export default function NewCodePage() {
   const router = useRouter()
@@ -27,7 +28,6 @@ export default function NewCodePage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     try {
       const res = await fetch('/api/admin/codes', {
         method: 'POST',
@@ -42,10 +42,8 @@ export default function NewCodePage() {
           expires_at: form.expires_at || null,
         }),
       })
-
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'حدث خطأ')
-
       router.push('/admin/codes')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'حدث خطأ')
@@ -56,37 +54,35 @@ export default function NewCodePage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="form-page-header">
-        <Link href="/admin/codes" className="back-link">→ الأكواد</Link>
-        <h1 className="form-page-title">كود جديد</h1>
+      <div className="nc-header">
+        <Link href="/admin/codes" className="nc-back">
+          <ArrowRight size={14} strokeWidth={2.5} />
+          الأكواد
+        </Link>
+        <h1 className="nc-title">كود جديد</h1>
       </div>
 
-      <div className="form-card">
+      <div className="card nc-card">
         <form onSubmit={handleSubmit}>
-          {error && <div className="form-error">{error}</div>}
+          {error && (
+            <div className="nc-error" role="alert">
+              <AlertCircle size={15} strokeWidth={2} />
+              <span>{error}</span>
+            </div>
+          )}
 
-          {/* الكود */}
-          <div className="form-group">
-            <label className="form-label">الكود <span className="required">*</span></label>
+          <div className="nc-field">
+            <label htmlFor="nc-code" className="nc-label">الكود <span className="nc-req">*</span></label>
             <input
-              type="text"
-              className="form-input"
-              value={form.code}
-              onChange={e => update('code', e.target.value.toUpperCase())}
-              placeholder="مثال: SUMMER2025"
-              required
-              style={{ letterSpacing: '0.1em', fontWeight: 700 }}
+              id="nc-code" type="text" className="input nc-code-input"
+              value={form.code} onChange={e => update('code', e.target.value.toUpperCase())}
+              placeholder="مثال: SUMMER2025" required autoFocus
             />
           </div>
 
-          {/* نوع الكود */}
-          <div className="form-group">
-            <label className="form-label">نوع الكود <span className="required">*</span></label>
-            <select
-              className="form-input"
-              value={form.code_type}
-              onChange={e => update('code_type', e.target.value)}
-            >
+          <div className="nc-field">
+            <label htmlFor="nc-code-type" className="nc-label">نوع الكود <span className="nc-req">*</span></label>
+            <select id="nc-code-type" className="input" value={form.code_type} onChange={e => update('code_type', e.target.value)}>
               <option value="permanent">دائم</option>
               <option value="charity">خيري</option>
               <option value="free">مجاني</option>
@@ -94,48 +90,34 @@ export default function NewCodePage() {
             </select>
           </div>
 
-          {/* نوع الخصم */}
-          <div className="form-group">
-            <label className="form-label">نوع الخصم <span className="required">*</span></label>
-            <select
-              className="form-input"
-              value={form.discount_type}
-              onChange={e => update('discount_type', e.target.value)}
-            >
+          <div className="nc-field">
+            <label htmlFor="nc-discount-type" className="nc-label">نوع الخصم <span className="nc-req">*</span></label>
+            <select id="nc-discount-type" className="input" value={form.discount_type} onChange={e => update('discount_type', e.target.value)}>
               <option value="percent">نسبة مئوية</option>
               <option value="fixed">مبلغ ثابت</option>
               <option value="free">مجاني</option>
             </select>
           </div>
 
-          {/* قيمة الخصم */}
           {form.discount_type !== 'free' && (
-            <div className="form-group">
-              <label className="form-label">
+            <div className="nc-field">
+              <label htmlFor="nc-discount-val" className="nc-label">
                 قيمة الخصم
                 {form.discount_type === 'percent' && ' (%)'}
-                {form.discount_type === 'fixed' && ' (ر.ع)'}
+                {form.discount_type === 'fixed' && ' (ر.س)'}
               </label>
               <input
-                type="number"
-                className="form-input"
-                value={form.discount_value}
-                onChange={e => update('discount_value', e.target.value)}
-                min="0"
-                step="0.01"
-                placeholder={form.discount_type === 'percent' ? '10' : '5.000'}
+                id="nc-discount-val" type="number" className="input"
+                value={form.discount_value} onChange={e => update('discount_value', e.target.value)}
+                min="0" step="0.01"
+                placeholder={form.discount_type === 'percent' ? '10' : '50'}
               />
             </div>
           )}
 
-          {/* الملعب */}
-          <div className="form-group">
-            <label className="form-label">الملعب</label>
-            <select
-              className="form-input"
-              value={form.court_id}
-              onChange={e => update('court_id', e.target.value)}
-            >
+          <div className="nc-field">
+            <label htmlFor="nc-court" className="nc-label">الملعب</label>
+            <select id="nc-court" className="input" value={form.court_id} onChange={e => update('court_id', e.target.value)}>
               <option value="">الكل</option>
               <option value="football">كرة القدم</option>
               <option value="volleyball">الكرة الطائرة</option>
@@ -143,160 +125,67 @@ export default function NewCodePage() {
             </select>
           </div>
 
-          <div className="form-row">
-            {/* الحد الأقصى */}
-            <div className="form-group">
-              <label className="form-label">الحد الأقصى للاستخدام</label>
+          <div className="nc-row">
+            <div className="nc-field">
+              <label htmlFor="nc-max-uses" className="nc-label">الحد الأقصى للاستخدام</label>
               <input
-                type="number"
-                className="form-input"
-                value={form.max_uses}
-                onChange={e => update('max_uses', e.target.value)}
-                min="1"
-                placeholder="غير محدود"
+                id="nc-max-uses" type="number" className="input"
+                value={form.max_uses} onChange={e => update('max_uses', e.target.value)}
+                min="1" placeholder="غير محدود"
               />
             </div>
-
-            {/* تاريخ الانتهاء */}
-            <div className="form-group">
-              <label className="form-label">تاريخ الانتهاء</label>
+            <div className="nc-field">
+              <label htmlFor="nc-expires" className="nc-label">تاريخ الانتهاء</label>
               <input
-                type="date"
-                className="form-input"
-                value={form.expires_at}
-                onChange={e => update('expires_at', e.target.value)}
+                id="nc-expires" type="date" className="input"
+                value={form.expires_at} onChange={e => update('expires_at', e.target.value)}
               />
             </div>
           </div>
 
-          <div className="form-actions">
-            <button type="submit" className="btn-submit" disabled={loading}>
-              {loading ? 'جاري الحفظ...' : 'إنشاء الكود'}
+          <div className="nc-actions">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? <><span className="spinner" /> جاري الإنشاء...</> : <><Plus size={15} strokeWidth={2.5} /> إنشاء الكود</>}
             </button>
-            <Link href="/admin/codes" className="btn-cancel">إلغاء</Link>
+            <Link href="/admin/codes" className="btn btn-secondary">
+              <X size={14} strokeWidth={2} /> إلغاء
+            </Link>
           </div>
         </form>
       </div>
 
       <style>{`
-        .form-page-header {
-          margin-bottom: 1.5rem;
+        .nc-header { margin-bottom: var(--space-6); }
+        .nc-back {
+          display: inline-flex; align-items: center; gap: var(--space-1);
+          color: var(--color-lime-dim); font-size: var(--text-sm);
+          font-weight: var(--font-semibold); text-decoration: none;
+          margin-bottom: var(--space-3); transition: color 0.15s, gap 0.15s;
         }
-        .back-link {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          color: #2D5C4E;
-          font-size: 0.875rem;
-          font-weight: 600;
-          text-decoration: none;
-          margin-bottom: 0.5rem;
-          transition: opacity 0.2s;
+        .nc-back:hover { color: var(--color-lime); gap: var(--space-2); opacity: 1; }
+        .nc-title { font-size: var(--text-2xl); font-weight: var(--font-black); margin: 0; color: var(--text-primary); }
+        .nc-card { max-width: 640px; }
+        .nc-error {
+          display: flex; align-items: center; gap: var(--space-2);
+          background: var(--color-danger-bg); color: var(--color-danger);
+          border: 1px solid rgba(224,85,85,.25); border-right: 3px solid var(--color-danger);
+          padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+          margin-bottom: var(--space-5); font-size: var(--text-sm); font-weight: var(--font-medium);
         }
-        .back-link:hover { opacity: 0.7; }
-        .form-page-title {
-          font-size: 1.6rem;
-          margin: 0;
-          color: #1B2A3B;
+        .nc-field { margin-bottom: var(--space-4); }
+        .nc-label {
+          display: block; font-size: var(--text-sm);
+          font-weight: var(--font-semibold); color: var(--text-secondary);
+          margin-bottom: var(--space-1);
         }
-        .form-card {
-          background: #fff;
-          border: 0.5px solid #E2DDD4;
-          border-radius: 14px;
-          padding: 2rem;
-          max-width: 640px;
-        }
-        .form-error {
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #dc2626;
-          padding: 0.75rem 1rem;
-          border-radius: 10px;
-          margin-bottom: 1.25rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-        }
-        .form-group {
-          margin-bottom: 1.25rem;
-        }
-        .form-label {
-          display: block;
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #1B2A3B;
-          margin-bottom: 0.4rem;
-        }
-        .required { color: #dc2626; }
-        .form-input {
-          width: 100%;
-          padding: 0.65rem 0.9rem;
-          border: 1px solid #E2DDD4;
-          border-radius: 10px;
-          font-size: 0.9rem;
-          font-family: 'Tajawal', sans-serif;
-          background: #FAFAF8;
-          color: #1B2A3B;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          outline: none;
-          box-sizing: border-box;
-        }
-        .form-input:focus {
-          border-color: #C9A96E;
-          box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.15);
-        }
-        .form-input::placeholder {
-          color: #b0a898;
-        }
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-        .form-actions {
-          display: flex;
-          gap: 0.75rem;
-          align-items: center;
-          margin-top: 1.75rem;
-          padding-top: 1.25rem;
-          border-top: 1px solid #F0ECE4;
-        }
-        .btn-submit {
-          padding: 0.7rem 2rem;
-          background: #2D5C4E;
-          color: #fff;
-          border: none;
-          border-radius: 10px;
-          font-size: 0.9rem;
-          font-weight: 700;
-          font-family: 'Tajawal', sans-serif;
-          cursor: pointer;
-          transition: background 0.2s, transform 0.1s;
-        }
-        .btn-submit:hover:not(:disabled) {
-          background: #245043;
-          transform: translateY(-1px);
-        }
-        .btn-submit:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-        .btn-cancel {
-          padding: 0.7rem 1.5rem;
-          background: transparent;
-          color: #1B2A3B;
-          border: 1px solid #E2DDD4;
-          border-radius: 10px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          font-family: 'Tajawal', sans-serif;
-          text-decoration: none;
-          transition: background 0.2s;
-        }
-        .btn-cancel:hover { background: #F5F2EC; }
-
-        @media (max-width: 600px) {
-          .form-card { padding: 1.25rem; }
-          .form-row { grid-template-columns: 1fr; }
+        .nc-req { color: var(--color-danger); margin-right: 2px; }
+        .nc-code-input { font-family: monospace; font-weight: var(--font-bold); letter-spacing: 0.08em; font-size: var(--text-lg); }
+        .nc-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+        @media (max-width: 480px) { .nc-row { grid-template-columns: 1fr; } }
+        .nc-actions {
+          display: flex; gap: var(--space-2); align-items: center;
+          margin-top: var(--space-6); padding-top: var(--space-5);
+          border-top: 1px solid var(--border-color);
         }
       `}</style>
     </div>
