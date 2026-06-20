@@ -79,18 +79,27 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: priceData.error }, { status: 400 })
     }
 
-    // ── حساب سعر المياه ─────────────────────────────────────
+    // ── حساب سعر المياه + التحقق من المخزون ────────────────
     let waterTotal = 0
     const waterQty = Math.max(0, Math.min(Number(water_quantity) || 0, 50)) // حد أمان
     if (waterQty > 0) {
       const { data: waterSettings } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['water_price_per_carton', 'water_max_cartons'])
+        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available'])
       
       const pricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
       const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+      const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '999')
       
+      // التحقق من المخزون
+      if (stockAvailable <= 0) {
+        return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
+      }
+      if (waterQty > stockAvailable) {
+        return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
+      }
+
       const clampedQty = Math.min(waterQty, maxCartons)
       waterTotal = clampedQty * pricePerCarton
     }

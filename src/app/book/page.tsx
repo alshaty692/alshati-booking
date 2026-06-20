@@ -122,9 +122,11 @@ export default function BookPage() {
     booking.court_id === courtId && booking.period_number === period
   const canProceedStep0 = Boolean(booking.date && booking.court_id && booking.period_number)
 
-  // ── حساب سعر المياه ────────────────────────────────────────
+  // ── حساب سعر المياه + مخزون ─────────────────────────────────
   const waterPrice = Number(settings.water_price_per_carton) || 20
-  const waterMax   = Number(settings.water_max_cartons) || 10
+  const waterStock = Number(settings.water_stock_available ?? '999')
+  const waterMaxSetting = Number(settings.water_max_cartons) || 10
+  const waterMax   = waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0
   const waterTotal = booking.water_quantity * waterPrice
 
   // ── التحقق من إيقاف ملعب في تاريخ معين ─────────────────────
@@ -466,31 +468,40 @@ export default function BookPage() {
             {/* ── قسم المياه ── */}
             <div className="form-group">
               <label>💧 كراتين مياه (اختياري)</label>
-              <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'0 0 0.5rem' }}>
-                كل كرتون {formatAmount(waterPrice)}
-              </p>
-              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
-                <button type="button" className="btn btn-secondary"
-                  style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
-                  disabled={booking.water_quantity <= 0}
-                  onClick={() => setBooking(b => ({ ...b, water_quantity: Math.max(0, b.water_quantity - 1) }))}>
-                  ➖
-                </button>
-                <span style={{ fontSize:'1.4rem', fontWeight:800, minWidth:'2rem', textAlign:'center', color:C.navy }}>
-                  {booking.water_quantity}
-                </span>
-                <button type="button" className="btn btn-secondary"
-                  style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
-                  disabled={booking.water_quantity >= waterMax}
-                  onClick={() => setBooking(b => ({ ...b, water_quantity: Math.min(waterMax, b.water_quantity + 1) }))}>
-                  ➕
-                </button>
-                {booking.water_quantity > 0 && (
-                  <span style={{ fontSize:'0.85rem', color:C.green, fontWeight:700 }}>
-                    = {formatAmount(waterTotal)}
-                  </span>
-                )}
-              </div>
+              {waterStock <= 0 ? (
+                <p style={{ fontSize:'0.85rem', color:'var(--color-danger)', margin:'0.25rem 0 0', fontWeight:600 }}>
+                  ❌ المياه غير متوفرة حالياً
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize:'0.8rem', color:'var(--text-muted)', margin:'0 0 0.5rem' }}>
+                    كل كرتون {formatAmount(waterPrice)}
+                    {waterStock <= 10 && <span style={{ color:'#f59e0b', marginRight:'0.5rem' }}> (متبقي {waterStock} كرتون)</span>}
+                  </p>
+                  <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+                    <button type="button" className="btn btn-secondary"
+                      style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
+                      disabled={booking.water_quantity <= 0}
+                      onClick={() => setBooking(b => ({ ...b, water_quantity: Math.max(0, b.water_quantity - 1) }))}>
+                      ➖
+                    </button>
+                    <span style={{ fontSize:'1.4rem', fontWeight:800, minWidth:'2rem', textAlign:'center', color:C.navy }}>
+                      {booking.water_quantity}
+                    </span>
+                    <button type="button" className="btn btn-secondary"
+                      style={{ width:'2.5rem', height:'2.5rem', padding:0, fontSize:'1.2rem', borderRadius:'50%' }}
+                      disabled={booking.water_quantity >= waterMax}
+                      onClick={() => setBooking(b => ({ ...b, water_quantity: Math.min(waterMax, b.water_quantity + 1) }))}>
+                      ➕
+                    </button>
+                    {booking.water_quantity > 0 && (
+                      <span style={{ fontSize:'0.85rem', color:C.green, fontWeight:700 }}>
+                        = {formatAmount(waterTotal)}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {booking.price && (

@@ -149,9 +149,23 @@ export default async function SettingsPage() {
           <p style={{ color:'var(--text-muted)', fontSize:'0.8rem', marginBottom:'1rem' }}>
             يظهر خيار شراء كراتين المياه للعملاء أثناء الحجز
           </p>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1rem' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'1rem' }}>
             <Field name="water_price_per_carton" label="سعر الكرتون (ريال)" type="number" placeholder="20" />
             <Field name="water_max_cartons"      label="الحد الأقصى لكل حجز" type="number" placeholder="10" />
+            <div>
+              <label style={{ display:'block', fontWeight:700, fontSize:'0.875rem', marginBottom:'0.4rem', color:'#1B2A3B' }}>
+                📦 المخزون المتوفر
+              </label>
+              <input
+                type="number" name="water_stock_available" className="input"
+                defaultValue={s['water_stock_available'] ?? '50'}
+                placeholder="50"
+                style={{ width:'100%', border: '2px solid #C9A96E' }}
+              />
+              <p style={{ fontSize:'0.7rem', color:'var(--text-muted)', margin:'0.3rem 0 0' }}>
+                يُنقص تلقائياً عند تأكيد حجز فيه مياه
+              </p>
+            </div>
           </div>
         </div>
 

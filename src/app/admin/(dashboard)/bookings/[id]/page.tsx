@@ -18,6 +18,15 @@ const STATUS_STYLE: Record<string, string> = {
 // ============================================================
 // Server Actions
 // ============================================================
+
+// مساعد: تعديل مخزون المياه (نقص عند التأكيد، إرجاع عند الإلغاء/الرفض)
+async function adjustWaterStock(supabase: ReturnType<typeof createAdminClient>, quantity: number, direction: 'decrement' | 'increment') {
+  if (quantity <= 0) return
+  const { data } = await supabase.from('settings').select('value').eq('key', 'water_stock_available').single()
+  const current = Number(data?.value ?? '999')
+  const newVal = direction === 'decrement' ? Math.max(0, current - quantity) : current + quantity
+  await supabase.from('settings').upsert({ key: 'water_stock_available', value: String(newVal) }, { onConflict: 'key' })
+}
 async function confirmBooking(formData: FormData) {
   'use server'
   const authClient = await createClient()
@@ -26,11 +35,20 @@ async function confirmBooking(formData: FormData) {
 
   const supabase = createAdminClient()
   const id = formData.get('booking_id') as string
+
+  // قراءة الحجز لمعرفة كمية المياه
+  const { data: bookingData } = await supabase.from('bookings').select('water_quantity').eq('id', id).single()
+
   await supabase.from('bookings').update({
     status: 'confirmed',
     confirmed_by: user.id,
     confirmed_at: new Date().toISOString(),
   }).eq('id', id)
+
+  // نقص المياه من المخزون عند التأكيد
+  if (bookingData?.water_quantity && bookingData.water_quantity > 0) {
+    await adjustWaterStock(supabase, bookingData.water_quantity, 'decrement')
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'bookings', record_id: id, action: 'update',
@@ -49,10 +67,19 @@ async function rejectBooking(formData: FormData) {
   const supabase = createAdminClient()
   const id = formData.get('booking_id') as string
   const reason = formData.get('rejection_reason') as string
+
+  // قراءة الحجز لمعرفة إن كان مؤكد سابقاً + كمية المياه
+  const { data: bookingData } = await supabase.from('bookings').select('status, water_quantity').eq('id', id).single()
+
   await supabase.from('bookings').update({
     status: 'rejected',
     rejection_reason: reason,
   }).eq('id', id)
+
+  // إرجاع المياه للمخزون لو كان الحجز مؤكد سابقاً
+  if (bookingData?.status === 'confirmed' && bookingData.water_quantity > 0) {
+    await adjustWaterStock(supabase, bookingData.water_quantity, 'increment')
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'bookings', record_id: id, action: 'update',
@@ -82,10 +109,18 @@ async function cancelBookingAdmin(formData: FormData) {
   const reason = formData.get('cancellation_reason') as string
   const refunded = formData.get('refunded') === 'on'
 
+  // قراءة الحجز لمعرفة إن كان مؤكد + كمية المياه
+  const { data: bookingData } = await supabase.from('bookings').select('status, water_quantity').eq('id', id).single()
+
   await supabase.from('bookings').update({
     status: 'cancelled',
     internal_note: `إلغاء إداري: ${reason}${refunded ? ' (تم الاسترداد)' : ''}`,
   }).eq('id', id)
+
+  // إرجاع المياه للمخزون لو كان الحجز مؤكد سابقاً
+  if (bookingData?.status === 'confirmed' && bookingData.water_quantity > 0) {
+    await adjustWaterStock(supabase, bookingData.water_quantity, 'increment')
+  }
 
   await supabase.from('audit_log').insert({
     table_name: 'bookings', record_id: id, action: 'update',
@@ -148,7 +183,23 @@ export default async function BookingDetailPage({ params }: Props) {
           <Row label="الكود" value={booking.code_used ?? '—'} />
           <Row label="السعر الأصلي" value={formatAmount(booking.base_price)} />
           <Row label="الخصم" value={formatAmount(booking.discount_amount)} />
+          {booking.water_quantity > 0 ? (
+            <Row label="💧 المياه" value={
+              <span style={{ color: '#0ea5e9' }}>
+                {booking.water_quantity} كرتون × {formatAmount(Math.round((booking.final_price - booking.base_price + booking.discount_amount) / booking.water_quantity))} = {formatAmount(booking.final_price - booking.base_price + booking.discount_amount)}
+              </span>
+            } />
+          ) : (
+            <Row label="💧 المياه" value={<span style={{ color: 'var(--text-muted)' }}>لا يوجد</span>} />
+          )}
           <Row label="المبلغ النهائي" value={<strong style={{ color: 'var(--color-primary)', fontSize: '1.15rem' }}>{formatAmount(booking.final_price)}</strong>} />
+          {booking.water_quantity > 0 && (
+            <Row label="" value={
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                ({formatAmount(booking.base_price)} - {formatAmount(booking.discount_amount)} خصم + {formatAmount(booking.final_price - booking.base_price + booking.discount_amount)} مياه)
+              </span>
+            } />
+          )}
           <Row label="نوع الحجز" value={booking.is_manual ? '🖊️ يدوي' : '🌐 إلكتروني'} />
           <Row label="وقت الحجز" value={formatDateTime(booking.created_at)} />
           {booking.confirmed_at && <Row label="وقت الاعتماد" value={formatDateTime(booking.confirmed_at)} />}
