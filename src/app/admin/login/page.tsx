@@ -1,7 +1,9 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import ThemeToggle from '@/components/ui/ThemeToggle'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -28,54 +30,240 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="admin-login-page">
-      <div className="admin-login-card card animate-fade-in">
-        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏟️</div>
-          <h1 style={{ fontSize: '1.3rem', margin: '0 0 0.25rem' }}>لوحة تحكم الإدارة</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>مركز حي الشاطئ</p>
+    <div className="al-login-page">
+      {/* زر التبديل — ثابت */}
+      <ThemeToggle />
+
+      {/* الكرت المركزي */}
+      <div className="al-login-card animate-fade-in">
+
+        {/* رأس الكرت */}
+        <div className="al-login-header">
+          <div className="al-login-icon-wrap">
+            <ShieldCheck size={28} strokeWidth={1.5} />
+          </div>
+          <h1 className="al-login-title">لوحة تحكم الإدارة</h1>
+          <p className="al-login-subtitle">مركز حي الشاطئ</p>
         </div>
 
-        <form onSubmit={handleLogin} id="admin-login-form">
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' }}>
+        {/* النموذج */}
+        <form onSubmit={handleLogin} id="admin-login-form" className="al-login-form">
+
+          {/* البريد */}
+          <div className="al-field">
+            <label htmlFor="admin-email" className="al-field-label">
               البريد الإلكتروني
             </label>
-            <input id="admin-email" type="email" className="input" value={email}
-              onChange={e => setEmail(e.target.value)} required autoFocus />
-          </div>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.4rem' }}>
-              كلمة المرور
-            </label>
-            <input id="admin-password" type="password" className="input" value={password}
-              onChange={e => setPassword(e.target.value)} required />
+            <div className="al-field-wrap">
+              <Mail size={16} strokeWidth={1.75} className="al-field-icon" />
+              <input
+                id="admin-email"
+                type="email"
+                className="input al-field-input"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoFocus
+                placeholder="admin@example.com"
+                dir="ltr"
+              />
+            </div>
           </div>
 
+          {/* كلمة المرور */}
+          <div className="al-field">
+            <label htmlFor="admin-password" className="al-field-label">
+              كلمة المرور
+            </label>
+            <div className="al-field-wrap">
+              <Lock size={16} strokeWidth={1.75} className="al-field-icon" />
+              <input
+                id="admin-password"
+                type="password"
+                className="input al-field-input"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          {/* رسالة الخطأ */}
           {error && (
-            <div style={{ background: '#fee2e2', color: '#991b1b', padding: '0.6rem 0.875rem',
-              borderRadius: '0.5rem', fontSize: '0.875rem', marginBottom: '1rem',
-              borderRight: '3px solid #ef4444' }}>
-              {error}
+            <div className="al-error" role="alert">
+              <AlertCircle size={15} strokeWidth={2} className="al-error-icon" />
+              <span>{error}</span>
             </div>
           )}
 
-          <button id="btn-admin-login" type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
-            {loading ? <><span className="spinner" /> جاري الدخول...</> : 'دخول →'}
+          {/* زر الدخول — CTA الوحيد على الصفحة */}
+          <button
+            id="btn-admin-login"
+            type="submit"
+            className="btn btn-primary btn-full btn-lg al-submit-btn"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="spinner" />
+                <span>جاري الدخول...</span>
+              </>
+            ) : (
+              <>
+                <LogIn size={18} strokeWidth={2} />
+                <span>دخول</span>
+              </>
+            )}
           </button>
         </form>
       </div>
 
       <style>{`
-        .admin-login-page {
+        /* ── الخلفية ── */
+        .al-login-page {
           min-height: 100vh;
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          background: var(--bg-base);
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
+          padding: var(--space-6);
+          position: relative;
         }
-        .admin-login-card { width: 100%; max-width: 400px; padding: 2rem; }
+
+        /* خط بياني خفيف في الخلفية — يعطي عمقاً دون تشويش */
+        .al-login-page::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(var(--border-subtle) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+          background-size: 40px 40px;
+          opacity: 0.4;
+          pointer-events: none;
+        }
+
+        /* ── الكرت ── */
+        .al-login-card {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-lg);
+          width: 100%;
+          max-width: 400px;
+          padding: var(--space-8);
+          position: relative;
+          z-index: 1;
+        }
+
+        /* حد Lime علوي — جرأة بصرية في مكان واحد */
+        .al-login-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: var(--space-8);
+          left: var(--space-8);
+          height: 2px;
+          background: var(--color-lime);
+          border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+          opacity: 0.7;
+        }
+
+        /* ── رأس الكرت ── */
+        .al-login-header {
+          text-align: center;
+          margin-bottom: var(--space-8);
+        }
+
+        .al-login-icon-wrap {
+          width: 56px;
+          height: 56px;
+          border-radius: var(--radius-lg);
+          background: var(--color-lime-muted);
+          border: 1.5px solid var(--color-lime-dim);
+          color: var(--color-lime);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto var(--space-4);
+        }
+
+        .al-login-title {
+          font-size: var(--text-xl);
+          font-weight: var(--font-black);
+          color: var(--text-primary);
+          margin: 0 0 var(--space-1);
+          letter-spacing: -0.01em;
+        }
+
+        .al-login-subtitle {
+          font-size: var(--text-sm);
+          color: var(--text-muted);
+          margin: 0;
+          font-weight: var(--font-medium);
+          letter-spacing: 0.02em;
+        }
+
+        /* ── النموذج ── */
+        .al-login-form {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
+        }
+
+        .al-field {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+        }
+
+        .al-field-label {
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--text-secondary);
+        }
+
+        .al-field-wrap {
+          position: relative;
+        }
+
+        .al-field-icon {
+          position: absolute;
+          top: 50%;
+          right: var(--space-3);
+          transform: translateY(-50%);
+          color: var(--text-muted);
+          pointer-events: none;
+          flex-shrink: 0;
+        }
+
+        .al-field-input {
+          padding-right: calc(var(--space-3) + 16px + var(--space-2));
+        }
+
+        /* ── رسالة الخطأ ── */
+        .al-error {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          background: var(--color-danger-bg);
+          color: var(--color-danger);
+          border: 1px solid rgba(224, 85, 85, 0.25);
+          border-right: 3px solid var(--color-danger);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+        }
+
+        .al-error-icon { flex-shrink: 0; }
+
+        /* ── زر الدخول ── */
+        .al-submit-btn {
+          margin-top: var(--space-2);
+          gap: var(--space-2);
+        }
       `}</style>
     </div>
   )

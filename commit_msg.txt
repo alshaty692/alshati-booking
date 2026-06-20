@@ -1,0 +1,9 @@
+feat: Phase 1 - Lime Neon dual-theme system + ThemeToggle + Lucide icons
+
+- globals.css: complete rewrite with dark/light CSS variable system
+- ThemeInitScript in layout.tsx prevents theme flash on load
+- useTheme hook: localStorage + prefers-color-scheme + system listener
+- ThemeToggle.tsx: Sun/Moon Lucide SVG icons, fixed position
+- admin/login: Lucide icons replacing emoji, full CSS variable usage
+- Tajawal 900 weight added for headlines
+- 4px spacing grid, radius system, typography hierarchy

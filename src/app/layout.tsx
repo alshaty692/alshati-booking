@@ -1,4 +1,21 @@
 import type { Metadata } from 'next'
+
+// سكريبت الثيم — يُحقن بشكل inline قبل أي CSS أو React hydration
+// يمنع فلاش الثيم الخاطئ عند التحميل الأول
+function ThemeInitScript() {
+  const script = `
+    (function() {
+      try {
+        var stored = localStorage.getItem('alshati-theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  `;
+  return <script dangerouslySetInnerHTML={{ __html: script }} />;
+}
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -24,14 +41,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
+        <ThemeInitScript />
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
