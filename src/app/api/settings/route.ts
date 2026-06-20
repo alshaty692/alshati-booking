@@ -1,6 +1,9 @@
 // GET /api/settings — جلب الإعدادات العامة (للعميل)
 import { createClient } from '@/lib/supabase/server'
 
+// يضمن إن Next.js يجلب من Supabase مباشرة كل مرة بدون تخزين مؤقت
+export const dynamic = 'force-dynamic'
+
 const PUBLIC_KEYS = [
   'facility_name', 'facility_phone', 'whatsapp_number', 'facility_location',
   'bank_name', 'bank_account_name', 'bank_iban', 'bank_account_number',

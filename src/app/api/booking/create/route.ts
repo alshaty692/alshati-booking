@@ -137,19 +137,9 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    // ── تحديث عداد استخدام الكود ─────────────────────────────
+    // ── تحديث عداد استخدام الكود (atomic — آمن من التزامن) ────
     if (code_used) {
-      const { data: codeData } = await supabase
-        .from('codes')
-        .select('used_count')
-        .eq('code', code_used)
-        .single()
-      if (codeData) {
-        await supabase
-          .from('codes')
-          .update({ used_count: (codeData.used_count ?? 0) + 1 })
-          .eq('code', code_used)
-      }
+      await supabase.rpc('increment_code_usage', { p_code: code_used })
     }
 
     // ── حذف الحجز المؤقت (hold) بعد نجاح الحجز الفعلي ──────

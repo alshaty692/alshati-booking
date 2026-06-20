@@ -4,6 +4,9 @@
 // ============================================================
 import { createAdminClient } from '@/lib/supabase/server'
 
+// يضمن إن Next.js يجلب من Supabase مباشرة كل مرة بدون تخزين مؤقت
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const supabase = createAdminClient()

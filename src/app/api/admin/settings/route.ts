@@ -1,7 +1,7 @@
 // GET  /api/admin/settings — جلب كل الإعدادات (مع Auth)
 // PATCH /api/admin/settings — تحديث إعداد أو مجموعة إعدادات
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
 export async function GET() {
@@ -32,8 +32,10 @@ export async function PATCH(req: NextRequest) {
       ? body.updates
       : [{ key: body.key, value: body.value }]
 
+    // استخدام Admin Client لتجاوز RLS عند الكتابة
+    const adminSupabase = createAdminClient()
     for (const pair of pairs) {
-      await supabase
+      await adminSupabase
         .from('settings')
         .upsert({ key: pair.key, value: pair.value }, { onConflict: 'key' })
     }
