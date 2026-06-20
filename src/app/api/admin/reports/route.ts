@@ -1,146 +1,370 @@
 // ============================================================
-// API Route — بيانات التقارير الموحّدة
-// GET /api/admin/reports?from=YYYY-MM-DD&to=YYYY-MM-DD
+// API Route — التقارير الموحّدة (إعادة بناء كاملة)
+// GET /api/admin/reports?from=YYYY-MM-DD&to=YYYY-MM-DD&court=all&status=all
+//
+// مبدأ أساسي: كل الحسابات هنا في السيرفر فقط
+// الواجهة تعرض فقط — لا تُعيد حساب أي رقم
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import type {
+  ReportData, ReportMeta, ReportKpis, ReportFinancial,
+  ReportBookings, ReportCustomers, ReportCodes,
+  ReportHeatmap, ReportOperations, HeatGrid, HeatCell,
+  CourtFilter, StatusFilter, BookingRow
+} from '@/types/reports'
 
+// ──────────────────────────────────────────────────────────────
+// مساعدات
+// ──────────────────────────────────────────────────────────────
+const COURT_NAMES: Record<string, string> = {
+  football:   'كرة القدم',
+  volleyball: 'الكرة الطائرة',
+  multi:      'الملعب المتعدد',
+}
+
+function emptyHeatGrid(): HeatGrid {
+  const g: HeatGrid = {}
+  for (let d = 0; d <= 6; d++) {
+    g[d] = {}
+    for (let p = 1; p <= 3; p++) {
+      g[d][p] = { booked: 0, total: 0, pct: 0 }
+    }
+  }
+  return g
+}
+
+function buildHeatGrid(rows: BookingRow[], weeksCount: number): HeatGrid {
+  const g = emptyHeatGrid()
+  rows.forEach(b => {
+    const dow = new Date(b.booking_date + 'T00:00:00').getDay()
+    const p   = b.period_number
+    if (g[dow] && g[dow][p]) g[dow][p].booked++
+  })
+  // total = عدد الأسابيع × 3 ملاعب
+  for (let d = 0; d <= 6; d++) {
+    for (let p = 1; p <= 3; p++) {
+      g[d][p].total = weeksCount * 3
+      g[d][p].pct   = g[d][p].total > 0
+        ? Math.round(g[d][p].booked / g[d][p].total * 100)
+        : 0
+    }
+  }
+  return g
+}
+
+// ──────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    // التحقق من الصلاحية
+    // 1. التحقق من الصلاحية
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
 
+    // 2. قراءة الفلاتر من الـ URL
     const { searchParams } = new URL(request.url)
-    const from = searchParams.get('from') ?? new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
-    const to   = searchParams.get('to')   ?? new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]
+    const from   = searchParams.get('from')   ?? new Date(Date.now() - 29 * 86400000).toISOString().split('T')[0]
+    const to     = searchParams.get('to')     ?? today
+    const court  = (searchParams.get('court')  ?? 'all') as CourtFilter
+    const status = (searchParams.get('status') ?? 'all') as StatusFilter
 
     const admin = createAdminClient()
 
-    // جلب الحجوزات في الفترة
-    const { data: bookings } = await admin
+    // 3. جلب الإعدادات (water_price_per_carton)
+    const { data: settingsRows } = await admin
+      .from('settings')
+      .select('key,value')
+    const settings: Record<string, string> = {}
+    ;(settingsRows ?? []).forEach(s => { settings[s.key] = s.value })
+    const waterPrice = parseFloat(settings['water_price_per_carton'] ?? '20') || 20
+
+    // 4. جلب الحجوزات في الفترة مع الفلاتر
+    let query = admin
       .from('bookings')
-      .select('*')
+      .select('id,booking_date,court_id,period_number,customer_phone,customer_name,code_used,base_price,discount_amount,final_price,water_quantity,status,is_manual,confirmed_by,confirmed_at,created_at,updated_at')
       .gte('booking_date', from)
       .lte('booking_date', to)
       .order('booking_date', { ascending: true })
 
-    const all = bookings ?? []
-    const confirmed = all.filter(b => b.status === 'confirmed')
+    if (court  !== 'all') query = query.eq('court_id', court)
+    if (status !== 'all') query = query.eq('status', status)
 
-    // ============================================================
-    // التقرير المالي
-    // ============================================================
-    const totalRevenue    = confirmed.reduce((s, b) => s + (b.final_price ?? 0), 0)
-    const totalDiscount   = confirmed.reduce((s, b) => s + (b.discount_amount ?? 0), 0)
-    const totalBase       = confirmed.reduce((s, b) => s + (b.base_price ?? 0), 0)
-    const avgBookingValue = confirmed.length > 0 ? totalRevenue / confirmed.length : 0
+    const { data: rawBookings } = await query
+    const allBookings = (rawBookings ?? []) as BookingRow[]
+    const confirmed   = allBookings.filter(b => b.status === 'confirmed')
 
-    // إيرادات حسب الملعب
-    const revenueByCourtMap: Record<string, { revenue: number; count: number }> = {}
-    confirmed.forEach(b => {
-      if (!revenueByCourtMap[b.court_id]) revenueByCourtMap[b.court_id] = { revenue: 0, count: 0 }
-      revenueByCourtMap[b.court_id].revenue += b.final_price ?? 0
-      revenueByCourtMap[b.court_id].count++
+    // 5. جلب أكواد الخصم لإثراء بيانات الأكواد
+    const { data: codesData } = await admin
+      .from('codes')
+      .select('code,max_uses,is_active,discount_type,discount_value')
+    const codesMap: Record<string, { max_uses: number | null; is_active: boolean; discount_type: string | null; discount_value: number | null }> = {}
+    ;(codesData ?? []).forEach(c => {
+      codesMap[c.code] = { max_uses: c.max_uses, is_active: c.is_active, discount_type: c.discount_type, discount_value: c.discount_value }
     })
-    const revenueByCourt = Object.entries(revenueByCourtMap).map(([court_id, v]) => ({ court_id, ...v }))
 
-    // إيرادات حسب اليوم
-    const revenueByDayMap: Record<string, number> = {}
-    confirmed.forEach(b => {
-      revenueByDayMap[b.booking_date] = (revenueByDayMap[b.booking_date] ?? 0) + (b.final_price ?? 0)
-    })
-    const revenueByDay = Object.entries(revenueByDayMap)
-      .map(([date, revenue]) => ({ date, revenue }))
-      .sort((a, b) => a.date.localeCompare(b.date))
+    // 6. جلب بيانات العملاء للحجوزات في الفترة
+    const phonesInPeriod = [...new Set(confirmed.map(b => b.customer_phone))]
+    let customersMap: Record<string, { classification: string | null; is_vip: boolean; preferred_court: string | null; first_booking_at: string | null }> = {}
 
-    // ============================================================
-    // تقرير العملاء
-    // ============================================================
-    const customerMap: Record<string, { name: string; phone: string; count: number; revenue: number }> = {}
-    confirmed.forEach(b => {
-      if (!customerMap[b.customer_phone]) {
-        customerMap[b.customer_phone] = { name: b.customer_name, phone: b.customer_phone, count: 0, revenue: 0 }
-      }
-      customerMap[b.customer_phone].count++
-      customerMap[b.customer_phone].revenue += b.final_price ?? 0
-    })
-    const topCustomers = Object.values(customerMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 20)
-
-    const newCustomers = Object.values(customerMap).filter(c => c.count === 1).length
-    const repeatCustomers = Object.values(customerMap).filter(c => c.count > 1).length
-
-    // ============================================================
-    // خريطة الإشغال (Heatmap)
-    // ============================================================
-    // أيام الأسبوع: 0=الأحد … 6=السبت
-    const heatmap: Record<number, Record<number, { booked: number; total: number }>> = {}
-    for (let d = 0; d <= 6; d++) {
-      heatmap[d] = {}
-      for (let p = 1; p <= 3; p++) {
-        heatmap[d][p] = { booked: 0, total: 0 }
-      }
+    if (phonesInPeriod.length > 0) {
+      const { data: custData } = await admin
+        .from('customers')
+        .select('phone,classification,is_vip,preferred_court,first_booking_at')
+        .in('phone', phonesInPeriod)
+      ;(custData ?? []).forEach(c => {
+        customersMap[c.phone] = {
+          classification:   c.classification,
+          is_vip:           c.is_vip ?? false,
+          preferred_court:  c.preferred_court,
+          first_booking_at: c.first_booking_at,
+        }
+      })
     }
 
-    // كل الحجوزات (مؤكدة وغيرها) لحساب الإشغال
-    all.filter(b => ['confirmed','uploaded'].includes(b.status)).forEach(b => {
-      const dow = new Date(b.booking_date + 'T00:00:00').getDay()
-      const p   = b.period_number
-      if (heatmap[dow] && heatmap[dow][p]) {
-        heatmap[dow][p].booked++
+    // ──────────────────────────────────────────────────────────
+    // ٧. بناء KPIs
+    // ──────────────────────────────────────────────────────────
+    const totalRevenue   = confirmed.reduce((s, b) => s + (b.final_price ?? 0), 0)
+    const totalDiscount  = confirmed.reduce((s, b) => s + (b.discount_amount ?? 0), 0)
+    const totalBase      = confirmed.reduce((s, b) => s + (b.base_price ?? 0), 0)
+    const waterRevenue   = confirmed.reduce((s, b) => s + ((b.water_quantity ?? 0) * waterPrice), 0)
+    const avgBookingVal  = confirmed.length > 0 ? Math.round(totalRevenue / confirmed.length) : 0
+
+    const cancelledCount = allBookings.filter(b => ['cancelled', 'rejected', 'expired'].includes(b.status)).length
+    const cancellationRate = allBookings.length > 0
+      ? Math.round(cancelledCount / allBookings.length * 100)
+      : 0
+
+    const kpis: ReportKpis = {
+      total_revenue:     totalRevenue,
+      total_discount:    totalDiscount,
+      total_base:        totalBase,
+      water_revenue:     waterRevenue,
+      confirmed_count:   confirmed.length,
+      total_count:       allBookings.length,
+      avg_booking_value: avgBookingVal,
+      cancellation_rate: cancellationRate,
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ٨. القسم المالي
+    // ──────────────────────────────────────────────────────────
+    const courtFinMap: Record<string, { count: number; base: number; discount: number; revenue: number; water: number }> = {}
+    confirmed.forEach(b => {
+      if (!courtFinMap[b.court_id]) courtFinMap[b.court_id] = { count: 0, base: 0, discount: 0, revenue: 0, water: 0 }
+      courtFinMap[b.court_id].count++
+      courtFinMap[b.court_id].base    += b.base_price ?? 0
+      courtFinMap[b.court_id].discount += b.discount_amount ?? 0
+      courtFinMap[b.court_id].revenue  += b.final_price ?? 0
+      courtFinMap[b.court_id].water    += (b.water_quantity ?? 0) * waterPrice
+    })
+
+    const statusBreakdown = { confirmed: 0, pending: 0, uploaded: 0, cancelled: 0, rejected: 0, expired: 0 }
+    allBookings.forEach(b => {
+      if (b.status in statusBreakdown) {
+        (statusBreakdown as Record<string, number>)[b.status]++
       }
     })
 
-    // حساب total: عدد أسابيع في الفترة × 1 (كل ملعب مرة واحدة أسبوعياً)
-    const daysDiff = Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1)
-    const weeksCount = Math.max(1, Math.ceil(daysDiff / 7))
-    for (let d = 0; d <= 6; d++) {
-      for (let p = 1; p <= 3; p++) {
-        heatmap[d][p].total = weeksCount * 3 // 3 ملاعب
-      }
+    const dayRevMap: Record<string, { revenue: number; count: number }> = {}
+    confirmed.forEach(b => {
+      if (!dayRevMap[b.booking_date]) dayRevMap[b.booking_date] = { revenue: 0, count: 0 }
+      dayRevMap[b.booking_date].revenue += b.final_price ?? 0
+      dayRevMap[b.booking_date].count++
+    })
+
+    const financial: ReportFinancial = {
+      by_court: Object.entries(courtFinMap).map(([court_id, v]) => ({
+        court_id,
+        name:         COURT_NAMES[court_id] ?? court_id,
+        count:        v.count,
+        base:         v.base,
+        discount:     v.discount,
+        revenue:      v.revenue,
+        water_revenue: v.water,
+      })),
+      by_day: Object.entries(dayRevMap)
+        .map(([date, v]) => ({ date, revenue: v.revenue, count: v.count }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
+      status_breakdown: statusBreakdown,
     }
 
-    // ============================================================
-    // تقرير الأكواد
-    // ============================================================
-    const codeMap: Record<string, { count: number; discount: number; revenue: number }> = {}
+    // ──────────────────────────────────────────────────────────
+    // ٩. قسم الحجوزات
+    // ──────────────────────────────────────────────────────────
+    const byPeriod: Record<string, number> = { '1': 0, '2': 0, '3': 0 }
+    confirmed.forEach(b => {
+      const k = String(b.period_number)
+      if (k in byPeriod) byPeriod[k]++
+    })
+
+    const bookingsReport: ReportBookings = {
+      total:         allBookings.length,
+      by_period:     byPeriod,
+      manual_count:  allBookings.filter(b => b.is_manual).length,
+      online_count:  allBookings.filter(b => !b.is_manual).length,
+      details:       allBookings,
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١٠. قسم العملاء
+    // ──────────────────────────────────────────────────────────
+    const custRevMap: Record<string, { name: string; count: number; revenue: number }> = {}
+    confirmed.forEach(b => {
+      if (!custRevMap[b.customer_phone]) {
+        custRevMap[b.customer_phone] = { name: b.customer_name, count: 0, revenue: 0 }
+      }
+      custRevMap[b.customer_phone].count++
+      custRevMap[b.customer_phone].revenue += b.final_price ?? 0
+    })
+
+    const topList = Object.entries(custRevMap).map(([phone, v]) => {
+      const info = customersMap[phone]
+      return {
+        phone,
+        name:             v.name,
+        count:            v.count,
+        revenue:          v.revenue,
+        classification:   info?.classification ?? null,
+        is_vip:           info?.is_vip ?? false,
+        preferred_court:  info?.preferred_court ?? null,
+        // first_booking_at من جدول customers — هذا هو أول حجز حقيقي للعميل
+        first_booking_at: info?.first_booking_at ?? null,
+      }
+    }).sort((a, b) => b.revenue - a.revenue)
+
+    // عميل جديد حقيقي: first_booking_at >= from (أول حجز له في حياته ضمن الفترة)
+    const newCustomers    = topList.filter(c => c.first_booking_at && c.first_booking_at >= from).length
+    const repeatCustomers = topList.length - newCustomers
+    const repeatRate      = topList.length > 0 ? Math.round(repeatCustomers / topList.length * 100) : 0
+
+    const customers: ReportCustomers = {
+      total_unique:     topList.length,
+      new_customers:    newCustomers,
+      repeat_customers: repeatCustomers,
+      repeat_rate:      repeatRate,
+      top_list:         topList,
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١١. قسم الأكواد
+    // ──────────────────────────────────────────────────────────
+    const codeRevMap: Record<string, { count: number; total_discount: number; total_revenue: number }> = {}
     confirmed.filter(b => b.code_used).forEach(b => {
       const code = b.code_used!
-      if (!codeMap[code]) codeMap[code] = { count: 0, discount: 0, revenue: 0 }
-      codeMap[code].count++
-      codeMap[code].discount += b.discount_amount ?? 0
-      codeMap[code].revenue  += b.final_price ?? 0
+      if (!codeRevMap[code]) codeRevMap[code] = { count: 0, total_discount: 0, total_revenue: 0 }
+      codeRevMap[code].count++
+      codeRevMap[code].total_discount += b.discount_amount ?? 0
+      codeRevMap[code].total_revenue  += b.final_price ?? 0
     })
-    const codeStats = Object.entries(codeMap)
-      .map(([code, v]) => ({ code, ...v }))
-      .sort((a, b) => b.count - a.count)
 
-    // توزيع الحالات
-    const statusCount: Record<string, number> = {}
-    all.forEach(b => { statusCount[b.status] = (statusCount[b.status] ?? 0) + 1 })
+    const totalWithCode = confirmed.filter(b => b.code_used).length
+    const usageRate     = confirmed.length > 0 ? Math.round(totalWithCode / confirmed.length * 100) : 0
 
-    return Response.json({
-      meta: { from, to, generated_at: new Date().toISOString() },
-      summary: {
-        total_bookings: all.length,
-        confirmed_bookings: confirmed.length,
-        total_revenue: totalRevenue,
-        total_discount: totalDiscount,
-        total_base: totalBase,
-        avg_booking_value: Math.round(avgBookingValue),
-        status_count: statusCount,
-      },
-      financial: { revenue_by_court: revenueByCourt, revenue_by_day: revenueByDay },
-      customers: { top_customers: topCustomers, new_customers: newCustomers, repeat_customers: repeatCustomers },
+    const codes: ReportCodes = {
+      unique_codes_used: Object.keys(codeRevMap).length,
+      total_uses:        totalWithCode,
+      total_discount:    Object.values(codeRevMap).reduce((s, v) => s + v.total_discount, 0),
+      usage_rate:        usageRate,
+      details: Object.entries(codeRevMap)
+        .map(([code, v]) => ({
+          code,
+          ...v,
+          max_uses:       codesMap[code]?.max_uses ?? null,
+          is_active:      codesMap[code]?.is_active ?? false,
+          discount_type:  codesMap[code]?.discount_type ?? null,
+          discount_value: codesMap[code]?.discount_value ?? null,
+        }))
+        .sort((a, b) => b.count - a.count),
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١٢. الخريطة الحرارية — منفصلة لكل ملعب + الكل
+    // ──────────────────────────────────────────────────────────
+    const daysDiff   = Math.max(1, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000) + 1)
+    const weeksCount = Math.max(1, Math.ceil(daysDiff / 7))
+
+    // فقط الحجوزات المؤكدة أو uploaded للإشغال
+    const occupiedBookings = allBookings.filter(b => ['confirmed', 'uploaded'].includes(b.status))
+
+    const heatmap: ReportHeatmap = {
+      all:        buildHeatGrid(occupiedBookings, weeksCount),
+      football:   buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'football'),   weeksCount),
+      volleyball: buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'volleyball'), weeksCount),
+      multi:      buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'multi'),      weeksCount),
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١٣. قسم الأداء التشغيلي
+    // ──────────────────────────────────────────────────────────
+    // نسبة الإشغال: المواعيد المؤكدة / إجمالي المواعيد الممكنة
+    // = حجوزات مؤكدة / (عدد أيام الفترة × 3 ملاعب × 3 فترات)
+    const totalSlots   = daysDiff * 3 * 3
+    const occupancyRate = totalSlots > 0
+      ? Math.round(confirmed.length / totalSlots * 100)
+      : 0
+
+    // أكثر يوم
+    const dayCountMap: Record<string, number> = {}
+    confirmed.forEach(b => { dayCountMap[b.booking_date] = (dayCountMap[b.booking_date] ?? 0) + 1 })
+    const topDayEntry = Object.entries(dayCountMap).sort((a, b) => b[1] - a[1])[0]
+
+    // أكثر فترة
+    const periodCountMap: Record<number, number> = {}
+    confirmed.forEach(b => { periodCountMap[b.period_number] = (periodCountMap[b.period_number] ?? 0) + 1 })
+    const topPeriodEntry = Object.entries(periodCountMap).sort((a, b) => Number(b[1]) - Number(a[1]))[0]
+
+    // أكثر ملعب
+    const courtCountMap: Record<string, number> = {}
+    confirmed.forEach(b => { courtCountMap[b.court_id] = (courtCountMap[b.court_id] ?? 0) + 1 })
+    const topCourtEntry = Object.entries(courtCountMap).sort((a, b) => b[1] - a[1])[0]
+
+    // متوسط وقت التأكيد (بالدقائق)
+    const confirmationTimes = confirmed
+      .filter(b => b.confirmed_at && b.created_at)
+      .map(b => (new Date(b.confirmed_at!).getTime() - new Date(b.created_at).getTime()) / 60000)
+      .filter(t => t > 0 && t < 10080) // إزالة الشاذات (أكثر من أسبوع)
+
+    const avgConfirmMins = confirmationTimes.length > 0
+      ? Math.round(confirmationTimes.reduce((s, t) => s + t, 0) / confirmationTimes.length)
+      : 0
+
+    const operations: ReportOperations = {
+      occupancy_rate:           occupancyRate,
+      top_day:                  topDayEntry    ? { date: topDayEntry[0],                count: topDayEntry[1] }    : null,
+      top_period:               topPeriodEntry ? { period: Number(topPeriodEntry[0]),   count: Number(topPeriodEntry[1]) } : null,
+      top_court:                topCourtEntry  ? { court_id: topCourtEntry[0],          count: topCourtEntry[1] }  : null,
+      avg_confirmation_minutes: avgConfirmMins,
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١٤. تجميع الـ Response
+    // ──────────────────────────────────────────────────────────
+    const meta: ReportMeta = {
+      from,
+      to,
+      generated_at:           new Date().toISOString(),
+      water_price_per_carton: waterPrice,
+      court_filter:           court,
+      status_filter:          status,
+    }
+
+    const response: ReportData = {
+      meta,
+      kpis,
+      financial,
+      bookings_report: bookingsReport,
+      customers,
+      codes,
       heatmap,
-      codes: { code_stats: codeStats, bookings_with_code: confirmed.filter(b => b.code_used).length },
-      bookings: all, // للـ PDF والـ Excel
-    })
+      operations,
+    }
+
+    return Response.json(response)
+
   } catch (err) {
-    console.error('[reports]', err)
+    console.error('[reports-v2]', err)
     return Response.json({ error: 'فشل جلب التقارير' }, { status: 500 })
   }
 }
