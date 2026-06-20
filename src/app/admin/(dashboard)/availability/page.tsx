@@ -296,19 +296,9 @@ export default function AvailabilityPage() {
   return (
     <>
       <style>{`
-        /* ── متغيرات اللون ── */
-        :root {
-          --av-navy:  #1B2A3B;
-          --av-green: #2D5C4E;
-          --av-gold:  #C9A96E;
-          --av-beige: #F5F2EC;
-          --av-card-border: 0.5px solid #E2DDD4;
-          --av-card-radius: 14px;
-        }
-
         .av-page {
           font-family: 'Tajawal', sans-serif;
-          color: #1B2A3B;
+          color: var(--text-primary);
           max-width: 1100px;
           margin: 0 auto;
           animation: fadeIn .35s ease both;
@@ -316,129 +306,128 @@ export default function AvailabilityPage() {
 
         /* ── العنوان ── */
         .av-page-title {
-          font-size: 1.65rem;
-          font-weight: 800;
-          color: #1B2A3B;
+          font-size: var(--text-2xl);
+          font-weight: var(--font-black);
+          color: var(--text-primary);
           margin-bottom: .25rem;
         }
         .av-page-sub {
-          color: #7a8a99;
-          font-size: .88rem;
+          color: var(--text-muted);
+          font-size: var(--text-sm);
           margin-bottom: 2rem;
         }
 
         /* ── بطاقة ── */
         .av-card {
-          background: #fff;
-          border: var(--av-card-border);
-          border-radius: var(--av-card-radius);
-          padding: 1.5rem;
-          margin-bottom: 1.5rem;
-          box-shadow: 0 1px 4px rgba(27,42,59,.06);
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-xl);
+          padding: var(--space-5);
+          margin-bottom: var(--space-5);
+          box-shadow: var(--shadow-sm);
         }
         .av-card-title {
-          font-size: 1.05rem;
-          font-weight: 700;
-          color: #1B2A3B;
-          margin-bottom: 1.1rem;
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
+          margin-bottom: var(--space-4);
           display: flex;
           align-items: center;
-          gap: .5rem;
+          gap: var(--space-2);
         }
 
         /* ── Toggle ── */
         .av-toggle-row {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          margin-bottom: 1.2rem;
+          gap: var(--space-4);
+          margin-bottom: var(--space-4);
         }
         .av-toggle-wrap {
           position: relative;
           display: inline-block;
-          width: 56px;
-          height: 30px;
+          width: 52px;
+          height: 28px;
         }
         .av-toggle-wrap input { opacity: 0; width:0; height:0; }
         .av-toggle-slider {
           position: absolute;
           inset: 0;
-          border-radius: 30px;
-          background: #d1d5db;
+          border-radius: 28px;
+          background: var(--border-color);
           transition: background .25s;
           cursor: pointer;
         }
         .av-toggle-slider::before {
           content:'';
           position: absolute;
-          left: 4px; top: 4px;
+          left: 3px; top: 3px;
           width: 22px; height: 22px;
           border-radius: 50%;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,.18);
+          background: var(--bg-surface);
+          box-shadow: 0 2px 6px rgba(0,0,0,.25);
           transition: transform .25s;
         }
         .av-toggle-wrap input:checked + .av-toggle-slider {
-          background: #C9A96E;
+          background: var(--color-lime);
         }
         .av-toggle-wrap input:checked + .av-toggle-slider::before {
-          transform: translateX(26px);
+          transform: translateX(24px);
         }
         .av-toggle-label {
-          font-size: 1rem;
-          font-weight: 700;
-          color: #1B2A3B;
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
         }
         .av-toggle-badge {
           display: inline-block;
           padding: .15rem .6rem;
-          border-radius: 99px;
-          font-size: .78rem;
-          font-weight: 700;
+          border-radius: var(--radius-full);
+          font-size: var(--text-xs);
+          font-weight: var(--font-bold);
         }
-        .av-toggle-badge.on  { background:#fef3c7; color:#92400e; }
-        .av-toggle-badge.off { background:#f1f5f9; color:#64748b; }
+        .av-toggle-badge.on  { background: var(--color-warning-bg); color: var(--color-warning); }
+        .av-toggle-badge.off { background: var(--bg-elevated); color: var(--text-muted); }
 
-        /* ── حقول الإدخال ── */
-        .av-field {
-          margin-bottom: 1rem;
-        }
+        /* ── حقول ── */
+        .av-field { margin-bottom: var(--space-4); }
         .av-label {
           display: block;
-          font-size: .85rem;
-          font-weight: 600;
-          color: #3d5466;
-          margin-bottom: .35rem;
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--text-secondary);
+          margin-bottom: var(--space-1);
         }
         .av-input, .av-select, .av-textarea {
           width: 100%;
           padding: .55rem .85rem;
-          border: 1.5px solid #e0dbd2;
-          border-radius: 8px;
-          font-size: .95rem;
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
           font-family: 'Tajawal', sans-serif;
-          color: #1B2A3B;
-          background: #fff;
-          transition: border-color .18s;
+          color: var(--text-primary);
+          background: var(--bg-base);
+          transition: border-color .18s, box-shadow .18s;
           text-align: right;
+          outline: none;
         }
         .av-input:focus, .av-select:focus, .av-textarea:focus {
-          outline: none;
-          border-color: #2D5C4E;
-          box-shadow: 0 0 0 3px rgba(45,92,78,.1);
+          border-color: var(--border-active);
+          box-shadow: 0 0 0 3px var(--color-lime-glow);
         }
         .av-textarea { resize: vertical; min-height: 90px; }
 
         /* ── بانر المعاينة ── */
         .av-preview-banner {
           width: 100%;
-          padding: 1rem 1.5rem;
-          background: #2D5C4E;
-          border-radius: 10px;
-          color: #C9A96E;
-          font-size: 1rem;
-          font-weight: 700;
-          margin-top: 1.25rem;
+          padding: var(--space-4) var(--space-5);
+          background: var(--bg-sidebar);
+          border: 1px solid var(--border-sidebar);
+          border-radius: var(--radius-lg);
+          color: var(--color-lime-dim);
+          font-size: var(--text-sm);
+          font-weight: var(--font-bold);
+          margin-top: var(--space-4);
           text-align: center;
           line-height: 1.6;
           min-height: 56px;
@@ -450,92 +439,86 @@ export default function AvailabilityPage() {
           transition: all .3s ease;
         }
         .av-preview-banner-sub {
-          font-size: .82rem;
-          font-weight: 500;
-          color: rgba(201,169,110,.75);
+          font-size: var(--text-xs);
+          font-weight: var(--font-medium);
+          color: var(--text-muted);
         }
         .av-preview-label {
-          font-size: .78rem;
-          font-weight: 600;
-          color: #7a8a99;
-          margin-bottom: .4rem;
+          font-size: var(--text-xs);
+          font-weight: var(--font-semibold);
+          color: var(--text-muted);
+          margin-bottom: var(--space-1);
         }
 
-        /* ── زر الحفظ ── */
+        /* ── أزرار ── */
         .av-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: .45rem;
+          display: inline-flex; align-items: center; justify-content: center;
+          gap: var(--space-1);
           padding: .65rem 1.5rem;
-          border-radius: 9px;
-          font-size: .92rem;
-          font-weight: 700;
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-bold);
           font-family: 'Tajawal', sans-serif;
-          cursor: pointer;
-          border: none;
+          cursor: pointer; border: none;
           transition: all .18s;
         }
-        .av-btn:disabled { opacity: .55; cursor: not-allowed; }
+        .av-btn:disabled { opacity:.55; cursor:not-allowed; }
         .av-btn-primary {
-          background: linear-gradient(135deg, #2D5C4E, #1f4035);
-          color: #fff;
+          background: var(--color-lime);
+          color: var(--text-on-lime);
         }
         .av-btn-primary:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 4px 14px rgba(45,92,78,.35);
+          box-shadow: 0 4px 14px var(--color-lime-glow);
         }
         .av-btn-danger {
-          background: linear-gradient(135deg, #ef4444, #dc2626);
+          background: var(--color-danger);
           color: #fff;
         }
-        .av-btn-danger:hover:not(:disabled) { transform: translateY(-1px); }
+        .av-btn-danger:hover:not(:disabled) { transform: translateY(-1px); opacity: .9; }
         .av-btn-ghost {
-          background: #f5f2ec;
-          color: #3d5466;
-          border: 1px solid #e2ddd4;
+          background: var(--bg-elevated);
+          color: var(--text-secondary);
+          border: 1px solid var(--border-color);
         }
-        .av-btn-ghost:hover:not(:disabled) { background: #ece8e1; }
+        .av-btn-ghost:hover:not(:disabled) { background: var(--bg-base); }
         .av-save-msg {
           display: inline-block;
           margin-right: .75rem;
-          font-size: .85rem;
-          font-weight: 600;
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
           padding: .3rem .75rem;
-          border-radius: 99px;
+          border-radius: var(--radius-full);
         }
-        .av-save-msg.ok  { background:#d1fae5; color:#065f46; }
-        .av-save-msg.err { background:#fee2e2; color:#991b1b; }
+        .av-save-msg.ok  { background: var(--color-success-bg); color: var(--color-success); }
+        .av-save-msg.err { background: var(--color-danger-bg);  color: var(--color-danger); }
 
         /* ── تنقل الأسبوع ── */
         .av-week-nav {
-          display: flex;
-          align-items: center;
+          display: flex; align-items: center;
           justify-content: space-between;
-          margin-bottom: 1.25rem;
+          margin-bottom: var(--space-4);
         }
         .av-week-label {
-          font-size: 1rem;
-          font-weight: 700;
-          color: #1B2A3B;
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
         }
         .av-nav-btn {
           width: 36px; height: 36px;
-          border-radius: 8px;
-          border: 1px solid #e2ddd4;
-          background: #fff;
-          color: #1B2A3B;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border-color);
+          background: var(--bg-elevated);
+          color: var(--text-secondary);
           font-size: 1.1rem;
           cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: all .15s;
         }
-        .av-nav-btn:hover { background: #f0ece5; border-color: #C9A96E; color: #C9A96E; }
+        .av-nav-btn:hover { border-color: var(--color-lime-dim); color: var(--color-lime); background: var(--color-lime-muted); }
 
         /* ── الشبكة ── */
-        .av-grid-wrap {
-          overflow-x: auto;
-        }
+        .av-grid-wrap { overflow-x: auto; }
         .av-grid {
           min-width: 720px;
           border-collapse: separate;
@@ -544,16 +527,16 @@ export default function AvailabilityPage() {
           font-size: .82rem;
         }
         .av-grid th {
-          background: #1B2A3B;
-          color: #C9A96E;
+          background: var(--bg-sidebar);
+          color: var(--color-lime-dim);
           padding: .55rem .5rem;
           text-align: center;
-          font-weight: 700;
+          font-weight: var(--font-bold);
           white-space: nowrap;
         }
         .av-grid th.court-header {
-          background: #1f3347;
-          color: #F5F2EC;
+          background: var(--bg-elevated);
+          color: var(--text-secondary);
           text-align: right;
           padding-right: .75rem;
           width: 130px;
@@ -561,155 +544,126 @@ export default function AvailabilityPage() {
         .av-grid td {
           padding: .35rem .4rem;
           vertical-align: top;
-          border-bottom: 1px solid #f0ece5;
+          border-bottom: 1px solid var(--border-subtle);
         }
         .av-grid tr:last-child td { border-bottom: none; }
         .av-grid .court-cell {
-          background: #f8f5ef;
-          font-weight: 700;
-          color: #1B2A3B;
+          background: var(--bg-elevated);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
           padding: .5rem .75rem;
           white-space: nowrap;
           font-size: .84rem;
         }
 
-        /* ── خلية الفترة ── */
-        .av-slot-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
+        .av-slot-cell { display: flex; flex-direction: column; gap: 3px; }
 
-        /* ── زر الفترة ── */
+        /* زر الفترة */
         .av-period-btn {
-          display: block;
-          width: 100%;
+          display: block; width: 100%;
           padding: .28rem .4rem;
           border-radius: 5px;
           font-size: .72rem;
           font-family: 'Tajawal', sans-serif;
-          font-weight: 600;
-          border: none;
-          cursor: pointer;
+          font-weight: var(--font-semibold);
+          border: none; cursor: pointer;
           transition: all .15s;
-          text-align: center;
-          white-space: nowrap;
+          text-align: center; white-space: nowrap;
         }
-        /* متاح = أخضر */
+        /* متاح */
         .av-period-btn.available {
-          background: #dcfce7;
-          color: #166534;
-          border: 1px solid #86efac;
+          background: var(--color-lime-muted);
+          color: var(--color-lime);
+          border: 1px solid var(--color-lime-dim);
         }
         .av-period-btn.available:hover {
-          background: #bbf7d0;
+          background: var(--color-lime-glow);
           transform: translateY(-1px);
-          box-shadow: 0 2px 6px rgba(22,101,52,.2);
         }
-        /* محجوز من عميل = رمادي غير قابل للضغط */
+        /* محجوز من عميل */
         .av-period-btn.booked {
-          background: #f1f5f9;
-          color: #94a3b8;
-          border: 1px solid #e2e8f0;
+          background: var(--bg-elevated);
+          color: var(--text-muted);
+          border: 1px solid var(--border-subtle);
           cursor: not-allowed;
         }
-        /* محجوب من مدير = أحمر/برتقالي */
+        /* محجوب من مدير */
         .av-period-btn.admin-blocked {
-          background: #fff1f0;
-          color: #c0392b;
-          border: 1px solid #f5a8a0;
+          background: var(--color-danger-bg);
+          color: var(--color-danger);
+          border: 1px solid rgba(224,85,85,.35);
         }
         .av-period-btn.admin-blocked:hover {
-          background: #ffe4e1;
+          opacity: .85;
           transform: translateY(-1px);
         }
 
-        /* ── مؤشر التحميل ── */
-        .av-grid-overlay {
-          position: relative;
-        }
+        /* مؤشر التحميل */
+        .av-grid-overlay { position: relative; }
         .av-loading-overlay {
-          position: absolute;
-          inset: 0;
-          background: rgba(245,242,236,.7);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: var(--av-card-radius);
-          z-index: 10;
+          position: absolute; inset: 0;
+          background: var(--bg-overlay);
+          display: flex; align-items: center; justify-content: center;
+          border-radius: var(--radius-xl); z-index: 10;
         }
         .av-spinner {
           width: 32px; height: 32px;
-          border: 3px solid #e2ddd4;
-          border-top-color: #2D5C4E;
+          border: 3px solid var(--border-color);
+          border-top-color: var(--color-lime);
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
         }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* ── مودال ── */
+        /* مودال */
         .av-modal-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,.45);
+          position: fixed; inset: 0;
+          background: var(--bg-overlay);
           backdrop-filter: blur(4px);
           z-index: 1000;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
+          display: flex; align-items: center; justify-content: center;
+          padding: var(--space-4);
           animation: fadeIn .2s ease;
         }
-        @keyframes fadeIn {
-          from { opacity:0; transform:translateY(8px); }
-          to   { opacity:1; transform:translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
         .av-modal {
-          background: #fff;
-          border-radius: 16px;
-          padding: 1.75rem;
-          width: 100%;
-          max-width: 420px;
-          box-shadow: 0 20px 60px rgba(27,42,59,.25);
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-xl);
+          padding: var(--space-6);
+          width: 100%; max-width: 420px;
+          box-shadow: var(--shadow-lg);
           animation: fadeIn .25s ease;
         }
         .av-modal-title {
-          font-size: 1.1rem;
-          font-weight: 800;
-          color: #1B2A3B;
-          margin-bottom: 1.1rem;
+          font-size: var(--text-lg);
+          font-weight: var(--font-black);
+          color: var(--text-primary);
+          margin-bottom: var(--space-4);
         }
         .av-modal-btns {
-          display: flex;
-          gap: .65rem;
-          margin-top: 1.3rem;
+          display: flex; gap: var(--space-2);
+          margin-top: var(--space-5);
           justify-content: flex-end;
         }
 
-        /* ── Toast ── */
+        /* Toast */
         .av-toast {
-          position: fixed;
-          top: 1.25rem;
-          left: 50%;
+          position: fixed; top: var(--space-5); left: 50%;
           transform: translateX(-50%);
           z-index: 9999;
-          padding: .7rem 1.5rem;
-          border-radius: 10px;
-          font-size: .9rem;
-          font-weight: 700;
+          padding: var(--space-2) var(--space-5);
+          border-radius: var(--radius-lg);
+          font-size: var(--text-sm); font-weight: var(--font-bold);
           font-family: 'Tajawal', sans-serif;
           animation: fadeIn .3s ease;
-          box-shadow: 0 8px 24px rgba(0,0,0,.2);
+          box-shadow: var(--shadow-lg);
           white-space: nowrap;
         }
-        .av-toast.ok  { background: #065f46; color:#d1fae5; border-right: 4px solid #10b981; }
-        .av-toast.err { background: #7f1d1d; color:#fee2e2; border-right: 4px solid #ef4444; }
+        .av-toast.ok  { background: var(--color-success-bg); color: var(--color-lime); border: 1px solid var(--color-lime-dim); }
+        .av-toast.err { background: var(--color-danger-bg);  color: var(--color-danger); border: 1px solid rgba(224,85,85,.35); }
 
-        /* ── شبكة الحقول ── */
-        .av-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .av-fields-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
         @media(max-width:640px) { .av-fields-grid { grid-template-columns: 1fr; } }
       `}</style>
 
@@ -719,14 +673,14 @@ export default function AvailabilityPage() {
       )}
 
       <div className="av-page">
-        <h1 className="av-page-title">🔒 إدارة التوافر</h1>
+        <h1 className="av-page-title">إدارة التوافر</h1>
         <p className="av-page-sub">تحكّم في الإغلاق الكامل وحجب الفترات الأسبوعية</p>
 
         {/* ══════════════════════════════════════
             القسم 1: الإغلاق الكامل
             ══════════════════════════════════════ */}
         <div className="av-card">
-          <div className="av-card-title">🚫 الإغلاق الكامل للمنشأة</div>
+          <div className="av-card-title">الإغلاق الكامل للمنشأة</div>
 
           {/* Toggle */}
           <div className="av-toggle-row">
@@ -743,7 +697,7 @@ export default function AvailabilityPage() {
               تفعيل الإغلاق الكامل
             </span>
             <span className={`av-toggle-badge ${closureActive ? 'on' : 'off'}`}>
-              {closureActive ? '🔴 مغلق' : '🟢 مفتوح'}
+              {closureActive ? 'مغلق' : 'مفتوح'}
             </span>
           </div>
 
@@ -790,7 +744,7 @@ export default function AvailabilityPage() {
           </div>
 
           {/* معاينة البانر */}
-          <div className="av-preview-label">📺 معاينة البانر كما سيراه العميل:</div>
+          <div className="av-preview-label">معاينة البانر كما سيراه العميل:</div>
           <div className="av-preview-banner">
             {closureMessage || closureReason ? (
               <>
@@ -816,7 +770,7 @@ export default function AvailabilityPage() {
               onClick={saveClosureSettings}
               disabled={closureSaving}
             >
-              {closureSaving ? '⏳ جاري الحفظ...' : '💾 حفظ إعدادات الإغلاق'}
+              {closureSaving ? 'جاري الحفظ...' : 'حفظ إعدادات الإغلاق'}
             </button>
             {closureMsg && (
               <span className={`av-save-msg ${closureMsg.type}`}>{closureMsg.text}</span>
@@ -828,7 +782,7 @@ export default function AvailabilityPage() {
             القسم 2: شبكة التوافر الأسبوعية
             ══════════════════════════════════════ */}
         <div className="av-card">
-          <div className="av-card-title">📅 التوافر الأسبوعي</div>
+          <div className="av-card-title">التوافر الأسبوعي</div>
 
           {/* تنقل الأسبوع */}
           <div className="av-week-nav">
@@ -865,7 +819,7 @@ export default function AvailabilityPage() {
                   className={`av-period-btn ${cls}`}
                   style={{ width:40, height:22, display:'inline-block', borderRadius:4 }}
                 />
-                <span style={{ color:'#3d5466' }}>{label}</span>
+                <span style={{ color:'var(--text-secondary)' }}>{label}</span>
               </div>
             ))}
           </div>
@@ -884,7 +838,7 @@ export default function AvailabilityPage() {
                   {weekDays.map((d, i) => (
                     <th key={i}>
                       <div>{AR_DAYS[d.getDay()]}</div>
-                      <div style={{ fontSize:'.72rem', fontWeight:500, color:'rgba(201,169,110,.75)' }}>
+                        <div style={{ fontSize:'.72rem', fontWeight:500, color:'var(--text-muted)' }}>
                         {formatDateAr(d)}
                       </div>
                     </th>
@@ -933,7 +887,7 @@ export default function AvailabilityPage() {
                                   }}
                                 >
                                   {period.label}
-                                  {blocked && <span style={{ fontSize:'.65rem', display:'block' }}>🔒</span>}
+                                  {blocked && <span style={{ fontSize:'.65rem', display:'block', color:'var(--color-danger)' }}>■</span>}
                                 </button>
                               )
                             })}
@@ -947,8 +901,8 @@ export default function AvailabilityPage() {
             </table>
           </div>
 
-          <p style={{ fontSize:'.78rem', color:'#7a8a99', marginTop:'.75rem' }}>
-            💡 انقر على خلية متاحة لحجبها، وعلى خلية محجوبة (حمراء) لفكّ حجبها.
+          <p style={{ fontSize:'.78rem', color:'var(--text-muted)', marginTop:'.75rem' }}>
+            انقر على خلية متاحة لحجبها، وعلى خلية محجوبة لفكّ حجبها.
           </p>
         </div>
       </div>
@@ -957,7 +911,7 @@ export default function AvailabilityPage() {
       {blockTarget && (
         <div className="av-modal-overlay" onClick={() => setBlockTarget(null)}>
           <div className="av-modal" onClick={e => e.stopPropagation()}>
-            <div className="av-modal-title">🔒 حجب الفترة</div>
+            <div className="av-modal-title">حجب الفترة</div>
 
             <div className="av-field">
               <label className="av-label">
@@ -999,7 +953,7 @@ export default function AvailabilityPage() {
                 onClick={handleBlock}
                 disabled={blockSaving}
               >
-                {blockSaving ? '⏳...' : '🔒 تأكيد الحجب'}
+                {blockSaving ? 'جاري...' : 'تأكيد الحجب'}
               </button>
             </div>
           </div>
@@ -1010,13 +964,13 @@ export default function AvailabilityPage() {
       {unblockTarget && (
         <div className="av-modal-overlay" onClick={() => setUnblockTarget(null)}>
           <div className="av-modal" onClick={e => e.stopPropagation()}>
-            <div className="av-modal-title">🔓 إلغاء حجب الفترة</div>
-            <p style={{ color:'#3d5466', fontSize:'.9rem', margin:'0 0 .5rem' }}>
+            <div className="av-modal-title">إلغاء حجب الفترة</div>
+            <p style={{ color:'var(--text-secondary)', fontSize:'.9rem', margin:'0 0 .5rem' }}>
               هل تريد إلغاء حجب هذه الفترة؟
             </p>
             <div style={{
-              background:'#fff8f0', border:'1px solid #fde68a', borderRadius:8,
-              padding:'.75rem', fontSize:'.88rem', color:'#92400e',
+              background:'var(--color-warning-bg)', border:'1px solid rgba(245,166,35,.35)', borderRadius:8,
+              padding:'.75rem', fontSize:'.88rem', color:'var(--color-warning)',
             }}>
               <strong>
                 {COURTS.find(c => c.id === unblockTarget.court_id)?.icon}{' '}
@@ -1028,7 +982,7 @@ export default function AvailabilityPage() {
               {AR_DAYS[new Date(unblockTarget.date + 'T00:00:00').getDay()]}{' '}
               {formatDateAr(new Date(unblockTarget.date + 'T00:00:00'))}
               {unblockTarget.reason && (
-                <div style={{ marginTop:'.35rem', color:'#78350f', fontSize:'.82rem' }}>
+                <div style={{ marginTop:'.35rem', color:'var(--color-warning)', fontSize:'.82rem', opacity: .8 }}>
                   السبب: {unblockTarget.reason}
                 </div>
               )}
@@ -1047,7 +1001,7 @@ export default function AvailabilityPage() {
                 onClick={handleUnblock}
                 disabled={unblockSaving}
               >
-                {unblockSaving ? '⏳...' : '🔓 تأكيد إلغاء الحجب'}
+                {unblockSaving ? 'جاري...' : 'تأكيد إلغاء الحجب'}
               </button>
             </div>
           </div>
@@ -1057,41 +1011,42 @@ export default function AvailabilityPage() {
          قسم إيقافات الملاعب
          ═══════════════════════════════════════════════════════ */}
       <div style={{
-        marginTop:'2.5rem', padding:'1.5rem', background:'#fff',
-        border:'1px solid #e5e7eb', borderRadius:12,
+        marginTop:'2.5rem', padding:'var(--space-5)',
+        background:'var(--bg-surface)',
+        border:'1px solid var(--border-color)', borderRadius:'var(--radius-xl)',
       }}>
-        <h2 style={{ fontSize:'1.15rem', marginBottom:'1rem', color:'#1B2A3B', fontWeight:800 }}>
-          🔒 إيقافات الملاعب
+        <h2 style={{ fontSize:'var(--text-lg)', marginBottom:'var(--space-4)', color:'var(--text-primary)', fontWeight:'var(--font-black)' }}>
+          إيقافات الملاعب
         </h2>
-        <p style={{ fontSize:'0.8rem', color:'#999', marginBottom:'1.25rem' }}>
+        <p style={{ fontSize:'var(--text-xs)', color:'var(--text-muted)', marginBottom:'var(--space-4)' }}>
           أوقف ملعب لفترة زمنية (صيانة/فعالية). الإيقافات المنتهية تبقى كسجل تاريخي.
         </p>
 
         {/* نموذج إضافة إيقاف */}
         <div style={{
-          display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr auto', gap:'0.75rem',
-          alignItems:'end', marginBottom:'1.25rem', padding:'1rem',
-          background:'#f9fafb', borderRadius:8, border:'1px solid #e5e7eb',
+          display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr auto', gap:'var(--space-3)',
+          alignItems:'end', marginBottom:'var(--space-4)', padding:'var(--space-4)',
+          background:'var(--bg-elevated)', borderRadius:'var(--radius-lg)', border:'1px solid var(--border-color)',
         }}>
           <div>
-            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>الملعب</label>
+            <label style={{ display:'block', fontSize:'var(--text-xs)', fontWeight:'var(--font-bold)', marginBottom:'0.3rem', color:'var(--text-secondary)' }}>الملعب</label>
             <select className="input" value={vcForm.court_id}
               onChange={e => setVcForm(f => ({ ...f, court_id: e.target.value }))}>
               {COURTS.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>من تاريخ</label>
+            <label style={{ display:'block', fontSize:'var(--text-xs)', fontWeight:'var(--font-bold)', marginBottom:'0.3rem', color:'var(--text-secondary)' }}>من تاريخ</label>
             <input type="date" className="input" value={vcForm.start_date}
               onChange={e => setVcForm(f => ({ ...f, start_date: e.target.value }))} />
           </div>
           <div>
-            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>إلى تاريخ</label>
+            <label style={{ display:'block', fontSize:'var(--text-xs)', fontWeight:'var(--font-bold)', marginBottom:'0.3rem', color:'var(--text-secondary)' }}>إلى تاريخ</label>
             <input type="date" className="input" value={vcForm.end_date}
               onChange={e => setVcForm(f => ({ ...f, end_date: e.target.value }))} />
           </div>
           <div>
-            <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, marginBottom:'0.3rem' }}>السبب</label>
+            <label style={{ display:'block', fontSize:'var(--text-xs)', fontWeight:'var(--font-bold)', marginBottom:'0.3rem', color:'var(--text-secondary)' }}>السبب</label>
             <select className="input" value={vcForm.reason}
               onChange={e => setVcForm(f => ({ ...f, reason: e.target.value }))}>
               {CLOSURE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
@@ -1099,20 +1054,20 @@ export default function AvailabilityPage() {
           </div>
           <button className="av-btn av-btn-primary" onClick={addClosure} disabled={vcSaving}
             style={{ height:'2.5rem', whiteSpace:'nowrap' }}>
-            {vcSaving ? '⏳...' : '➕ إضافة'}
+            {vcSaving ? 'جاري...' : '+ إضافة'}
           </button>
         </div>
 
         {/* جدول الإيقافات */}
         {venueClosures.length === 0 ? (
-          <p style={{ textAlign:'center', color:'#999', padding:'1.5rem', fontSize:'0.9rem' }}>
+          <p style={{ textAlign:'center', color:'var(--text-muted)', padding:'1.5rem', fontSize:'var(--text-sm)' }}>
             لا توجد إيقافات حالياً
           </p>
         ) : (
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.875rem' }}>
               <thead>
-                <tr style={{ background:'#f3f4f6', textAlign:'right' }}>
+                <tr style={{ background:'var(--bg-elevated)', textAlign:'right' }}>
                   <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>الملعب</th>
                   <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>من</th>
                   <th style={{ padding:'0.6rem 0.75rem', fontWeight:700 }}>إلى</th>
@@ -1129,9 +1084,9 @@ export default function AvailabilityPage() {
                   const court = COURTS.find(c => c.id === vc.court_id)
                   return (
                     <tr key={vc.id} style={{
-                      borderBottom:'1px solid #e5e7eb',
+                      borderBottom:'1px solid var(--border-subtle)',
                       opacity: isExpired ? 0.5 : 1,
-                      background: isActive ? 'rgba(220,38,38,.04)' : 'transparent',
+                      background: isActive ? 'var(--color-danger-bg)' : 'transparent',
                     }}>
                       <td style={{ padding:'0.6rem 0.75rem' }}>
                         {court?.icon} {court?.label ?? vc.court_id}
@@ -1141,18 +1096,18 @@ export default function AvailabilityPage() {
                       <td style={{ padding:'0.6rem 0.75rem' }}>{vc.reason ?? '—'}</td>
                       <td style={{ padding:'0.6rem 0.75rem' }}>
                         {isActive ? (
-                          <span style={{ background:'#dc2626', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem', fontWeight:700 }}>نشط</span>
+                          <span className="badge badge-rejected">نشط</span>
                         ) : isExpired ? (
-                          <span style={{ background:'#9ca3af', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem' }}>منتهي</span>
+                          <span className="badge badge-cancelled">منتهي</span>
                         ) : (
-                          <span style={{ background:'#f59e0b', color:'#fff', padding:'0.15rem 0.5rem', borderRadius:99, fontSize:'0.75rem', fontWeight:700 }}>قادم</span>
+                          <span className="badge badge-pending">قادم</span>
                         )}
                       </td>
                       <td style={{ padding:'0.6rem 0.75rem' }}>
                         {!isExpired && (
-                          <button className="av-btn av-btn-ghost" style={{ fontSize:'0.8rem', color:'#dc2626' }}
+                          <button className="av-btn av-btn-ghost" style={{ fontSize:'var(--text-xs)', color:'var(--color-danger)' }}
                             onClick={() => deleteClosure(vc.id)}>
-                            🗑️ حذف
+                            حذف
                           </button>
                         )}
                       </td>

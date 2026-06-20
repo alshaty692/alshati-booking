@@ -162,67 +162,68 @@ export default function FilterBar({ filter, loading, onChange }: FilterBarProps)
           display: flex;
           align-items: center;
           flex-wrap: wrap;
-          gap: 0.6rem;
-          background: #F5F2EC;
-          border-radius: 0.875rem;
-          padding: 0.875rem 1rem;
-          margin-bottom: 1.25rem;
-          box-shadow: 0 2px 8px rgba(27,42,59,.06);
-          border: 1px solid rgba(27,42,59,.08);
+          gap: var(--space-2);
+          background: var(--bg-elevated);
+          border-radius: var(--radius-xl);
+          padding: var(--space-3) var(--space-4);
+          margin-bottom: var(--space-4);
+          box-shadow: var(--shadow-sm);
+          border: 1px solid var(--border-subtle);
         }
-        .filter-presets { display:flex;gap:0.4rem;flex-wrap:wrap; }
+        .filter-presets { display:flex;gap:var(--space-1);flex-wrap:wrap; }
         .filter-preset-btn {
-          padding: 0.4rem 0.875rem;
-          border-radius: 0.5rem;
-          font-size: 0.85rem;
-          font-weight: 600;
+          padding: var(--space-1) var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
           cursor: pointer;
-          border: 1.5px solid rgba(27,42,59,.2);
-          background: #fff;
-          color: #1B2A3B;
+          border: 1px solid var(--border-color);
+          background: var(--bg-surface);
+          color: var(--text-secondary);
           font-family: 'Tajawal', sans-serif;
           transition: all 0.15s;
         }
-        .filter-preset-btn.active  { background:#1B2A3B; color:#C9A96E; border-color:#1B2A3B; }
-        .filter-preset-btn:hover:not(.active):not(:disabled) { background:rgba(27,42,59,.08); }
+        .filter-preset-btn.active  { background: var(--color-lime-muted); color: var(--color-lime); border-color: var(--color-lime-dim); }
+        .filter-preset-btn:hover:not(.active):not(:disabled) { background: var(--bg-base); color: var(--text-primary); }
         .filter-preset-btn:disabled { opacity:0.5; cursor:not-allowed; }
 
         .filter-custom-range {
-          display:flex;align-items:center;gap:0.5rem;
-          font-size:0.85rem;font-weight:600;color:#1B2A3B;
+          display:flex;align-items:center;gap:var(--space-2);
+          font-size:var(--text-sm);font-weight:var(--font-semibold);color:var(--text-secondary);
           font-family:'Tajawal',sans-serif;
         }
         .filter-date-input {
-          padding:0.4rem 0.6rem;border-radius:0.5rem;
-          border:1.5px solid rgba(27,42,59,.2);
-          font-size:0.82rem;font-family:'Tajawal',sans-serif;
+          padding:var(--space-1) var(--space-2);border-radius:var(--radius-md);
+          border:1px solid var(--border-color);
+          background: var(--bg-surface); color: var(--text-primary);
+          font-size:var(--text-sm);font-family:'Tajawal',sans-serif;
           width:140px;
         }
         .filter-apply-btn {
-          padding:0.4rem 0.875rem;border-radius:0.5rem;
-          background:#2D5C4E;color:#fff;border:none;
-          font-size:0.82rem;font-weight:700;cursor:pointer;
+          padding:var(--space-1) var(--space-3);border-radius:var(--radius-md);
+          background:var(--color-lime);color:var(--text-on-lime);border:none;
+          font-size:var(--text-sm);font-weight:var(--font-bold);cursor:pointer;
           font-family:'Tajawal',sans-serif;transition:all 0.15s;
         }
-        .filter-apply-btn:hover { background:#1B2A3B; }
+        .filter-apply-btn:hover { opacity:.9; }
 
-        .filter-divider { width:1px;height:24px;background:rgba(27,42,59,.15); margin:0 0.2rem; }
+        .filter-divider { width:1px;height:24px;background:var(--border-color); margin:0 var(--space-1); }
 
         .filter-select {
-          padding:0.4rem 0.875rem;border-radius:0.5rem;
-          font-size:0.85rem;font-weight:600;
-          border:1.5px solid rgba(27,42,59,.2);
-          background:#fff;color:#1B2A3B;
+          padding:var(--space-1) var(--space-3);border-radius:var(--radius-md);
+          font-size:var(--text-sm);font-weight:var(--font-semibold);
+          border:1px solid var(--border-color);
+          background:var(--bg-surface);color:var(--text-primary);
           font-family:'Tajawal',sans-serif;cursor:pointer;
           min-width:130px;appearance:auto;
         }
-        .filter-select:focus { outline:none;border-color:#C9A96E;box-shadow:0 0 0 3px rgba(201,169,110,.2); }
+        .filter-select:focus { outline:none;border-color:var(--border-active);box-shadow:0 0 0 3px var(--color-lime-glow); }
         .filter-select:disabled { opacity:0.5;cursor:not-allowed; }
 
         .filter-spinner {
           width:18px;height:18px;border-radius:50%;
-          border:2.5px solid rgba(27,42,59,.2);
-          border-top-color:#2D5C4E;
+          border:2.5px solid var(--border-color);
+          border-top-color:var(--color-lime);
           animation:spin 0.7s linear infinite;
         }
         @keyframes spin { to { transform:rotate(360deg); } }

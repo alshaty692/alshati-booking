@@ -1,134 +1,143 @@
 import type { Metadata } from 'next'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
 import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
+import {
+  TrendingUp, CalendarDays, Clock3, FileCheck2,
+  PenLine, ArrowLeft, CheckCheck,
+} from 'lucide-react'
 
 export const metadata: Metadata = { title: 'الرئيسية' }
 
-// ── ألوان الهوية ───────────────────────────────────────
-const C = {
-  navy:  '#1B2A3B',
-  green: '#2D5C4E',
-  gold:  '#C9A96E',
-  beige: '#F5F2EC',
-  white: '#ffffff',
-}
-
 const STATUS_STYLE: Record<string, string> = {
-  pending:'badge-pending', uploaded:'badge-uploaded', confirmed:'badge-confirmed',
-  rejected:'badge-rejected', cancelled:'badge-cancelled', expired:'badge-expired',
+  pending: 'badge-pending', uploaded: 'badge-uploaded', confirmed: 'badge-confirmed',
+  rejected: 'badge-rejected', cancelled: 'badge-cancelled', expired: 'badge-expired',
 }
 
 export default async function AdminDashboard() {
-  // ── Admin Client يتجاوز RLS ─────────────────────────────
   const supabase = createAdminClient()
 
   const [statsRes, pendingRes, recentRes] = await Promise.all([
     supabase.from('dashboard_stats').select('*').single(),
     supabase.from('bookings')
       .select('id,booking_date,court_id,period_number,customer_name,customer_phone,final_price,created_at')
-      .eq('status','uploaded').order('created_at',{ascending:false}).limit(10),
+      .eq('status', 'uploaded').order('created_at', { ascending: false }).limit(10),
     supabase.from('bookings')
       .select('id,booking_date,court_id,period_number,customer_name,final_price,status,created_at')
-      .order('created_at',{ascending:false}).limit(8),
+      .order('created_at', { ascending: false }).limit(8),
   ])
 
   const stats   = statsRes.data
   const pending = pendingRes.data ?? []
   const recent  = recentRes.data ?? []
 
-  // ── بطاقات الإحصاء (مصمَّمة حسب الموك-أب) ──────────
   const STAT_CARDS = [
     {
-      icon:'💰', label:'إيرادات هذا الأسبوع',
+      Icon: TrendingUp,    label: 'إيرادات هذا الأسبوع',
       value: formatAmount(stats?.revenue_this_week ?? 0),
-      bg: C.navy, valuColor: C.gold, labelColor:'rgba(255,255,255,.65)',
-      iconBg: 'rgba(201,169,110,.2)',
+      mod: 'stat-card--lime',
     },
     {
-      icon:'📅', label:'إيرادات هذا الشهر',
+      Icon: CalendarDays,  label: 'إيرادات هذا الشهر',
       value: formatAmount(stats?.revenue_this_month ?? 0),
-      bg: C.green, valuColor: C.gold, labelColor:'rgba(255,255,255,.7)',
-      iconBg: 'rgba(255,255,255,.15)',
+      mod: 'stat-card--elevated',
     },
     {
-      icon:'🏟️', label:'حجوزات اليوم',
+      Icon: Clock3,        label: 'حجوزات اليوم',
       value: String(stats?.bookings_today ?? 0),
-      bg: C.white, valuColor: C.navy, labelColor:'var(--text-muted)',
-      iconBg: '#F5F2EC',
+      mod: 'stat-card--surface',
     },
     {
-      icon:'⏳', label:'تنتظر الاعتماد',
+      Icon: FileCheck2,    label: 'تنتظر الاعتماد',
       value: String(stats?.pending_approval ?? 0),
-      bg: C.gold, valuColor: C.navy, labelColor: 'rgba(27,42,59,.7)',
-      iconBg: 'rgba(27,42,59,.12)',
+      mod: `stat-card--warning${(stats?.pending_approval ?? 0) > 0 ? ' stat-card--warning-glow' : ''}`,
     },
   ]
 
   return (
-    <div className="admin-dashboard animate-fade-in">
+    <div className="animate-fade-in dh-page">
 
-      {/* ── هيدر علوي ملوّن ── */}
-      <div className="dash-topbar">
+      {/* ── هيدر الصفحة ── */}
+      <div className="dh-topbar">
         <div>
-          <h1 className="dash-topbar-title">لوحة التحكم</h1>
-          <p className="dash-topbar-sub">مرحباً بك في مركز حي الشاطئ</p>
+          <h1 className="dh-topbar-title">لوحة التحكم</h1>
+          <p className="dh-topbar-sub">نظرة عامة على نشاط المنشأة</p>
         </div>
-        <Link href="/admin/bookings/new" id="btn-new-booking" className="btn-gold">
-          ✏️ حجز يدوي جديد
+        <Link href="/admin/bookings/new" id="btn-new-booking" className="btn btn-primary">
+          <PenLine size={16} strokeWidth={2} />
+          حجز يدوي جديد
         </Link>
       </div>
 
       {/* ── بطاقات الإحصاء ── */}
-      <div className="stats-grid">
-        {STAT_CARDS.map((card, i) => (
-          <div key={i} className="stat-card-v2"
-            style={{ background: card.bg, borderColor: card.bg === C.white ? '#E2DDD4' : 'transparent' }}>
-            <div className="stat-card-v2-icon" style={{ background: card.iconBg }}>{card.icon}</div>
-            <div>
-              <div className="stat-card-v2-value" style={{ color: card.valuColor }}>{card.value}</div>
-              <div className="stat-card-v2-label" style={{ color: card.labelColor }}>{card.label}</div>
+      <div className="dh-stats">
+        {STAT_CARDS.map(({ Icon, label, value, mod }, i) => (
+          <div key={i} className={`stat-card ${mod}`}>
+            <div className="stat-icon">
+              <Icon size={20} strokeWidth={1.75} />
+            </div>
+            <div className="stat-body">
+              <div className="stat-value">{value}</div>
+              <div className="stat-label">{label}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* ── الشبكة الرئيسية ── */}
-      <div className="dashboard-grid">
+      <div className="dh-grid">
 
         {/* إيصالات تنتظر الاعتماد */}
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <h2 className="dash-card-title">⏳ تنتظر الاعتماد
-              {pending.length > 0 &&
-                <span className="dash-badge-count">{pending.length}</span>}
-            </h2>
-            <Link href="/admin/bookings?status=uploaded" className="dash-link-sm">عرض الكل ←</Link>
+        <div className="card dh-card">
+          <div className="dh-card-head">
+            <div className="dh-card-title">
+              <FileCheck2 size={16} strokeWidth={1.75} />
+              تنتظر الاعتماد
+              {pending.length > 0 && (
+                <span className="dh-badge-count">{pending.length}</span>
+              )}
+            </div>
+            <Link href="/admin/bookings?status=uploaded" className="dh-see-all">
+              عرض الكل
+              <ArrowLeft size={13} strokeWidth={2} />
+            </Link>
           </div>
+
           {pending.length === 0 ? (
-            <div className="dash-empty">لا توجد إيصالات معلّقة ✓</div>
+            <div className="dh-empty">
+              <CheckCheck size={24} strokeWidth={1.5} />
+              <span>لا توجد إيصالات معلّقة</span>
+            </div>
           ) : (
             <div className="table-container">
               <table className="table">
                 <thead>
-                  <tr><th>العميل</th><th>الملعب</th><th>التاريخ</th><th>المبلغ</th><th></th></tr>
+                  <tr>
+                    <th>العميل</th>
+                    <th>الملعب</th>
+                    <th>التاريخ</th>
+                    <th>المبلغ</th>
+                    <th></th>
+                  </tr>
                 </thead>
                 <tbody>
                   {pending.map(b => (
                     <tr key={b.id}>
                       <td>
-                        <div style={{ fontWeight:700 }}>{b.customer_name}</div>
-                        <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{b.customer_phone}</div>
+                        <div style={{ fontWeight: 'var(--font-semibold)' as React.CSSProperties['fontWeight'] }}>{b.customer_name}</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{b.customer_phone}</div>
                       </td>
                       <td>
-                        <div>{getCourtName(b.court_id)}</div>
-                        <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{getPeriodName(b.period_number)}</div>
+                        <div style={{ fontSize: 'var(--text-sm)' }}>{getCourtName(b.court_id)}</div>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{getPeriodName(b.period_number)}</div>
                       </td>
-                      <td style={{ fontSize:'0.85rem', whiteSpace:'nowrap' }}>{b.booking_date}</td>
-                      <td style={{ fontWeight:800, color:C.green }}>{formatAmount(b.final_price)}</td>
+                      <td style={{ fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' }}>{b.booking_date}</td>
+                      <td style={{ fontWeight: 'var(--font-bold)' as React.CSSProperties['fontWeight'], color: 'var(--color-lime)' }}>
+                        {formatAmount(b.final_price)}
+                      </td>
                       <td>
-                        <Link href={`/admin/bookings/${b.id}`} className="dash-review-btn">مراجعة</Link>
+                        <Link href={`/admin/bookings/${b.id}`} className="dh-review-btn">مراجعة</Link>
                       </td>
                     </tr>
                   ))}
@@ -139,187 +148,279 @@ export default async function AdminDashboard() {
         </div>
 
         {/* آخر الحجوزات */}
-        <div className="dash-card">
-          <div className="dash-card-header">
-            <h2 className="dash-card-title">🕐 آخر الحجوزات</h2>
-            <Link href="/admin/bookings" className="dash-link-sm">عرض الكل ←</Link>
+        <div className="card dh-card">
+          <div className="dh-card-head">
+            <div className="dh-card-title">
+              <Clock3 size={16} strokeWidth={1.75} />
+              آخر الحجوزات
+            </div>
+            <Link href="/admin/bookings" className="dh-see-all">
+              عرض الكل
+              <ArrowLeft size={13} strokeWidth={2} />
+            </Link>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem' }}>
+
+          <div className="dh-recent-list">
             {recent.map(b => (
-              <Link key={b.id} href={`/admin/bookings/${b.id}`} className="booking-mini-card">
-                <div>
-                  <div style={{ fontWeight:700, fontSize:'0.875rem', color:C.navy }}>{b.customer_name}</div>
-                  <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', marginTop:'0.15rem' }}>
+              <Link key={b.id} href={`/admin/bookings/${b.id}`} className="dh-mini-card">
+                <div className="dh-mini-info">
+                  <div className="dh-mini-name">{b.customer_name}</div>
+                  <div className="dh-mini-meta">
                     {getCourtName(b.court_id)} · {getPeriodName(b.period_number)} · {b.booking_date}
                   </div>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:'0.625rem', flexShrink:0 }}>
-                  <span style={{ fontWeight:800, color:C.green, fontSize:'0.875rem' }}>{formatAmount(b.final_price)}</span>
+                <div className="dh-mini-right">
+                  <span className="dh-mini-price">{formatAmount(b.final_price)}</span>
                   <span className={`badge ${STATUS_STYLE[b.status] ?? 'badge-cancelled'}`}>
                     {STATUS_LABELS[b.status as keyof typeof STATUS_LABELS] ?? b.status}
                   </span>
                 </div>
               </Link>
             ))}
-            {recent.length === 0 && <div className="dash-empty">لا توجد حجوزات بعد</div>}
+            {recent.length === 0 && (
+              <div className="dh-empty">
+                <CalendarDays size={24} strokeWidth={1.5} />
+                <span>لا توجد حجوزات بعد</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       <style>{`
-        /* ── الهيدر الملوّن ── */
-        .dash-topbar {
-          background: ${C.green};
-          border-radius: 16px;
-          padding: 1.25rem 1.5rem;
+        .dh-page { }
+
+        /* ── هيدر ── */
+        .dh-topbar {
+          background: var(--color-lime-muted);
+          border: 1px solid var(--color-lime-dim);
+          border-radius: var(--radius-2xl);
+          padding: var(--space-5) var(--space-6);
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 1.5rem;
-          gap: 1rem;
+          margin-bottom: var(--space-5);
+          gap: var(--space-4);
           flex-wrap: wrap;
-          box-shadow: 0 4px 16px rgba(45,92,78,.25);
         }
-        .dash-topbar-title {
-          font-size: 1.5rem;
-          font-weight: 800;
-          color: ${C.white};
-          margin: 0 0 0.2rem;
+        @media (max-width: 600px) {
+          .dh-topbar { flex-direction: column; align-items: stretch; }
+          .dh-topbar .btn { width: 100%; justify-content: center; }
         }
-        .dash-topbar-sub {
-          color: rgba(255,255,255,.7);
-          font-size: 0.875rem;
+        .dh-topbar-title {
+          font-size: var(--text-2xl);
+          font-weight: var(--font-black);
+          color: var(--text-primary);
+          margin: 0 0 var(--space-1);
+        }
+        .dh-topbar-sub {
+          color: var(--text-muted);
+          font-size: var(--text-sm);
           margin: 0;
         }
 
-        /* ── زر الذهبي ── */
-        .btn-gold {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.6rem 1.25rem;
-          background: ${C.gold};
-          color: ${C.navy};
-          border-radius: 10px;
-          font-weight: 800;
-          font-size: 0.9rem;
-          text-decoration: none !important;
-          transition: all 0.18s ease;
-          border: none;
-          cursor: pointer;
-          font-family: 'Tajawal', sans-serif;
-          white-space: nowrap;
+        /* ── بطاقات الإحصاء ── */
+        .dh-stats {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: var(--space-3);
+          margin-bottom: var(--space-5);
         }
-        .btn-gold:hover { background: #d4b77a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(201,169,110,.4); }
+        @media (min-width: 900px) { .dh-stats { grid-template-columns: repeat(4, 1fr); } }
 
-        /* ── بطاقات الإحصاء — mobile-first ── */
-        .stats-grid {
-          display: grid !important;
-          grid-template-columns: 1fr 1fr !important;
-          gap: 0.75rem !important;
-          margin-bottom: 1.5rem;
-        }
-        @media (min-width: 769px) {
-          .stats-grid {
-            grid-template-columns: repeat(4,1fr) !important;
-            gap: 1rem !important;
-          }
-        }
-        @media (max-width: 768px) {
-          .dash-topbar { flex-direction: column !important; align-items: stretch !important; text-align: center; gap: 0.75rem; }
-          .btn-gold { width: 100% !important; text-align: center; }
-          .stat-card-v2-icon { width: 2.5rem !important; height: 2.5rem !important; font-size: 1.1rem !important; }
-          .stat-card-v2-value { font-size: 1.2rem !important; }
-          .table-container { overflow-x: auto !important; }
-        }
-
-        .stat-card-v2 {
-          border-radius: 14px;
-          border: 0.5px solid transparent;
-          padding: 1.25rem;
+        .stat-card {
+          border-radius: var(--radius-xl);
+          border: 1px solid var(--border-color);
+          padding: var(--space-4) var(--space-5);
           display: flex;
           align-items: center;
-          gap: 1rem;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 10px rgba(27,42,59,.1);
+          gap: var(--space-3);
+          transition: transform 0.2s, box-shadow 0.2s;
         }
-        .stat-card-v2:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(27,42,59,.18); }
-        .stat-card-v2-icon {
-          width: 3rem; height: 3rem;
-          border-radius: 10px;
+        .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+        /* lime — إيرادات الأسبوع */
+        .stat-card--lime {
+          background: var(--color-lime-muted);
+          border-color: var(--color-lime-dim);
+        }
+        .stat-card--lime .stat-icon { background: var(--color-lime-glow); color: var(--color-lime); }
+        .stat-card--lime .stat-value { color: var(--color-lime); }
+        .stat-card--lime .stat-label { color: var(--text-muted); }
+
+        /* elevated — إيرادات الشهر */
+        .stat-card--elevated {
+          background: var(--bg-elevated);
+          border-color: var(--border-color);
+        }
+        .stat-card--elevated .stat-icon { background: var(--bg-surface); color: var(--text-secondary); }
+        .stat-card--elevated .stat-value { color: var(--text-primary); }
+        .stat-card--elevated .stat-label { color: var(--text-muted); }
+
+        /* surface — حجوزات اليوم */
+        .stat-card--surface {
+          background: var(--bg-surface);
+          border-color: var(--border-subtle);
+        }
+        .stat-card--surface .stat-icon { background: var(--bg-elevated); color: var(--text-secondary); }
+        .stat-card--surface .stat-value { color: var(--text-primary); }
+        .stat-card--surface .stat-label { color: var(--text-muted); }
+
+        /* warning — تنتظر الاعتماد */
+        .stat-card--warning {
+          background: var(--color-warning-bg);
+          border-color: var(--color-warning);
+        }
+        .stat-card--warning .stat-icon { background: rgba(245,166,35,.2); color: var(--color-warning); }
+        .stat-card--warning .stat-value { color: var(--color-warning); }
+        .stat-card--warning .stat-label { color: var(--text-muted); }
+        .stat-card--warning-glow {
+          box-shadow: 0 0 0 2px rgba(245,166,35,.2), var(--shadow-sm);
+          animation: pulse-warning 2s ease-in-out infinite;
+        }
+        @keyframes pulse-warning {
+          0%, 100% { box-shadow: 0 0 0 2px rgba(245,166,35,.2); }
+          50%       { box-shadow: 0 0 0 4px rgba(245,166,35,.35); }
+        }
+
+        .stat-icon {
+          width: 44px; height: 44px;
+          border-radius: var(--radius-lg);
           display: flex; align-items: center; justify-content: center;
-          font-size: 1.4rem; flex-shrink: 0;
+          flex-shrink: 0;
         }
-        .stat-card-v2-value { font-size: 1.6rem; font-weight: 800; line-height: 1; margin-bottom: 0.2rem; }
-        .stat-card-v2-label { font-size: 0.78rem; font-weight: 500; }
+        .stat-body {}
+        .stat-value { font-size: var(--text-2xl); font-weight: var(--font-black); line-height: 1; margin-bottom: var(--space-1); }
+        .stat-label { font-size: var(--text-xs); font-weight: var(--font-medium); }
 
-        /* ── شبكة الداشبورد — mobile-first ── */
-        .dashboard-grid {
-          display: grid !important;
-          grid-template-columns: 1fr !important;
-          gap: 1.25rem;
+        /* ── الشبكة الرئيسية ── */
+        .dh-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: var(--space-5);
         }
-        @media (min-width: 901px) { .dashboard-grid { grid-template-columns: 1.4fr 1fr !important; } }
+        @media (min-width: 900px) { .dh-grid { grid-template-columns: 1.4fr 1fr; } }
 
-        /* ── كرت الداشبورد ── */
-        .dash-card {
-          background: ${C.white};
-          border-radius: 14px;
-          border: 0.5px solid #E2DDD4;
-          padding: 1.25rem;
-          box-shadow: 0 2px 8px rgba(27,42,59,.07);
+        /* ── رأس الكرت ── */
+        .dh-card {}
+        .dh-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: var(--space-4);
+          gap: var(--space-2);
         }
-        .dash-card-header {
-          display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 1rem; gap: 0.5rem;
+        .dh-card-title {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          font-size: var(--text-base);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
         }
-        .dash-card-title {
-          font-size: 0.975rem; font-weight: 800; margin: 0;
-          color: ${C.navy}; display: flex; align-items: center; gap: 0.5rem;
+        .dh-card-title > svg { color: var(--color-lime-dim); }
+        .dh-badge-count {
+          background: var(--color-warning);
+          color: var(--bg-base);
+          font-size: var(--text-xs);
+          font-weight: var(--font-black);
+          padding: 0.1em 0.5em;
+          border-radius: var(--radius-full);
+          min-width: 20px;
+          text-align: center;
         }
-        .dash-badge-count {
-          background: ${C.gold}; color: ${C.navy};
-          font-size: 0.72rem; font-weight: 800;
-          padding: 0.1rem 0.45rem; border-radius: 99px;
+        .dh-see-all {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--space-1);
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--color-lime-dim);
+          text-decoration: none;
+          transition: color 0.15s, gap 0.15s;
+          white-space: nowrap;
         }
-        .dash-link-sm {
-          font-size: 0.82rem; font-weight: 700; color: ${C.green};
-          text-decoration: none !important;
-          transition: color 0.15s;
-        }
-        .dash-link-sm:hover { color: ${C.navy}; }
+        .dh-see-all:hover { color: var(--color-lime); gap: var(--space-2); opacity: 1; }
 
-        .dash-empty {
-          text-align: center; padding: 2rem;
-          color: var(--text-muted); font-size: 0.9rem;
+        .dh-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-2);
+          text-align: center;
+          padding: var(--space-6);
+          color: var(--text-muted);
+          font-size: var(--text-sm);
         }
 
         /* ── زر مراجعة ── */
-        .dash-review-btn {
+        .dh-review-btn {
           display: inline-flex; align-items: center;
-          padding: 0.3rem 0.75rem;
-          background: ${C.navy}; color: ${C.gold};
-          border-radius: 7px; font-size: 0.8rem; font-weight: 700;
-          text-decoration: none !important; transition: all 0.15s;
+          padding: var(--space-1) var(--space-3);
+          background: var(--color-lime-muted);
+          border: 1px solid var(--color-lime-dim);
+          color: var(--color-lime);
+          border-radius: var(--radius-md);
+          font-size: var(--text-xs);
+          font-weight: var(--font-bold);
+          text-decoration: none;
           white-space: nowrap;
+          transition: background 0.15s, box-shadow 0.15s;
         }
-        .dash-review-btn:hover { background: ${C.green}; color: #fff; }
+        .dh-review-btn:hover {
+          background: var(--color-lime-glow);
+          box-shadow: 0 0 0 2px var(--color-lime-glow);
+          opacity: 1;
+        }
 
-        /* ── بطاقة الحجز الصغيرة ── */
-        .booking-mini-card {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0.7rem 0.875rem;
-          border-radius: 10px;
-          border: 0.5px solid #E2DDD4;
-          background: ${C.beige};
-          transition: all 0.15s ease;
-          text-decoration: none !important;
-          gap: 0.75rem;
+        /* ── قائمة الحجوزات الأخيرة ── */
+        .dh-recent-list { display: flex; flex-direction: column; gap: var(--space-2); }
+        .dh-mini-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-elevated);
+          text-decoration: none;
+          gap: var(--space-3);
+          transition: border-color 0.15s, background 0.15s, transform 0.15s;
         }
-        .booking-mini-card:hover {
-          border-color: ${C.green};
-          background: #eef5f2;
+        .dh-mini-card:hover {
+          border-color: var(--color-lime-dim);
+          background: var(--color-lime-muted);
           transform: translateX(-2px);
+          opacity: 1;
+        }
+        .dh-mini-info { flex: 1; min-width: 0; }
+        .dh-mini-name {
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--text-primary);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .dh-mini-meta {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .dh-mini-right {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          flex-shrink: 0;
+        }
+        .dh-mini-price {
+          font-size: var(--text-sm);
+          font-weight: var(--font-bold);
+          color: var(--color-lime);
+          white-space: nowrap;
         }
       `}</style>
     </div>

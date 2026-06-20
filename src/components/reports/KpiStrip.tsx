@@ -44,34 +44,34 @@ export default function KpiStrip({ kpis, loading }: KpiStripProps) {
         .kpi-strip {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          gap: 0.75rem;
-          margin-bottom: 1.25rem;
+          gap: var(--space-3);
+          margin-bottom: var(--space-5);
         }
         @media (min-width:480px)  { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
         @media (min-width:900px)  { .kpi-strip { grid-template-columns: repeat(6, 1fr); } }
 
         .kpi-card {
-          background: #fff;
-          border-radius: 0.875rem;
-          border: 1px solid #e2e8f0;
-          padding: 1rem;
+          background: var(--bg-surface);
+          border-radius: var(--radius-xl);
+          border: 1px solid var(--border-color);
+          padding: var(--space-3) var(--space-4);
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: var(--space-3);
           animation: fadeInUp 0.4s ease both;
           transition: all 0.2s;
         }
-        .kpi-card:hover { box-shadow:0 4px 16px rgba(27,42,59,.1); transform:translateY(-2px); }
-        .kpi-card-warn { border-color: #fca5a5; }
+        .kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .kpi-card-warn { border-color: rgba(224,85,85,.3); }
 
-        .kpi-icon  { font-size:1.5rem; flex-shrink:0; }
-        .kpi-value { font-size:1.1rem; font-weight:800; color:#1B2A3B; line-height:1; margin-bottom:0.2rem; }
-        .kpi-label { font-size:0.7rem; color:#94a3b8; font-weight:500; }
+        .kpi-icon  { font-size:1.4rem; flex-shrink:0; }
+        .kpi-value { font-size:var(--text-lg); font-weight:var(--font-black); color:var(--text-primary); line-height:1; margin-bottom:0.2rem; }
+        .kpi-label { font-size:var(--text-xs); color:var(--text-muted); font-weight:var(--font-medium); }
 
         @media (max-width:480px) {
-          .kpi-icon  { font-size:1.2rem; }
-          .kpi-value { font-size:0.95rem; }
-          .kpi-card  { padding:0.75rem; gap:0.5rem; }
+          .kpi-icon  { font-size:1.1rem; }
+          .kpi-value { font-size:var(--text-base); }
+          .kpi-card  { padding:var(--space-2) var(--space-3); gap:var(--space-2); }
         }
 
         @keyframes fadeInUp {

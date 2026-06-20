@@ -122,6 +122,11 @@
   --sidebar-active-bg:   rgba(200, 255, 62, 0.10);
   --sidebar-active-bar:  #C8FF3E;
   --sidebar-hover-bg:    rgba(200, 255, 62, 0.06);
+
+  /* aliases — للاستخدام المباشر في AdminSidebar */
+  --bg-sidebar:     #080C0A;
+  --border-sidebar: rgba(200, 255, 62, 0.08);
+  --bg-card:        var(--bg-surface);
 }
 
 /* ============================================================
@@ -178,6 +183,11 @@
   --sidebar-active-bg:   rgba(200, 255, 62, 0.10);
   --sidebar-active-bar:  #C8FF3E;
   --sidebar-hover-bg:    rgba(200, 255, 62, 0.06);
+
+  /* aliases */
+  --bg-sidebar:     #0F1410;
+  --border-sidebar: rgba(200, 255, 62, 0.08);
+  --bg-card:        #FFFFFF;
 }
 
 /* ============================================================
