@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
     const { data: slots, error: slotsError } = await supabase
       .from('available_slots')
       .select('*')
-      .gte('date', from)
-      .lte('date', to)
+      .gte('day_date', from)
+      .lte('day_date', to)
 
     // 2) الفترات المحجوبة من المدير
     const { data: blocked, error: blockedError } = await supabase

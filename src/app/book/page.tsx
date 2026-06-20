@@ -570,7 +570,7 @@ export default function BookPage() {
             <p className="step-desc">حوّل المبلغ ثم ارفع صورة الإيصال</p>
 
             <div className="bank-card card">
-              <div className="bank-amount">{formatAmount(booking.price?.final_price ?? 0)}</div>
+              <div className="bank-amount">{formatAmount((booking.price?.final_price ?? 0) + waterTotal)}</div>
               {[
                 ['البنك',         settings.bank_name || '—'],
                 ['اسم الحساب',   settings.bank_account_name || '—'],

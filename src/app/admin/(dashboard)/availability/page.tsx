@@ -58,7 +58,7 @@ function formatDateAr(date: Date): string {
    ================================================================ */
 interface SlotRow {
   court_id:      string
-  date:          string
+  day_date:      string
   period_number: number
   is_available:  boolean
 }
@@ -278,7 +278,7 @@ export default function AvailabilityPage() {
   /* ── مساعد: هل الفترة متاحة (من view)؟ ── */
   function isAvailable(court_id: string, date: string, period: number): boolean {
     const slot = avail?.slots.find(
-      s => s.court_id === court_id && s.date === date && s.period_number === period
+      s => s.court_id === court_id && s.day_date === date && s.period_number === period
     )
     return slot?.is_available ?? true // إذا لم تُعاد بيانات، نعتبرها متاحة
   }
@@ -286,7 +286,7 @@ export default function AvailabilityPage() {
   /* ── مساعد: هل هناك حجز فعلي (ليس من مدير)؟ ── */
   function isBooked(court_id: string, date: string, period: number): boolean {
     const slot = avail?.slots.find(
-      s => s.court_id === court_id && s.date === date && s.period_number === period
+      s => s.court_id === court_id && s.day_date === date && s.period_number === period
     )
     if (!slot) return false
     const blocked = !!getBlocked(court_id, date, period)
