@@ -44,13 +44,26 @@ export default async function CustomerDetailPage({ params }: Props) {
   if (!customer) notFound()
 
   const phone = customer.phone
-  const [bookingsRes, logsRes] = await Promise.all([
+  const [bookingsRes, logsRes, ratingsRes] = await Promise.all([
     supabase.from('bookings').select('*').eq('customer_phone', phone).order('created_at', { ascending: false }).limit(20),
     supabase.from('customer_contact_log').select('*').eq('customer_phone', phone).order('contacted_at', { ascending: false }).limit(10),
+    // تقييمات العميل عبر رقم الجوال (كل تاريخه بدون حد زمني)
+    supabase
+      .from('booking_ratings')
+      .select('rating, comment, created_at, booking_id')
+      .eq('phone', phone)
+      .order('created_at', { ascending: false }),
   ])
 
   const bookings = bookingsRes.data ?? []
-  const logs = logsRes.data ?? []
+  const logs     = logsRes.data ?? []
+  const ratings  = ratingsRes.data ?? []
+
+  // AVG و COUNT محسوبان في السيرفر
+  const ratingCount = ratings.length
+  const ratingAvg   = ratingCount > 0
+    ? Math.round(ratings.reduce((s, r) => s + r.rating, 0) / ratingCount * 10) / 10
+    : null
 
   const CLASS_STYLE: Record<string, string> = {
     gold:'badge-gold', regular:'badge-regular', inactive:'badge-inactive', new:'badge-new',
@@ -86,6 +99,18 @@ export default async function CustomerDetailPage({ params }: Props) {
           <Row label="نوع الكود المستخدم" value={customer.preferred_code_type ?? '—'} />
           <Row label="أول حجز" value={customer.first_booking_at ? formatDateTime(customer.first_booking_at) : '—'} />
           <Row label="آخر حجز" value={customer.last_booking_at ? formatDateTime(customer.last_booking_at) : '—'} />
+          <Row
+            label="متوسط التقييم ⭐"
+            value={
+              ratingAvg !== null
+                ? <strong style={{ color:'#92400e' }}>
+                    {'★'.repeat(Math.round(ratingAvg))}{'☆'.repeat(5 - Math.round(ratingAvg))}{' '}
+                    {ratingAvg.toFixed(1)} / 5{' '}
+                    <span style={{ color:'var(--text-muted)', fontWeight:400 }}>({ratingCount} تقييم)</span>
+                  </strong>
+                : <span style={{ color:'var(--text-muted)' }}>لا تقييمات بعد</span>
+            }
+          />
         </div>
 
         {/* تعديل البطاقة */}
@@ -136,6 +161,48 @@ export default async function CustomerDetailPage({ params }: Props) {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* تقييمات العميل */}
+        <div className="card" style={{ gridColumn:'1/-1' }}>
+          <h2 style={{ fontSize:'1rem', marginBottom:'1rem' }}>⭐ تقييمات العميل ({ratingCount})</h2>
+          {ratingCount === 0 ? (
+            <p style={{ color:'var(--text-muted)', textAlign:'center', padding:'1rem 0', margin:0 }}>لم يُقيَّم أي حجز بعد</p>
+          ) : (
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>التاريخ</th>
+                    <th>التقييم</th>
+                    <th>التعليق</th>
+                    <th>الحجز</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ratings.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ fontSize:'0.85rem', color:'var(--text-muted)', whiteSpace:'nowrap' }}>
+                        {formatDateTime(r.created_at)}
+                      </td>
+                      <td style={{ whiteSpace:'nowrap' }}>
+                        <span style={{ color:'#f59e0b', fontSize:'1.1rem', letterSpacing:'0.05em' }}>
+                          {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                        </span>{' '}
+                        <strong style={{ color:'#92400e' }}>{r.rating}/5</strong>
+                      </td>
+                      <td style={{ fontSize:'0.875rem', color:'var(--text-secondary)', fontStyle: r.comment ? 'italic' : 'normal' }}>
+                        {r.comment ?? <span style={{ color:'var(--text-muted)' }}>—</span>}
+                      </td>
+                      <td>
+                        <Link href={`/admin/bookings/${r.booking_id}`} className="btn btn-secondary btn-sm">الحجز</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* سجل التواصل */}

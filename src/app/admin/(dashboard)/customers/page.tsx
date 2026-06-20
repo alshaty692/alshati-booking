@@ -12,6 +12,12 @@ const CLASS_STYLE: Record<string, string> = {
   gold:'badge-gold', regular:'badge-regular', inactive:'badge-inactive', new:'badge-new',
 }
 
+// مساعد: عرض النجوم النصي
+function ratingDisplay(avg: number | null, count: number): string {
+  if (avg === null || count === 0) return '—'
+  return `⭐ ${avg.toFixed(1)} (${count})`
+}
+
 export default async function CustomersPage({ searchParams }: Props) {
   const params = await searchParams
   const supabase = createAdminClient()
@@ -23,6 +29,37 @@ export default async function CustomersPage({ searchParams }: Props) {
   if (params.vip === '1') query = query.eq('is_vip', true)
 
   const { data: customers } = await query
+
+  // جلب متوسط التقييمات لكل عميل دفعة واحدة من السيرفر
+  // نجلب booking_id لكل حجز لكل عميل، ثم AVG(rating) من booking_ratings
+  type RatingRow = { phone: string; avg: number | null; count: number }
+  let ratingMap: Record<string, RatingRow> = {}
+
+  if ((customers ?? []).length > 0) {
+    const phones = (customers ?? []).map(c => c.phone)
+
+    // جلب تقييمات كل الحجوزات المرتبطة بأرقام هؤلاء العملاء
+    const { data: ratingsRaw } = await supabase
+      .from('booking_ratings')
+      .select('phone, rating')
+      .in('phone', phones)
+
+    // تجميع AVG و COUNT لكل phone
+    const grouped: Record<string, number[]> = {}
+    ;(ratingsRaw ?? []).forEach(r => {
+      if (!grouped[r.phone]) grouped[r.phone] = []
+      grouped[r.phone].push(r.rating)
+    })
+
+    Object.entries(grouped).forEach(([phone, ratings]) => {
+      const sum = ratings.reduce((s, v) => s + v, 0)
+      ratingMap[phone] = {
+        phone,
+        avg: Math.round((sum / ratings.length) * 10) / 10,
+        count: ratings.length,
+      }
+    })
+  }
 
   return (
     <div className="animate-fade-in">
@@ -62,6 +99,7 @@ export default async function CustomersPage({ searchParams }: Props) {
                 <th>الحجوزات</th>
                 <th>إجمالي المدفوع</th>
                 <th>الملعب المفضل</th>
+                <th>التقييم</th>
                 <th>آخر حجز</th>
                 <th>التصنيف</th>
                 <th>الإجراء</th>
@@ -69,34 +107,40 @@ export default async function CustomersPage({ searchParams }: Props) {
             </thead>
             <tbody>
               {(customers ?? []).length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign:'center', color:'var(--text-muted)', padding:'3rem' }}>لا توجد نتائج</td></tr>
+                <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text-muted)', padding:'3rem' }}>لا توجد نتائج</td></tr>
               )}
-              {(customers ?? []).map(c => (
-                <tr key={c.id}>
-                  <td>
-                    <div style={{ fontWeight:600 }}>{c.name}</div>
-                    <div style={{ display:'flex', gap:'0.3rem', marginTop:'0.2rem', flexWrap:'wrap' }}>
-                      {c.is_vip && <span className="badge badge-gold">⭐ VIP</span>}
-                      {c.is_suspended && <span className="badge badge-rejected">موقوف</span>}
-                    </div>
-                  </td>
-                  <td style={{ direction:'ltr', textAlign:'right' }}>{c.phone}</td>
-                  <td style={{ fontWeight:700, textAlign:'center' }}>{c.total_bookings}</td>
-                  <td style={{ fontWeight:700, color:'var(--color-primary)' }}>{formatAmount(c.total_paid)}</td>
-                  <td>{c.preferred_court ? getCourtName(c.preferred_court) : <span style={{ color:'var(--text-muted)' }}>—</span>}</td>
-                  <td style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>
-                    {c.last_booking_at ? formatDateTime(c.last_booking_at).split('،')[0] : '—'}
-                  </td>
-                  <td>
-                    <span className={`badge ${CLASS_STYLE[c.classification] ?? ''}`}>
-                      {CLASSIFICATION_LABELS[c.classification as keyof typeof CLASSIFICATION_LABELS] ?? c.classification}
-                    </span>
-                  </td>
-                  <td>
-                    <Link href={`/admin/customers/${c.id}`} className="btn btn-secondary btn-sm">بطاقة</Link>
-                  </td>
-                </tr>
-              ))}
+              {(customers ?? []).map(c => {
+                const r = ratingMap[c.phone] ?? null
+                return (
+                  <tr key={c.id}>
+                    <td>
+                      <div style={{ fontWeight:600 }}>{c.name}</div>
+                      <div style={{ display:'flex', gap:'0.3rem', marginTop:'0.2rem', flexWrap:'wrap' }}>
+                        {c.is_vip && <span className="badge badge-gold">⭐ VIP</span>}
+                        {c.is_suspended && <span className="badge badge-rejected">موقوف</span>}
+                      </div>
+                    </td>
+                    <td style={{ direction:'ltr', textAlign:'right' }}>{c.phone}</td>
+                    <td style={{ fontWeight:700, textAlign:'center' }}>{c.total_bookings}</td>
+                    <td style={{ fontWeight:700, color:'var(--color-primary)' }}>{formatAmount(c.total_paid)}</td>
+                    <td>{c.preferred_court ? getCourtName(c.preferred_court) : <span style={{ color:'var(--text-muted)' }}>—</span>}</td>
+                    <td style={{ fontWeight:600, color: r ? '#92400e' : 'var(--text-muted)', whiteSpace:'nowrap' }}>
+                      {ratingDisplay(r?.avg ?? null, r?.count ?? 0)}
+                    </td>
+                    <td style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>
+                      {c.last_booking_at ? formatDateTime(c.last_booking_at).split('،')[0] : '—'}
+                    </td>
+                    <td>
+                      <span className={`badge ${CLASS_STYLE[c.classification] ?? ''}`}>
+                        {CLASSIFICATION_LABELS[c.classification as keyof typeof CLASSIFICATION_LABELS] ?? c.classification}
+                      </span>
+                    </td>
+                    <td>
+                      <Link href={`/admin/customers/${c.id}`} className="btn btn-secondary btn-sm">بطاقة</Link>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
