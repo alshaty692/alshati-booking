@@ -154,8 +154,16 @@ export default async function BookingDetailPage({ params }: Props) {
 
   if (!booking) notFound()
 
+  // جلب تقييم العميل (إن وجد)
+  const { data: ratingData } = await supabase
+    .from('booking_ratings')
+    .select('rating, comment, created_at')
+    .eq('booking_id', id)
+    .maybeSingle()
+
   // جلب دور المستخدم — لو ما موجود ننشئه (مثل اللايوت)
   let { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
+
   if (!adminUser && user) {
     await supabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
     adminUser = { role: 'admin' }
@@ -280,8 +288,38 @@ export default async function BookingDetailPage({ params }: Props) {
               </form>
             </div>
           )}
+
+          {/* تقييم العميل — قراءة فقط */}
+          <div className="card">
+            <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>⭐ تقييم العميل</h2>
+            {ratingData ? (
+              <div>
+                <div style={{ display: 'flex', gap: '0.2rem', marginBottom: '0.5rem' }}>
+                  {[1,2,3,4,5].map(n => (
+                    <span key={n} style={{ fontSize: '1.5rem', color: n <= ratingData.rating ? '#f59e0b' : '#e5e7eb' }}>★</span>
+                  ))}
+                  <span style={{ marginRight: '0.5rem', fontWeight: 700, color: '#92400e', alignSelf: 'center' }}>
+                    {ratingData.rating}/5
+                  </span>
+                </div>
+                {ratingData.comment && (
+                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontStyle: 'italic', margin: '0 0 0.5rem', background: '#fefce8', padding: '0.6rem 0.75rem', borderRadius: '0.5rem' }}>
+                    &ldquo;{ratingData.comment}&rdquo;
+                  </p>
+                )}
+                <small style={{ color: 'var(--text-muted)' }}>
+                  {new Date(ratingData.created_at).toLocaleString('ar-SA')}
+                </small>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
+                لم يُقيَّم بعد
+              </p>
+            )}
+          </div>
         </div>
       </div>
+
 
       <style>{`
         @media (max-width: 700px) { div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; } }
