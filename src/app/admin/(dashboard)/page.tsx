@@ -225,8 +225,15 @@ export default async function AdminDashboard() {
           grid-template-columns: repeat(2, 1fr);
           gap: var(--space-3);
           margin-bottom: var(--space-5);
+          width: 100%;
+          box-sizing: border-box;
         }
         @media (min-width: 900px) { .dh-stats { grid-template-columns: repeat(4, 1fr); } }
+        @media (max-width: 600px) {
+          .dh-stats { gap: var(--space-2); }
+          .stat-card { padding: var(--space-3); }
+          .stat-icon { display: none; }
+        }
 
         .stat-card {
           border-radius: var(--radius-xl);
