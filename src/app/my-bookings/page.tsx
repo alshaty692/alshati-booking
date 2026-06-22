@@ -19,12 +19,12 @@ interface BookingWithRating extends Booking {
 }
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  pending:   { label: 'بانتظار الإيصال', color: 'var(--color-warning)',   bg: 'rgba(234,179,8,.1)',  border: 'rgba(234,179,8,.35)'  },
-  uploaded:  { label: 'قيد المراجعة',    color: 'var(--color-info)',      bg: 'rgba(99,179,237,.1)', border: 'rgba(99,179,237,.35)' },
-  confirmed: { label: 'مؤكد',            color: 'var(--color-lime)',      bg: 'var(--color-lime-muted)', border: 'var(--color-lime-dim)' },
-  rejected:  { label: 'مرفوض',           color: 'var(--color-danger)',    bg: 'var(--color-danger-bg)', border: 'rgba(224,85,85,.3)' },
-  cancelled: { label: 'ملغى',            color: 'var(--text-muted)',      bg: 'var(--bg-elevated)', border: 'var(--border-color)'  },
-  expired:   { label: 'منتهي المهلة',    color: 'var(--text-muted)',      bg: 'var(--bg-elevated)', border: 'var(--border-color)'  },
+  pending:   { label: 'بانتظار الإيصال', color: 'var(--color-warning)',  bg: 'var(--color-warning-bg)', border: 'var(--color-warning)' },
+  uploaded:  { label: 'قيد المراجعة',    color: 'var(--color-info)',     bg: 'var(--color-info-bg)',    border: 'var(--color-info)'    },
+  confirmed: { label: 'مؤكد',            color: 'var(--color-lime)',     bg: 'var(--color-lime-muted)', border: 'var(--color-lime-dim)' },
+  rejected:  { label: 'مرفوض',           color: 'var(--color-danger)',   bg: 'var(--color-danger-bg)',  border: 'var(--color-danger)'  },
+  cancelled: { label: 'ملغى',            color: 'var(--text-muted)',     bg: 'var(--bg-elevated)',      border: 'var(--border-color)'  },
+  expired:   { label: 'منتهي المهلة',    color: 'var(--text-muted)',     bg: 'var(--bg-elevated)',      border: 'var(--border-color)'  },
 }
 
 // ── مكوّن النجوم — SVG نظيف ──────────────────────────────────
