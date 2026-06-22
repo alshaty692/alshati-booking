@@ -853,8 +853,8 @@ export default function BookPage() {
 
         /* ── هيدر ── */
         .book-header {
-          background: var(--bg-sidebar);
-          border-bottom: 1px solid var(--border-sidebar);
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--border-color);
           position: sticky;
           top: 0;
           z-index: 50;
@@ -886,7 +886,7 @@ export default function BookPage() {
           align-items: center;
           gap: 0.3rem;
           background: transparent;
-          border: 1px solid var(--border-sidebar);
+          border: 1px solid var(--border-color);
           color: var(--text-muted);
           border-radius: var(--radius-md);
           padding: 0.35rem 0.75rem;
@@ -901,7 +901,7 @@ export default function BookPage() {
           width: 34px;
           height: 34px;
           border-radius: var(--radius-md);
-          border: 1px solid var(--border-sidebar);
+          border: 1px solid var(--border-color);
           background: transparent;
           color: var(--text-muted);
           display: flex;
@@ -932,9 +932,9 @@ export default function BookPage() {
 
         /* ── Progress Bar ── */
         .book-progress-wrap {
-          background: var(--bg-sidebar);
+          background: var(--bg-surface);
           padding: 0.75rem 1.25rem 0.625rem;
-          border-bottom: 1px solid var(--border-sidebar);
+          border-bottom: 1px solid var(--border-color);
         }
         .book-progress-bar {
           height: 4px;
@@ -968,7 +968,7 @@ export default function BookPage() {
 
         /* ── شريط الاختيار اللحظي ── */
         .live-summary-bar {
-          background: var(--bg-sidebar);
+          background: var(--bg-surface);
           border-bottom: 2px solid var(--color-lime-dim);
           padding: 0.5rem 1.25rem;
           display: flex;
