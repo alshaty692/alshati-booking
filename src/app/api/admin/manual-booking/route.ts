@@ -1,6 +1,6 @@
 // ============================================================
 // API Route — الحجز اليدوي (من الإدارة)
-// يدعم إعادة حجز فترات سبق إلغاؤها (UPSERT-style)
+// عند وجود حجز ملغى لنفس الفترة: يُحذف القديم + يُنشأ سجل جديد نظيف
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
@@ -11,8 +11,9 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
 
-    const { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user.id).single()
-    if (!['admin','editor'].includes(adminUser?.role ?? '')) {
+    const { data: adminUser } = await supabase
+      .from('admin_users').select('role').eq('id', user.id).single()
+    if (!['admin', 'editor'].includes(adminUser?.role ?? '')) {
       return Response.json({ error: 'ليس لديك صلاحية الحجز اليدوي' }, { status: 403 })
     }
 
@@ -31,10 +32,57 @@ export async function POST(request: NextRequest) {
 
     // الحالات المسموحة للحجز اليدوي
     const ALLOWED_STATUSES = ['confirmed', 'pending', 'uploaded']
-    const finalStatus: string = ALLOWED_STATUSES.includes(requestedStatus) ? requestedStatus : 'confirmed'
+    const finalStatus: string = ALLOWED_STATUSES.includes(requestedStatus)
+      ? requestedStatus
+      : 'confirmed'
     const isConfirmed = finalStatus === 'confirmed'
 
     const admin = createAdminClient()
+
+    // ── فحص إذا يوجد حجز قائم لنفس الفترة ──────────────────
+    // نستخدم maybeSingle() بدل single() لتجنب خطأ "no rows" عند عدم الوجود
+    const { data: existingBooking, error: fetchErr } = await admin
+      .from('bookings')
+      .select('id, status')
+      .eq('booking_date', booking_date)
+      .eq('court_id', court_id)
+      .eq('period_number', Number(period_number))
+      .maybeSingle()
+
+    if (fetchErr) {
+      console.error('[manual-booking] fetchErr:', fetchErr)
+      throw fetchErr
+    }
+
+    if (existingBooking) {
+      const INACTIVE = ['cancelled', 'rejected', 'expired']
+
+      if (!INACTIVE.includes(existingBooking.status)) {
+        // حجز نشط (pending / uploaded / confirmed) → رفض
+        return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
+      }
+
+      // حجز غير نشط → احذفه أولاً (آمن: audit_log لا يعتمد على FK حقيقي)
+      // نُسجّل في audit_log أن الصف القديم حُذف قبل الحجز الجديد
+      await admin.from('audit_log').insert({
+        table_name: 'bookings',
+        record_id: existingBooking.id,
+        action: 'delete',
+        performed_by: user.id,
+        notes: `حذف حجز ملغى قديم (${existingBooking.status}) استعداداً لحجز يدوي جديد على نفس الفترة`,
+      }).then(() => {}) // تجاهل خطأ audit بدون إيقاف التدفق
+
+      const { error: deleteErr } = await admin
+        .from('bookings')
+        .delete()
+        .eq('id', existingBooking.id)
+        .eq('status', existingBooking.status) // قيد أمان إضافي: لا يُحذف إلا بنفس الحالة المتوقعة
+
+      if (deleteErr) {
+        console.error('[manual-booking] deleteErr:', deleteErr)
+        throw deleteErr
+      }
+    }
 
     // ── حساب السعر ──────────────────────────────────────────
     const { data: priceData } = await admin.rpc('calculate_price', {
@@ -42,74 +90,42 @@ export async function POST(request: NextRequest) {
       p_code: code_used || null,
     })
 
-    const effectiveFinalPrice = final_price ? Number(final_price) : (priceData?.final_price ?? 0)
+    const effectiveFinalPrice = final_price
+      ? Number(final_price)
+      : (priceData?.final_price ?? 0)
     const waterQty = Number(water_quantity ?? 0)
 
-    const bookingFields = {
-      booking_date,
-      court_id,
-      period_number: Number(period_number),
-      customer_phone,
-      customer_name,
-      code_used:        code_used || null,
-      base_price:       priceData?.base_price ?? effectiveFinalPrice,
-      discount_amount:  priceData?.discount_amount ?? 0,
-      final_price:      effectiveFinalPrice,
-      water_quantity:   waterQty,
-      status:           finalStatus,
-      is_manual:        true,
-      internal_note:    internal_note || null,
-      ...(isConfirmed ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() } : {}),
-    }
-
-    // ── التحقق من وجود حجز قائم (سواء نشط أو ملغى) ─────────
-    const { data: existingBooking } = await admin
+    // ── إنشاء سجل حجز جديد نظيف ────────────────────────────
+    const { data: booking, error: insertError } = await admin
       .from('bookings')
-      .select('id, status')
-      .eq('booking_date', booking_date)
-      .eq('court_id', court_id)
-      .eq('period_number', Number(period_number))
+      .insert({
+        booking_date,
+        court_id,
+        period_number: Number(period_number),
+        customer_phone,
+        customer_name,
+        code_used:       code_used || null,
+        base_price:      priceData?.base_price ?? effectiveFinalPrice,
+        discount_amount: priceData?.discount_amount ?? 0,
+        final_price:     effectiveFinalPrice,
+        water_quantity:  waterQty,
+        status:          finalStatus,
+        is_manual:       true,
+        internal_note:   internal_note || null,
+        ...(isConfirmed
+          ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() }
+          : {}),
+      })
+      .select('id')
       .single()
 
-    let bookingId: string
-
-    if (existingBooking) {
-      // الفترة موجودة في الجدول — هل هي ملغاة/مرفوضة/منتهية؟
-      const INACTIVE = ['cancelled', 'rejected', 'expired']
-      if (!INACTIVE.includes(existingBooking.status)) {
-        // حجز نشط → رفض
+    if (insertError) {
+      // تضارب متزامن نادر
+      if (insertError.code === '23505') {
         return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
       }
-
-      // حجز غير نشط → نُعيد استخدام الصف بالتحديث بدل الإدراج
-      const { data: updated, error: updateError } = await admin
-        .from('bookings')
-        .update(bookingFields)
-        .eq('id', existingBooking.id)
-        .select('id')
-        .single()
-
-      if (updateError || !updated) {
-        console.error('[manual-booking] updateError:', updateError)
-        throw updateError ?? new Error('فشل التحديث')
-      }
-      bookingId = updated.id
-    } else {
-      // لا يوجد حجز سابق → إدراج جديد
-      const { data: inserted, error: insertError } = await admin
-        .from('bookings')
-        .insert(bookingFields)
-        .select('id')
-        .single()
-
-      if (insertError) {
-        // نادراً: تضارب متزامن بين طلبين
-        if (insertError.code === '23505') {
-          return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
-        }
-        throw insertError
-      }
-      bookingId = inserted!.id
+      console.error('[manual-booking] insertError:', insertError)
+      throw insertError
     }
 
     // ── تفعيل كود الخصم إن وُجد ────────────────────────────
@@ -119,24 +135,33 @@ export async function POST(request: NextRequest) {
       } catch { /* تجاهل خطأ الكود */ }
     }
 
-    // ── خصم مخزون المياه إن كان الحجز مؤكداً وفيه مياه ────
+    // ── خصم مخزون المياه للحجوزات المؤكدة ─────────────────
+    // للحجوزات المعلّقة (pending/uploaded): ينقص المخزون عند التأكيد اليدوي لاحقاً
     if (isConfirmed && waterQty > 0) {
       const { data: stockRow } = await admin
-        .from('settings').select('value').eq('key', 'water_stock_available').single()
+        .from('settings')
+        .select('value')
+        .eq('key', 'water_stock_available')
+        .single()
       const current = Number(stockRow?.value ?? 0)
       if (current >= waterQty) {
-        await admin.from('settings')
-          .upsert({ key: 'water_stock_available', value: String(current - waterQty) }, { onConflict: 'key' })
+        await admin.from('settings').upsert(
+          { key: 'water_stock_available', value: String(current - waterQty) },
+          { onConflict: 'key' }
+        )
       }
     }
 
+    // ── audit_log للحجز الجديد ───────────────────────────────
     await admin.from('audit_log').insert({
-      table_name: 'bookings', record_id: bookingId, action: 'insert',
+      table_name: 'bookings',
+      record_id:  booking!.id,
+      action:     'insert',
       performed_by: user.id,
-      notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}`,
+      notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
     })
 
-    return Response.json({ success: true, booking_id: bookingId })
+    return Response.json({ success: true, booking_id: booking!.id })
   } catch (err) {
     console.error('[manual-booking]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })
