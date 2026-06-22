@@ -148,6 +148,16 @@ export default function BookPage() {
   const slotsForDate  = slots.filter(s => s.day_date === booking.date)
   // الأسعار من courtPrices (محمّلة من DB مباشرة)
   const basePrice     = (courtId: string) => courtPrices[courtId] ?? 0
+
+  // ── اسم الملعب من الإعدادات (أولوية) أو من الـ fallback الثابت ──────
+  const courtName = (courtId: string): string => {
+    const fromSettings: Record<string, string> = {
+      football:   settings.venue_1_name ?? '',
+      volleyball: settings.venue_2_name ?? '',
+      multi:      settings.venue_3_name ?? '',
+    }
+    return fromSettings[courtId] || getCourtName(courtId)
+  }
   const isSlotSelected = (courtId: string, period: number) =>
     booking.court_id === courtId && booking.period_number === period
   const canProceedStep0 = Boolean(booking.date && booking.court_id && booking.period_number)
@@ -328,7 +338,7 @@ export default function BookPage() {
           <div className="live-summary-inner">
             <span>📅 {formatDate(booking.date)}</span>
             <span>·</span>
-            <span>{COURT_ICONS[booking.court_id]} {getCourtName(booking.court_id)}</span>
+            <span>{COURT_ICONS[booking.court_id]} {courtName(booking.court_id)}</span>
             <span>·</span>
             <span>⏰ {getPeriodName(booking.period_number)}</span>
             {basePrice(booking.court_id) > 0 && (
@@ -392,7 +402,7 @@ export default function BookPage() {
                       {/* عنوان الملعب */}
                       <div className="court-col-head">
                         <span className="court-col-icon">{COURT_ICONS[courtId]}</span>
-                        <span className="court-col-name">{getCourtName(courtId)}</span>
+                        <span className="court-col-name">{courtName(courtId)}</span>
                         {!closed && basePrice(courtId) > 0 && (
                           <span className="court-col-price">{formatAmount(basePrice(courtId))}</span>
                         )}
@@ -487,7 +497,7 @@ export default function BookPage() {
             {/* ملخص مصغّر */}
             <div className="selection-summary">
               <div className="selection-chip">📅 {formatDate(booking.date)}</div>
-              <div className="selection-chip">{COURT_ICONS[booking.court_id]} {getCourtName(booking.court_id)}</div>
+              <div className="selection-chip">{COURT_ICONS[booking.court_id]} {courtName(booking.court_id)}</div>
               <div className="selection-chip">⏰ {getPeriodName(booking.period_number)}</div>
             </div>
 
@@ -630,7 +640,7 @@ export default function BookPage() {
             <div className="review-card card">
               {[
                 ['التاريخ',   formatDate(booking.date)],
-                ['الملعب',    getCourtName(booking.court_id)],
+                ['الملعب',    courtName(booking.court_id)],
                 ['الفترة',    getPeriodName(booking.period_number)],
                 ['الاسم',     booking.customer_name],
                 ...(booking.code ? [['الكود', booking.code]] : []),
@@ -724,7 +734,7 @@ export default function BookPage() {
             <p>سيتم مراجعة الإيصال وتأكيد الحجز خلال فترة وجيزة</p>
             <div className="review-card card" style={{ margin:'1.5rem 0', textAlign:'right' }}>
               <div className="review-row"><span className="review-label">التاريخ</span><span>{formatDate(booking.date)}</span></div>
-              <div className="review-row"><span className="review-label">الملعب</span><span>{getCourtName(booking.court_id)}</span></div>
+              <div className="review-row"><span className="review-label">الملعب</span><span>{courtName(booking.court_id)}</span></div>
               <div className="review-row"><span className="review-label">الفترة</span><span>{getPeriodName(booking.period_number)}</span></div>
             </div>
             <button id="btn-new-booking" className="btn-step-next" onClick={resetBooking}>حجز جديد</button>
