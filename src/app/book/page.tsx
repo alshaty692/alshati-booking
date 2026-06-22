@@ -362,28 +362,32 @@ export default function BookPage() {
                 <p>اختر يوماً أولاً لرؤية المواعيد المتاحة</p>
               </div>
             ) : (
-              <div className="courts-container animate-fade-in">
+              <div className="courts-grid animate-fade-in">
                 {COURTS.map(courtId => {
                   const courtSlots = slotsForDate.filter(s => s.court_id === courtId)
                   const closed = isCourtClosed(courtId, booking.date)
                   return (
-                    <div key={courtId} className={`court-block ${closed ? 'court-closed' : ''}`}>
-                      <div className="court-block-header">
-                        <span className="court-block-icon">{COURT_ICONS[courtId]}</span>
-                        <span className="court-block-name">{getCourtName(courtId)}</span>
-                        {closed ? (
-                          <span className="court-block-price" style={{ color:'#dc2626', fontSize:'0.75rem' }}>🔒 غير متاح — {getClosureReason(courtId, booking.date)}</span>
-                        ) : basePrice(courtId) > 0 ? (
-                          <span className="court-block-price">{formatAmount(basePrice(courtId))}</span>
-                        ) : null}
+                    <div key={courtId} className={`court-col ${closed ? 'court-col-closed' : ''}`}>
+                      {/* عنوان الملعب */}
+                      <div className="court-col-head">
+                        <span className="court-col-icon">{COURT_ICONS[courtId]}</span>
+                        <span className="court-col-name">{getCourtName(courtId)}</span>
+                        {!closed && basePrice(courtId) > 0 && (
+                          <span className="court-col-price">{formatAmount(basePrice(courtId))}</span>
+                        )}
+                        {closed && (
+                          <span className="court-col-closed-tag">موقوف</span>
+                        )}
                       </div>
+
+                      {/* الفترات */}
                       {closed ? (
-                        <div className="no-slots" style={{ color:'#999', fontStyle:'italic' }}>الملعب موقوف مؤقتاً</div>
+                        <div className="court-col-unavail">تحت الصيانة</div>
+                      ) : courtSlots.length === 0 ? (
+                        <div className="court-col-unavail">لا فترات</div>
                       ) : (
-                        <div className="court-periods">
-                          {courtSlots.length === 0 ? (
-                            <div className="no-slots">لا توجد فترات</div>
-                          ) : [...courtSlots].sort((a,b) => a.period_number - b.period_number).map(slot => {
+                        <div className="court-col-periods">
+                          {[...courtSlots].sort((a,b) => a.period_number - b.period_number).map(slot => {
                             const sel    = isSlotSelected(courtId, slot.period_number)
                             const isHeld = (slot as AvailableSlot & { is_held?: boolean }).is_held
                             const status = !slot.is_available ? (isHeld ? 'held' : 'booked') : sel ? 'selected' : 'available'
@@ -391,14 +395,12 @@ export default function BookPage() {
                               <button
                                 key={slot.period_number}
                                 id={`slot-${courtId}-${slot.period_number}`}
-                                className={`period-chip period-chip-${status}`}
+                                className={`court-period-btn court-period-${status}`}
                                 disabled={!slot.is_available}
                                 onClick={async () => {
                                   if (!slot.is_available) return
-                                  // حجز مؤقت
                                   const ok = await holdSlot(courtId, booking.date, slot.period_number)
                                   if (!ok) {
-                                    // إعادة جلب الفترات لو الحجز المؤقت فشل
                                     const res = await fetch('/api/booking/slots')
                                     const data = await res.json()
                                     setSlots(data.slots ?? [])
@@ -412,10 +414,12 @@ export default function BookPage() {
                                   }))
                                 }}
                               >
-                                <span className="period-chip-time">{getPeriodName(slot.period_number)}</span>
-                                <span className="period-chip-dot" />
-                                <span className="period-chip-label">
-                                  {status==='held'?'🔄 قيد الحجز':status==='booked'?'محجوز':status==='selected'?'مختار ✓':'متاح'}
+                                <span className="cpb-time">{getPeriodName(slot.period_number)}</span>
+                                <span className="cpb-dot" />
+                                <span className="cpb-state">
+                                  {status==='held'   ? 'قيد الحجز' :
+                                   status==='booked'  ? 'محجوز' :
+                                   status==='selected'? '✓ مختار' : 'متاح'}
                                 </span>
                               </button>
                             )
@@ -852,61 +856,99 @@ export default function BookPage() {
         .date-hint-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
         .date-hint p    { margin: 0; }
 
-        /* ── الملاعب والفترات ── */
-        .courts-container { display: flex; flex-direction: column; gap: 1rem; }
-        .court-block {
+        /* ── شبكة الملاعب (3 أعمدة جنب بعض) ── */
+        .courts-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.5rem;
+        }
+        .court-col {
           background: #fff;
-          border: 0.5px solid #E2DDD4;
-          border-radius: 14px; padding: 1rem 1.25rem;
-          box-shadow: 0 2px 8px rgba(27,42,59,.06);
+          border: 1.5px solid #E2DDD4;
+          border-radius: 12px;
+          padding: 0.625rem 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
         }
-        .court-block-header {
-          display: flex; align-items: center; gap: 0.625rem;
-          margin-bottom: 0.875rem;
+        .court-col-closed {
+          opacity: 0.6;
+          background: #f8f8f8;
         }
-        .court-block-icon  { font-size: 1.35rem; }
-        .court-block-name  { font-weight: 800; font-size: 1rem; color: ${C.navy}; flex: 1; }
-        .court-block-price { font-size: 0.8rem; color: #64748b; background: ${C.beige}; padding: 0.2rem 0.625rem; border-radius: 99px; }
-
-        .court-periods { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.625rem; direction: rtl; }
-        .no-slots      { color: #94a3b8; font-size: 0.85rem; padding: 0.5rem 0; }
-
-        /* فترة — ٣ حالات */
-        .period-chip {
-          display: flex; flex-direction: column; align-items: center; gap: 0.35rem;
-          padding: 0.875rem 0.5rem; border-radius: 10px;
-          border: 2px solid transparent; cursor: pointer;
-          font-family: 'Tajawal',sans-serif; transition: all 0.18s ease;
-          position: relative; overflow: hidden;
+        .court-col-head {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.15rem;
+          text-align: center;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid #F0EBE3;
         }
-        .period-chip-time  { font-size: 0.9rem; font-weight: 800; }
-        .period-chip-dot   { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .period-chip-label { font-size: 0.68rem; font-weight: 600; }
+        .court-col-icon  { font-size: 1.5rem; line-height: 1; }
+        .court-col-name  { font-size: 0.72rem; font-weight: 800; color: ${C.navy}; line-height: 1.2; }
+        .court-col-price {
+          font-size: 0.65rem; color: #64748b;
+          background: ${C.beige}; padding: 0.1rem 0.4rem;
+          border-radius: 99px; white-space: nowrap;
+        }
+        .court-col-closed-tag {
+          font-size: 0.6rem; color: #dc2626; font-weight: 700;
+          background: #fee2e2; padding: 0.1rem 0.35rem;
+          border-radius: 99px;
+        }
+        .court-col-unavail {
+          font-size: 0.68rem; color: #94a3b8; text-align: center;
+          padding: 0.5rem 0; font-style: italic;
+        }
 
-        /* متاح — أخضر فاتح */
-        .period-chip-available {
+        /* ── أزرار الفترة داخل العمود ── */
+        .court-col-periods {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+        .court-period-btn {
+          width: 100%;
+          padding: 0.45rem 0.25rem;
+          border-radius: 8px;
+          border: 1.5px solid transparent;
+          cursor: pointer;
+          font-family: 'Tajawal',sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.15rem;
+          transition: all 0.15s ease;
+        }
+        .cpb-time  { font-size: 0.7rem; font-weight: 800; line-height: 1; }
+        .cpb-dot   { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+        .cpb-state { font-size: 0.58rem; font-weight: 600; }
+
+        /* حالات الفترة ── */
+        .court-period-available {
           background: #e8f4f0; border-color: #b8ddd3; color: ${C.green};
         }
-        .period-chip-available .period-chip-dot   { background: ${C.green}; }
-        .period-chip-available .period-chip-label { color: ${C.green}; }
-        .period-chip-available:hover { border-color: ${C.green}; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(45,92,78,.2); }
+        .court-period-available .cpb-dot   { background: ${C.green}; }
+        .court-period-available .cpb-state { color: ${C.green}; }
+        .court-period-available:hover { border-color: ${C.green}; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(45,92,78,.2); }
 
-        /* مختار — كحلي */
-        .period-chip-selected {
+        .court-period-selected {
           background: ${C.navy}; border-color: ${C.navy}; color: ${C.gold};
-          box-shadow: 0 4px 16px rgba(27,42,59,.3);
+          box-shadow: 0 3px 10px rgba(27,42,59,.3);
         }
-        .period-chip-selected .period-chip-dot   { background: ${C.gold}; }
-        .period-chip-selected .period-chip-label { color: ${C.gold}; }
-        .period-chip-selected:hover { transform: translateY(-1px); }
+        .court-period-selected .cpb-dot   { background: ${C.gold}; }
+        .court-period-selected .cpb-state { color: ${C.gold}; }
+        .court-period-selected:hover { transform: translateY(-1px); }
 
-        /* محجوز — رمادي */
-        .period-chip-booked {
+        .court-period-booked,
+        .court-period-held {
           background: #f1f5f9; border-color: #e2e8f0; color: #94a3b8;
-          opacity: 0.6; cursor: not-allowed;
+          opacity: 0.55; cursor: not-allowed;
         }
-        .period-chip-booked .period-chip-dot   { background: #94a3b8; }
-        .period-chip-booked .period-chip-label { color: #94a3b8; }
+        .court-period-booked .cpb-dot,
+        .court-period-held   .cpb-dot { background: #94a3b8; }
+        .court-period-booked .cpb-state,
+        .court-period-held   .cpb-state { color: #94a3b8; }
 
         /* ── زر التالي ── */
         .btn-step-next {
