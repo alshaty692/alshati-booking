@@ -61,6 +61,7 @@ export default function BookPage() {
   const [isReturning, setIsReturning] = useState(false)
   const [holdExpiry,  setHoldExpiry]  = useState<string|null>(null)
   const [venueClosures, setVenueClosures] = useState<{court_id:string;start_date:string;end_date:string;reason:string}[]>([])
+  const [slotTakenError, setSlotTakenError] = useState('') // رسالة حين تُؤخذ الفترة بعد الاختيار
 
   // ── حجز/تحرير مؤقت للفترة ──────────────────────────────────
   const holdSlot = useCallback(async (court_id: string, booking_date: string, period_number: number) => {
@@ -80,6 +81,35 @@ export default function BookPage() {
       await fetch('/api/booking/release-slot', { method: 'POST' })
       setHoldExpiry(null)
     } catch { /* silent */ }
+  }, [])
+
+  // ── إعادة إنشاء hold (تجديد أو استعادة بعد انتهاء مدته) ─────
+  const renewHold = useCallback(async (court_id: string, booking_date: string, period_number: number): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/booking/hold-slot', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ court_id, booking_date, period_number }),
+      })
+      const data = await res.json()
+      if (res.ok && data.expires_at) { setHoldExpiry(data.expires_at); return true }
+      return false // فترة أخذها أحد في أثناء ذلك
+    } catch { return false }
+  }, [])
+
+  // ── التحقق من التوافر الفعلي (يُستخدم عند الانتقال لخطوة المراجعة) ─
+  const verifySlotStillAvailable = useCallback(async (
+    date: string, court_id: string, period_number: number
+  ): Promise<boolean> => {
+    try {
+      const res  = await fetch('/api/booking/slots')
+      const data = await res.json()
+      const fresh = (data.slots ?? []) as AvailableSlot[]
+      setSlots(fresh) // تحديث الـ snapshot في نفس الوقت
+      const target = fresh.find(
+        s => s.day_date === date && s.court_id === court_id && s.period_number === period_number
+      )
+      return target?.is_available === true
+    } catch { return true } // في حالة خطأ الشبكة — نسمح بالمتابعة، الـ DB سيرفض إن كان محجوزاً
   }, [])
 
   // ── تنظيف عند مغادرة الصفحة ────────────────────────────────
@@ -172,6 +202,14 @@ export default function BookPage() {
   async function createBooking() {
     setCreating(true); setError('')
     try {
+      // ── تجديد الـ hold قبل الإرسال (احتياط من انتهاء المدة) ──
+      const holdOk = await renewHold(booking.court_id, booking.date, booking.period_number)
+      if (!holdOk) {
+        // الفترة أُخذت بين المراجعة والتأكيد
+        setError('عذراً، هذه الفترة أُخذت للتو من عميل آخر. يرجى العودة واختيار فترة أخرى.')
+        setCreating(false)
+        return
+      }
       const res  = await fetch('/api/booking/create', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -208,7 +246,7 @@ export default function BookPage() {
     releaseSlot()
     setStep(0)
     setBooking({ date:'', court_id:'', period_number:0, customer_name:'', code:'', price:null, water_quantity:0 })
-    setBookingId(''); setUploadFile(null); setError(''); setCodeError('')
+    setBookingId(''); setUploadFile(null); setError(''); setCodeError(''); setSlotTakenError('')
   }
 
   // ── شاشة التحميل ─────────────────────────────────────────
@@ -545,6 +583,23 @@ export default function BookPage() {
             <h2 className="step-title">مراجعة الحجز</h2>
             <p className="step-desc">تأكد من البيانات قبل الدفع</p>
 
+            {/* تنبيه: الفترة أُخذت (نادر — يظهر فقط لو حدث تعارض بعد المراجعة) */}
+            {slotTakenError && (
+              <div className="slot-taken-alert">
+                <span style={{ fontSize:'1.2rem' }}>⚠️</span>
+                <div>
+                  <strong>الفترة لم تعد متاحة</strong>
+                  <p style={{ margin:'0.25rem 0 0', fontSize:'0.85rem' }}>{slotTakenError}</p>
+                </div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setSlotTakenError(''); setBooking(b => ({ ...b, court_id:'', period_number:0, price:null })); setStep(0) }}
+                >
+                  اختر فترة أخرى
+                </button>
+              </div>
+            )}
+
             <div className="review-card card">
               {[
                 ['التاريخ',   formatDate(booking.date)],
@@ -568,8 +623,20 @@ export default function BookPage() {
             {error && <div className="form-error" style={{ marginTop:'1rem' }}>{error}</div>}
 
             <button id="btn-confirm-booking" className="btn-step-next"
-              style={{ marginTop:'1.5rem' }} disabled={creating} onClick={createBooking}>
-              {creating ? <><span className="spinner" /> جاري الحجز...</> : 'تأكيد وانتقل للدفع →'}
+              style={{ marginTop:'1.5rem' }} disabled={creating || !!slotTakenError}
+              onClick={async () => {
+                // تحقق فعلي من التوافر قبل الإنشاء النهائي
+                setCreating(true)
+                const still = await verifySlotStillAvailable(booking.date, booking.court_id, booking.period_number)
+                if (!still) {
+                  setSlotTakenError('هذه الفترة أُخذت من عميل آخر خلال تصفحك. اختر فترة أخرى من نفس اليوم أو يوم مختلف.')
+                  setCreating(false)
+                  return
+                }
+                await createBooking()
+              }}
+            >
+              {creating ? <><span className="spinner" /> جاري التحقق...</> : 'تأكيد وانتقل للدفع →'}
             </button>
           </div>
         )}
@@ -890,6 +957,16 @@ export default function BookPage() {
 
         /* ── خطأ ── */
         .form-error { background: #fee2e2; color: #991b1b; padding: 0.6rem 0.875rem; border-radius: 8px; font-size: 0.875rem; border-right: 3px solid #ef4444; }
+
+        /* ── تنبيه الفترة المأخوذة ── */
+        .slot-taken-alert {
+          display: flex; align-items: flex-start; gap: 0.75rem;
+          background: #fff8e6; border: 1.5px solid #f59e0b;
+          border-radius: 10px; padding: 0.875rem 1rem;
+          margin-bottom: 1rem;
+        }
+        .slot-taken-alert strong { display: block; color: #92400e; font-size: 0.9rem; }
+        .slot-taken-alert > div { flex: 1; }
 
         @keyframes slideUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
