@@ -77,6 +77,28 @@ interface AvailData {
   settings: Record<string, string>
 }
 
+interface SlotTarget {
+  court_id:      string
+  date:          string
+  period_number: number
+}
+
+interface BookingDetail {
+  id:               string
+  customer_name:    string
+  customer_phone:   string
+  status:           string
+  base_price:       number
+  discount_amount:  number
+  final_price:      number
+  code_used:        string | null
+  water_quantity:   number
+  is_manual:        boolean
+  court_id:         string
+  booking_date:     string
+  period_number:    number
+}
+
 /* ================================================================
    مكوّن الصفحة
    ================================================================ */
@@ -102,6 +124,29 @@ export default function AvailabilityPage() {
   /* ── حالة مودال فكّ الحجب ── */
   const [unblockTarget, setUnblockTarget] = useState<BlockedRow | null>(null)
   const [unblockSaving,  setUnblockSaving]  = useState(false)
+
+  /* ── حالة مودال اختيار الإجراء (خلية متاحة) ── */
+  const [slotChoiceTarget, setSlotChoiceTarget] = useState<SlotTarget | null>(null)
+
+  /* ── حالة مودال الحجز السريع ── */
+  const [quickBookTarget, setQuickBookTarget] = useState<SlotTarget | null>(null)
+  const [qbPhone,        setQbPhone]        = useState('')
+  const [qbName,         setQbName]         = useState('')
+  const [qbNameEditable, setQbNameEditable] = useState(false)
+  const [qbStatus,       setQbStatus]       = useState<'confirmed'|'pending'>('confirmed')
+  const [qbCode,         setQbCode]         = useState('')
+  const [qbWater,        setQbWater]        = useState(0)
+  const [qbSearching,    setQbSearching]    = useState(false)
+  const [qbCustomer,     setQbCustomer]     = useState<{ found: boolean; name?: string; id?: string; is_suspended?: boolean; suspension_reason?: string | null } | null>(null)
+  const [qbPrice,        setQbPrice]        = useState<{ base_price: number; discount_amount: number; final_price: number } | null>(null)
+  const [qbSaving,       setQbSaving]       = useState(false)
+
+  /* ── حالة مودال تفاصيل الحجز (خلية محجوزة) ── */
+  const [bookingDetail,      setBookingDetail]      = useState<BookingDetail | null>(null)
+  const [bookingDetailLoading, setBookingDetailLoading] = useState(false)
+  const [cancelMode,         setCancelMode]         = useState(false)
+  const [cancelReason,       setCancelReason]       = useState('')
+  const [cancelSaving,       setCancelSaving]       = useState(false)
 
   /* ── toast ── */
   const [toast, setToast] = useState<{ type:'ok'|'err'; text:string } | null>(null)
@@ -262,6 +307,135 @@ export default function AvailabilityPage() {
       showToast('err', 'تعذّر الاتصال بالخادم')
     } finally {
       setUnblockSaving(false)
+    }
+  }
+
+  /* ── بحث عن عميل برقم الجوال ── */
+  async function searchCustomer() {
+    if (!qbPhone.trim()) return
+    setQbSearching(true)
+    setQbCustomer(null)
+    setQbName('')
+    setQbNameEditable(false)
+    try {
+      const r = await fetch(`/api/admin/customers/search?phone=${encodeURIComponent(qbPhone.trim())}`)
+      const data = await r.json()
+      setQbCustomer(data)
+      if (data.found) {
+        setQbName(data.name ?? '')
+        setQbNameEditable(false)
+      } else {
+        setQbName('')
+        setQbNameEditable(true)
+      }
+    } catch {
+      setQbNameEditable(true)
+    } finally {
+      setQbSearching(false)
+    }
+  }
+
+  /* ── فتح مودال الحجز السريع ── */
+  async function openQuickBook(target: SlotTarget) {
+    setSlotChoiceTarget(null)
+    setQuickBookTarget(target)
+    setQbPhone('')
+    setQbName('')
+    setQbNameEditable(false)
+    setQbCustomer(null)
+    setQbStatus('confirmed')
+    setQbCode('')
+    setQbWater(0)
+    setQbSaving(false)
+    // جلب السعر الافتراضي
+    try {
+      const r = await fetch('/api/booking/validate-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ court_id: target.court_id, code: '' }),
+      })
+      const d = await r.json()
+      setQbPrice(d.price ?? null)
+    } catch { setQbPrice(null) }
+  }
+
+  /* ── تأكيد الحجز السريع ── */
+  async function handleQuickBook() {
+    if (!quickBookTarget) return
+    if (!qbPhone.trim() || !qbName.trim()) { showToast('err', 'أدخل رقم الجوال والاسم'); return }
+    setQbSaving(true)
+    try {
+      const r = await fetch('/api/admin/manual-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          booking_date:    quickBookTarget.date,
+          court_id:        quickBookTarget.court_id,
+          period_number:   quickBookTarget.period_number,
+          customer_name:   qbName.trim(),
+          customer_phone:  qbPhone.trim(),
+          code_used:       qbCode.trim() || null,
+          water_quantity:  qbWater,
+          status:          qbStatus,
+        }),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        showToast('ok', 'تم إنشاء الحجز بنجاح ✓')
+        setQuickBookTarget(null)
+        fetchGrid(weekStart)
+      } else {
+        showToast('err', d.error ?? 'فشل إنشاء الحجز')
+      }
+    } catch {
+      showToast('err', 'تعذّر الاتصال بالخادم')
+    } finally {
+      setQbSaving(false)
+    }
+  }
+
+  /* ── فتح مودال تفاصيل الحجز (خلية محجوزة) ── */
+  async function openBookedSlot(court_id: string, date: string, period_number: number) {
+    setBookingDetailLoading(true)
+    setBookingDetail(null)
+    setCancelMode(false)
+    setCancelReason('')
+    try {
+      const r = await fetch(
+        `/api/admin/bookings/by-slot?date=${date}&court_id=${court_id}&period=${period_number}`
+      )
+      const d = await r.json()
+      if (d.found) setBookingDetail(d.booking)
+      else showToast('err', 'تعذّر جلب بيانات الحجز')
+    } catch {
+      showToast('err', 'تعذّر الاتصال بالخادم')
+    } finally {
+      setBookingDetailLoading(false)
+    }
+  }
+
+  /* ── إلغاء الحجز ── */
+  async function handleCancelBooking() {
+    if (!bookingDetail) return
+    setCancelSaving(true)
+    try {
+      const r = await fetch('/api/admin/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingDetail.id, cancellation_reason: cancelReason }),
+      })
+      const d = await r.json()
+      if (r.ok) {
+        showToast('ok', 'تم إلغاء الحجز ✓')
+        setBookingDetail(null)
+        fetchGrid(weekStart)
+      } else {
+        showToast('err', d.error ?? 'فشل الإلغاء')
+      }
+    } catch {
+      showToast('err', 'تعذّر الاتصال بالخادم')
+    } finally {
+      setCancelSaving(false)
     }
   }
 
@@ -585,7 +759,12 @@ export default function AvailabilityPage() {
           background: var(--bg-elevated);
           color: var(--text-muted);
           border: 1px solid var(--border-subtle);
-          cursor: not-allowed;
+          cursor: pointer;
+        }
+        .av-period-btn.booked:hover {
+          background: var(--color-info-bg);
+          color: var(--color-info);
+          border-color: var(--color-info);
         }
         /* محجوب من مدير */
         .av-period-btn.admin-blocked {
@@ -860,7 +1039,6 @@ export default function AvailabilityPage() {
                             {PERIODS.map(period => {
                               const blocked = getBlocked(court.id, dateStr, period.num)
                               const booked  = isBooked(court.id, dateStr, period.num)
-                              const avail   = !blocked && !booked && isAvailable(court.id, dateStr, period.num)
 
                               let cls = 'available'
                               if (blocked) cls = 'admin-blocked'
@@ -871,23 +1049,24 @@ export default function AvailabilityPage() {
                                   key={period.num}
                                   id={`slot-${court.id}-${dateStr}-${period.num}`}
                                   className={`av-period-btn ${cls}`}
-                                  disabled={booked}
                                   title={
                                     blocked ? `محجوب: ${blocked.reason ?? ''}` :
-                                    booked  ? 'محجوز من عميل' :
-                                    'انقر للحجب'
+                                    booked  ? 'انقر لعرض تفاصيل الحجز' :
+                                    'انقر لحجز سريع أو حجب'
                                   }
                                   onClick={() => {
                                     if (blocked) {
                                       setUnblockTarget(blocked)
-                                    } else if (!booked) {
-                                      setBlockTarget({ court_id: court.id, date: dateStr, period_number: period.num })
-                                      setBlockReason('صيانة')
+                                    } else if (booked) {
+                                      openBookedSlot(court.id, dateStr, period.num)
+                                    } else {
+                                      setSlotChoiceTarget({ court_id: court.id, date: dateStr, period_number: period.num })
                                     }
                                   }}
                                 >
                                   {period.label}
                                   {blocked && <span style={{ fontSize:'.65rem', display:'block', color:'var(--color-danger)' }}>■</span>}
+                                  {booked  && <span style={{ fontSize:'.65rem', display:'block', color:'var(--text-muted)', opacity:.7 }}>●</span>}
                                 </button>
                               )
                             })}
@@ -902,7 +1081,7 @@ export default function AvailabilityPage() {
           </div>
 
           <p style={{ fontSize:'.78rem', color:'var(--text-muted)', marginTop:'.75rem' }}>
-            انقر على خلية متاحة لحجبها، وعلى خلية محجوبة لفكّ حجبها.
+            انقر على خلية متاحة للحجز السريع أو الحجب، وعلى خلية محجوزة لعرض التفاصيل أو الإلغاء.
           </p>
         </div>
       </div>
@@ -1004,6 +1183,340 @@ export default function AvailabilityPage() {
                 {unblockSaving ? 'جاري...' : 'تأكيد إلغاء الحجب'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ══════════ مودال اختيار الإجراء (خلية متاحة) ══════════ */}
+      {slotChoiceTarget && (
+        <div className="av-modal-overlay" onClick={() => setSlotChoiceTarget(null)}>
+          <div className="av-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <div className="av-modal-title">اختر الإجراء</div>
+            <div style={{ color:'var(--text-secondary)', fontSize:'.88rem', marginBottom:'1rem' }}>
+              {COURTS.find(c => c.id === slotChoiceTarget.court_id)?.icon}{' '}
+              {COURTS.find(c => c.id === slotChoiceTarget.court_id)?.label}
+              {' — '}
+              {PERIODS.find(p => p.num === slotChoiceTarget.period_number)?.label}
+              {' — '}
+              {AR_DAYS[new Date(slotChoiceTarget.date + 'T00:00:00').getDay()]}{' '}
+              {formatDateAr(new Date(slotChoiceTarget.date + 'T00:00:00'))}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'.75rem' }}>
+              <button
+                id="btn-choice-quickbook"
+                className="av-btn av-btn-primary"
+                style={{ width:'100%', justifyContent:'center' }}
+                onClick={() => openQuickBook(slotChoiceTarget)}
+              >
+                ⚡ حجز سريع
+              </button>
+              <button
+                id="btn-choice-block"
+                className="av-btn av-btn-danger"
+                style={{ width:'100%', justifyContent:'center' }}
+                onClick={() => {
+                  setBlockTarget({ court_id: slotChoiceTarget.court_id, date: slotChoiceTarget.date, period_number: slotChoiceTarget.period_number })
+                  setBlockReason('صيانة')
+                  setSlotChoiceTarget(null)
+                }}
+              >
+                🚫 حجب الفترة
+              </button>
+              <button className="av-btn av-btn-ghost" style={{ width:'100%' }} onClick={() => setSlotChoiceTarget(null)}>
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ مودال الحجز السريع ══════════ */}
+      {quickBookTarget && (
+        <div className="av-modal-overlay" onClick={() => setQuickBookTarget(null)}>
+          <div className="av-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="av-modal-title">⚡ حجز سريع</div>
+            <div style={{
+              background:'var(--bg-elevated)', borderRadius:8, padding:'.65rem .9rem',
+              fontSize:'.85rem', color:'var(--text-secondary)', marginBottom:'1rem',
+            }}>
+              {COURTS.find(c => c.id === quickBookTarget.court_id)?.icon}{' '}
+              {COURTS.find(c => c.id === quickBookTarget.court_id)?.label}
+              {' — '}
+              {PERIODS.find(p => p.num === quickBookTarget.period_number)?.label}
+              {' — '}
+              {AR_DAYS[new Date(quickBookTarget.date + 'T00:00:00').getDay()]}{' '}
+              {formatDateAr(new Date(quickBookTarget.date + 'T00:00:00'))}
+            </div>
+
+            {/* رقم الجوال + بحث */}
+            <div className="av-field">
+              <label className="av-label" htmlFor="qb-phone">رقم الجوال</label>
+              <div style={{ display:'flex', gap:'.5rem' }}>
+                <input
+                  id="qb-phone"
+                  className="av-input"
+                  type="tel"
+                  placeholder="05XXXXXXXX"
+                  value={qbPhone}
+                  onChange={e => { setQbPhone(e.target.value); setQbCustomer(null) }}
+                  onKeyDown={e => e.key === 'Enter' && searchCustomer()}
+                  dir="ltr"
+                  style={{ flex:1 }}
+                />
+                <button
+                  id="btn-qb-search"
+                  className="av-btn av-btn-ghost"
+                  onClick={searchCustomer}
+                  disabled={qbSearching || !qbPhone.trim()}
+                  style={{ whiteSpace:'nowrap', padding:'.45rem .9rem' }}
+                >
+                  {qbSearching ? '...' : '🔍 بحث'}
+                </button>
+              </div>
+            </div>
+
+            {/* نتيجة البحث */}
+            {qbCustomer && (
+              <div style={{
+                padding:'.6rem .85rem', borderRadius:7, marginBottom:'.75rem', fontSize:'.87rem',
+                ...(qbCustomer.is_suspended
+                  ? { background:'var(--color-danger-bg)', color:'var(--color-danger)', border:'1px solid rgba(224,85,85,.3)' }
+                  : qbCustomer.found
+                    ? { background:'var(--color-lime-muted)', color:'var(--color-lime)', border:'1px solid var(--color-lime-dim)' }
+                    : { background:'var(--bg-elevated)', color:'var(--text-secondary)', border:'1px solid var(--border-color)' }
+                ),
+              }}>
+                {qbCustomer.is_suspended
+                  ? `⚠️ العميل موقوف — ${qbCustomer.suspension_reason ?? 'بدون سبب محدد'}`
+                  : qbCustomer.found
+                    ? `✓ مرحباً ${qbCustomer.name}`
+                    : 'عميل جديد — أدخل الاسم'}
+              </div>
+            )}
+
+            {/* الاسم */}
+            <div className="av-field">
+              <label className="av-label" htmlFor="qb-name">الاسم</label>
+              <input
+                id="qb-name"
+                className="av-input"
+                placeholder="اسم العميل"
+                value={qbName}
+                onChange={e => setQbName(e.target.value)}
+                readOnly={!qbNameEditable && !!qbCustomer?.found}
+              />
+              {qbCustomer?.found && !qbNameEditable && (
+                <button
+                  style={{ fontSize:'.78rem', color:'var(--color-lime)', background:'none', border:'none', cursor:'pointer', marginTop:'.2rem' }}
+                  onClick={() => setQbNameEditable(true)}
+                >
+                  تعديل الاسم
+                </button>
+              )}
+            </div>
+
+            {/* حالة الدفع */}
+            <div className="av-field">
+              <label className="av-label">حالة التأكيد</label>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'.5rem' }}>
+                {([['confirmed','✅ مؤكد (مدفوع)'],['pending','⏳ بانتظار الإيصال']] as const).map(([val, lbl]) => (
+                  <label key={val} style={{
+                    display:'flex', alignItems:'center', gap:'.5rem',
+                    padding:'.55rem .8rem', borderRadius:7, cursor:'pointer',
+                    border: qbStatus === val ? '1px solid var(--color-lime-dim)' : '1px solid var(--border-color)',
+                    background: qbStatus === val ? 'var(--color-lime-muted)' : 'var(--bg-elevated)',
+                    fontSize:'.85rem', color: qbStatus === val ? 'var(--color-lime)' : 'var(--text-secondary)',
+                  }}>
+                    <input type="radio" name="qb-status" value={val} checked={qbStatus === val}
+                      onChange={() => setQbStatus(val)} style={{ display:'none' }} />
+                    {lbl}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* كود الخصم */}
+            <div className="av-field">
+              <label className="av-label" htmlFor="qb-code">كود خصم (اختياري)</label>
+              <input
+                id="qb-code"
+                className="av-input"
+                placeholder="SUMMER25"
+                value={qbCode}
+                onChange={e => setQbCode(e.target.value.toUpperCase())}
+                dir="ltr"
+              />
+            </div>
+
+            {/* المياه */}
+            <div className="av-field">
+              <label className="av-label" htmlFor="qb-water">كمية المياه (كراتين)</label>
+              <input
+                id="qb-water"
+                className="av-input"
+                type="number"
+                min={0}
+                value={qbWater}
+                onChange={e => setQbWater(Math.max(0, Number(e.target.value)))}
+              />
+            </div>
+
+            {/* السعر */}
+            {qbPrice && (
+              <div style={{
+                background:'var(--bg-elevated)', border:'1px solid var(--border-color)',
+                borderRadius:8, padding:'.65rem .9rem', fontSize:'.85rem',
+                color:'var(--text-secondary)', marginBottom:'.75rem',
+              }}>
+                <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span>السعر الأصلي</span><span>{qbPrice.base_price} ر.س</span>
+                </div>
+                {qbPrice.discount_amount > 0 && (
+                  <div style={{ display:'flex', justifyContent:'space-between', color:'var(--color-danger)' }}>
+                    <span>الخصم</span><span>-{qbPrice.discount_amount} ر.س</span>
+                  </div>
+                )}
+                <div style={{ display:'flex', justifyContent:'space-between', fontWeight:700, color:'var(--text-primary)', marginTop:'.35rem', borderTop:'1px solid var(--border-subtle)', paddingTop:'.35rem' }}>
+                  <span>المبلغ النهائي</span><span>{qbPrice.final_price} ر.س</span>
+                </div>
+              </div>
+            )}
+
+            <div className="av-modal-btns">
+              <button className="av-btn av-btn-ghost" onClick={() => setQuickBookTarget(null)} disabled={qbSaving}>إلغاء</button>
+              <button
+                id="btn-confirm-quickbook"
+                className="av-btn av-btn-primary"
+                onClick={handleQuickBook}
+                disabled={qbSaving || !qbPhone.trim() || !qbName.trim()}
+              >
+                {qbSaving ? 'جاري...' : '✓ تأكيد الحجز'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ مودال تفاصيل الحجز (خلية محجوزة) ══════════ */}
+      {(bookingDetail || bookingDetailLoading) && (
+        <div className="av-modal-overlay" onClick={() => { setBookingDetail(null); setCancelMode(false) }}>
+          <div className="av-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            {bookingDetailLoading ? (
+              <div style={{ textAlign:'center', padding:'2rem' }}>
+                <div className="av-spinner" style={{ margin:'0 auto' }} />
+              </div>
+            ) : bookingDetail ? (
+              <>
+                <div className="av-modal-title">تفاصيل الحجز</div>
+
+                {/* تفاصيل الفترة */}
+                <div style={{
+                  background:'var(--bg-elevated)', borderRadius:8, padding:'.65rem .9rem',
+                  fontSize:'.85rem', color:'var(--text-secondary)', marginBottom:'1rem',
+                }}>
+                  {COURTS.find(c => c.id === bookingDetail.court_id)?.icon}{' '}
+                  {COURTS.find(c => c.id === bookingDetail.court_id)?.label}
+                  {' — '}
+                  {PERIODS.find(p => p.num === bookingDetail.period_number)?.label}
+                  {' — '}
+                  {AR_DAYS[new Date(bookingDetail.booking_date + 'T00:00:00').getDay()]}{' '}
+                  {formatDateAr(new Date(bookingDetail.booking_date + 'T00:00:00'))}
+                </div>
+
+                {/* بيانات العميل */}
+                <div style={{
+                  background:'var(--bg-elevated)', border:'1px solid var(--border-color)',
+                  borderRadius:8, padding:'.7rem .9rem', marginBottom:'.75rem',
+                }}>
+                  <div style={{ fontWeight:700, color:'var(--text-primary)', fontSize:'.9rem', marginBottom:'.25rem' }}>
+                    👤 {bookingDetail.customer_name}
+                  </div>
+                  <div style={{ color:'var(--text-secondary)', fontSize:'.83rem' }} dir="ltr">
+                    📱 {bookingDetail.customer_phone}
+                  </div>
+                  {bookingDetail.is_manual && (
+                    <div style={{ color:'var(--color-info)', fontSize:'.78rem', marginTop:'.25rem' }}>حجز يدوي</div>
+                  )}
+                </div>
+
+                {/* الفاتورة */}
+                <div style={{
+                  border:'1px solid var(--border-color)', borderRadius:8,
+                  overflow:'hidden', marginBottom:'.75rem', fontSize:'.85rem',
+                }}>
+                  {[
+                    ['السعر الأصلي', `${bookingDetail.base_price} ر.س`],
+                    ...(bookingDetail.discount_amount > 0 ? [[`الخصم${bookingDetail.code_used ? ` (${bookingDetail.code_used})` : ''}`, `-${bookingDetail.discount_amount} ر.س`]] : []),
+                    ...(bookingDetail.water_quantity > 0 ? [[`مياه (${bookingDetail.water_quantity} كرتون)`, `${bookingDetail.water_quantity * 10} ر.س`]] : []),
+                  ].map(([k, v], i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'.5rem .9rem', borderBottom:'1px solid var(--border-subtle)', color:'var(--text-secondary)' }}>
+                      <span>{k}</span><span>{v}</span>
+                    </div>
+                  ))}
+                  <div style={{ display:'flex', justifyContent:'space-between', padding:'.6rem .9rem', fontWeight:700, color:'var(--text-primary)', background:'var(--bg-elevated)' }}>
+                    <span>المبلغ النهائي</span><span>{bookingDetail.final_price} ر.س</span>
+                  </div>
+                </div>
+
+                {/* الحالة */}
+                <div style={{ marginBottom:'1rem', display:'flex', alignItems:'center', gap:'.5rem' }}>
+                  <span style={{ fontSize:'.83rem', color:'var(--text-secondary)' }}>الحالة:</span>
+                  <span style={{
+                    padding:'.2rem .7rem', borderRadius:20, fontSize:'.8rem', fontWeight:700,
+                    ...(bookingDetail.status === 'confirmed'
+                      ? { background:'var(--color-lime-muted)', color:'var(--color-lime)', border:'1px solid var(--color-lime-dim)' }
+                      : { background:'var(--color-warning-bg)', color:'var(--color-warning)', border:'1px solid rgba(245,166,35,.35)' }
+                    ),
+                  }}>
+                    {bookingDetail.status === 'confirmed' ? '🟢 مؤكد' : '🟡 بانتظار الإيصال'}
+                  </span>
+                </div>
+
+                {/* وضع الإلغاء */}
+                {cancelMode ? (
+                  <>
+                    <div className="av-field">
+                      <label className="av-label" htmlFor="cancel-reason">سبب الإلغاء (اختياري)</label>
+                      <input
+                        id="cancel-reason"
+                        className="av-input"
+                        placeholder="أدخل سبب الإلغاء..."
+                        value={cancelReason}
+                        onChange={e => setCancelReason(e.target.value)}
+                      />
+                    </div>
+                    <div className="av-modal-btns">
+                      <button className="av-btn av-btn-ghost" onClick={() => setCancelMode(false)} disabled={cancelSaving}>تراجع</button>
+                      <button
+                        id="btn-confirm-cancel"
+                        className="av-btn av-btn-danger"
+                        onClick={handleCancelBooking}
+                        disabled={cancelSaving}
+                      >
+                        {cancelSaving ? 'جاري...' : 'تأكيد الإلغاء'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="av-modal-btns">
+                    <button className="av-btn av-btn-ghost" onClick={() => setBookingDetail(null)}>إغلاق</button>
+                    <button
+                      id="btn-open-booking-detail"
+                      className="av-btn av-btn-ghost"
+                      onClick={() => window.open(`/admin/bookings/${bookingDetail.id}`, '_blank')}
+                    >
+                      ✏️ تعديل كامل
+                    </button>
+                    <button
+                      id="btn-start-cancel"
+                      className="av-btn av-btn-danger"
+                      onClick={() => setCancelMode(true)}
+                    >
+                      🗑 إلغاء
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : null}
           </div>
         </div>
       )}

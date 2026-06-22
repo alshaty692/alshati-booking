@@ -16,11 +16,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { booking_date, court_id, period_number, customer_name, customer_phone, code_used, final_price, internal_note } = body
+    const {
+      booking_date, court_id, period_number,
+      customer_name, customer_phone,
+      code_used, final_price, internal_note,
+      water_quantity,
+      status: requestedStatus,
+    } = body
 
     if (!booking_date || !court_id || !period_number || !customer_name || !customer_phone) {
       return Response.json({ error: 'يرجى إكمال البيانات المطلوبة' }, { status: 400 })
     }
+
+    // الحالات المسموحة للحجز اليدوي
+    const ALLOWED_STATUSES = ['confirmed', 'pending', 'uploaded']
+    const finalStatus: string = ALLOWED_STATUSES.includes(requestedStatus) ? requestedStatus : 'confirmed'
+    const isConfirmed = finalStatus === 'confirmed'
 
     const admin = createAdminClient()
 
@@ -31,7 +42,9 @@ export async function POST(request: NextRequest) {
     })
 
     const effectiveFinalPrice = final_price ? Number(final_price) : (priceData?.final_price ?? 0)
+    const waterQty = Number(water_quantity ?? 0)
 
+    // إنشاء الحجز
     const { data: booking, error } = await admin
       .from('bookings')
       .insert({
@@ -43,10 +56,10 @@ export async function POST(request: NextRequest) {
         base_price: priceData?.base_price ?? effectiveFinalPrice,
         discount_amount: priceData?.discount_amount ?? 0,
         final_price: effectiveFinalPrice,
-        status: 'confirmed',   // الحجز اليدوي مؤكد فوراً
+        water_quantity: waterQty,
+        status: finalStatus,
         is_manual: true,
-        confirmed_by: user.id,
-        confirmed_at: new Date().toISOString(),
+        ...(isConfirmed ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() } : {}),
         internal_note: internal_note || null,
       })
       .select().single()
@@ -56,9 +69,28 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
+    // تفعيل كود الخصم إن وُجد
+    if (code_used) {
+      try {
+        await admin.rpc('increment_code_usage', { p_code: code_used })
+      } catch { /* تجاهل خطأ الكود */ }
+    }
+
+    // خصم مخزون المياه إن كان الحجز مؤكداً وفيه مياه
+    if (isConfirmed && waterQty > 0) {
+      const { data: stockRow } = await admin
+        .from('settings').select('value').eq('key', 'water_stock_available').single()
+      const current = Number(stockRow?.value ?? 0)
+      if (current >= waterQty) {
+        await admin.from('settings')
+          .upsert({ key: 'water_stock_available', value: String(current - waterQty) }, { onConflict: 'key' })
+      }
+    }
+
     await admin.from('audit_log').insert({
       table_name: 'bookings', record_id: booking.id, action: 'insert',
-      performed_by: user.id, notes: `حجز يدوي بواسطة الإدارة لـ ${customer_phone}`,
+      performed_by: user.id,
+      notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}`,
     })
 
     return Response.json({ success: true, booking_id: booking.id })
