@@ -382,8 +382,8 @@ export default function MyBookingsPage() {
           position: sticky;
           top: 0;
           z-index: 50;
-          background: var(--bg-sidebar);
-          border-bottom: 1px solid var(--border-sidebar);
+          background: var(--bg-surface);
+          border-bottom: 1px solid var(--border-color);
         }
         .mb-header-inner {
           max-width: 720px;
