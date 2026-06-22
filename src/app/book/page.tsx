@@ -10,9 +10,96 @@ import {
   CalendarDays, User, ClipboardCheck, CreditCard, CheckCircle2,
   ArrowLeft, ArrowRight, Dumbbell, BookOpen, Minus, Plus,
   Upload, Loader2, AlertTriangle, Lock, Droplets, Tag,
-  PointerIcon, PartyPopper,
+  PointerIcon, PartyPopper, MapPin, Phone, MessageCircle, MoreHorizontal,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
+
+// ── قائمة الهيدر المنسدلة ─────────────────────────────────────
+function HeaderMenu({ onMyBookings, settings }: {
+  onMyBookings: () => void
+  settings: Record<string, string>
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  // إغلاق عند الضغط خارج القائمة
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const mapUrl       = settings.facility_location || ''
+  const whatsappNum  = (settings.whatsapp_number || '').replace(/\D/g, '')
+  const phoneNum     = settings.facility_phone || ''
+
+  const items = [
+    {
+      id: 'my-bookings',
+      label: 'حجوزاتي',
+      Icon: BookOpen,
+      action: () => { setOpen(false); onMyBookings() },
+      show: true,
+    },
+    {
+      id: 'map-link',
+      label: 'موقعنا على الخريطة',
+      Icon: MapPin,
+      action: () => { setOpen(false); window.open(mapUrl, '_blank', 'noopener') },
+      show: Boolean(mapUrl),
+    },
+    {
+      id: 'whatsapp-link',
+      label: 'تواصل عبر واتساب',
+      Icon: MessageCircle,
+      action: () => { setOpen(false); window.open(`https://wa.me/${whatsappNum}`, '_blank', 'noopener') },
+      show: Boolean(whatsappNum),
+    },
+    {
+      id: 'phone-link',
+      label: `اتصل بنا${phoneNum ? ` — ${phoneNum}` : ''}`,
+      Icon: Phone,
+      action: () => { setOpen(false); window.location.href = `tel:${phoneNum}` },
+      show: Boolean(phoneNum),
+    },
+  ].filter(i => i.show)
+
+  return (
+    <div className="hdm-wrap" ref={ref}>
+      <button
+        id="btn-header-menu"
+        className="hdm-trigger"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-label="القائمة"
+      >
+        <MoreHorizontal size={16} strokeWidth={2} />
+        <span className="hdm-trigger-label">القائمة</span>
+      </button>
+
+      {open && (
+        <div className="hdm-dropdown" role="menu">
+          {items.map(({ id, label, Icon, action }) => (
+            <button
+              key={id}
+              id={id}
+              className="hdm-item"
+              role="menuitem"
+              onClick={action}
+            >
+              <Icon size={15} strokeWidth={1.75} className="hdm-item-icon" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 // ── أنواع ────────────────────────────────────────────────────
 interface BookingState {
@@ -273,10 +360,10 @@ export default function BookPage() {
             مركز حي الشاطئ
           </div>
           <div className="book-header-actions">
-            <button className="book-header-btn" onClick={() => router.push('/my-bookings')}>
-              <BookOpen size={14} strokeWidth={2} />
-              حجوزاتي
-            </button>
+            <HeaderMenu
+              onMyBookings={() => router.push('/my-bookings')}
+              settings={settings}
+            />
             <ThemeToggle className="book-theme-toggle" />
           </div>
         </div>
@@ -912,6 +999,80 @@ export default function BookPage() {
           transition: background 0.15s, color 0.15s;
         }
         .book-theme-toggle:hover { background: var(--bg-elevated); color: var(--color-lime); }
+
+        /* ── قائمة الهيدر المنسدلة ── */
+        .hdm-wrap {
+          position: relative;
+        }
+        .hdm-trigger {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          background: transparent;
+          border: 1px solid var(--border-color);
+          color: var(--text-muted);
+          border-radius: var(--radius-md);
+          padding: 0.35rem 0.75rem;
+          font-size: var(--text-xs);
+          font-weight: var(--font-semibold);
+          font-family: inherit;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+        .hdm-trigger:hover,
+        .hdm-trigger[aria-expanded="true"] {
+          border-color: var(--color-lime-dim);
+          color: var(--color-lime);
+          background: var(--color-lime-muted);
+        }
+        .hdm-trigger-label { display: inline; }
+        .hdm-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          min-width: 190px;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-xl);
+          box-shadow: var(--shadow-lg);
+          z-index: 9999;
+          overflow: hidden;
+          animation: hdm-pop 0.15s ease;
+        }
+        /* RTL: يبدأ من اليسار ليظهر تحت الزر لا يخرج يمين الشاشة */
+        @keyframes hdm-pop {
+          from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+          to   { opacity: 1; transform: none; }
+        }
+        .hdm-item {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          width: 100%;
+          padding: 0.7rem 1rem;
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid var(--border-subtle);
+          color: var(--text-primary);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          font-family: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+          cursor: pointer;
+          text-align: right;
+          transition: background 0.12s, color 0.12s;
+        }
+        .hdm-item:last-child { border-bottom: none; }
+        .hdm-item:hover {
+          background: var(--color-lime-muted);
+          color: var(--color-lime);
+        }
+        .hdm-item:hover .hdm-item-icon { color: var(--color-lime); }
+        .hdm-item-icon {
+          color: var(--text-muted);
+          flex-shrink: 0;
+          transition: color 0.12s;
+        }
 
         /* ── بانر الإغلاق ── */
         .closure-banner {
