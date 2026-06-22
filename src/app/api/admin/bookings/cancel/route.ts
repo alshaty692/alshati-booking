@@ -43,20 +43,29 @@ export async function POST(request: NextRequest) {
         .from('settings').select('value').eq('key', 'water_stock_available').single()
       const current = Number(stockRow?.value ?? 0)
       await admin.from('settings')
-        .upsert({ key: 'water_stock_available', value: String(current + booking.water_quantity) }, { onConflict: 'key' })
+        .upsert(
+          { key: 'water_stock_available', value: String(current + booking.water_quantity) },
+          { onConflict: 'key' }
+        )
     }
 
-    // إلغاء الحجز
+    // إلغاء الحجز — نستخدم internal_note لحفظ السبب بدلاً من cancellation_reason
+    const noteText = cancellation_reason
+      ? `إلغاء إداري — السبب: ${cancellation_reason}`
+      : 'إلغاء إداري'
+
     const { error: updateError } = await admin
       .from('bookings')
       .update({
         status: 'cancelled',
-        cancellation_reason: cancellation_reason || null,
-        updated_at: new Date().toISOString(),
+        internal_note: noteText,
       })
       .eq('id', booking_id)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error('[admin/bookings/cancel] updateError:', updateError)
+      throw updateError
+    }
 
     // audit log
     await admin.from('audit_log').insert({

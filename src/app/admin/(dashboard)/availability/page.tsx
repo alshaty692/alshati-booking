@@ -1232,25 +1232,33 @@ export default function AvailabilityPage() {
       {/* ══════════ مودال الحجز السريع ══════════ */}
       {quickBookTarget && (
         <div className="av-modal-overlay" onClick={() => setQuickBookTarget(null)}>
-          <div className="av-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <div className="av-modal-title">⚡ حجز سريع</div>
+          <div className="av-modal" onClick={e => e.stopPropagation()} style={{
+            maxWidth: 440, padding: 'var(--space-5)',
+            maxHeight: '90vh', overflowY: 'auto',
+          }}>
+            <div className="av-modal-title" style={{ marginBottom: '.6rem' }}>⚡ حجز سريع</div>
+
+            {/* شريط الفترة */}
             <div style={{
-              background:'var(--bg-elevated)', borderRadius:8, padding:'.65rem .9rem',
-              fontSize:'.85rem', color:'var(--text-secondary)', marginBottom:'1rem',
+              background:'var(--bg-elevated)', borderRadius:7, padding:'.45rem .8rem',
+              fontSize:'.82rem', color:'var(--text-secondary)', marginBottom:'.75rem',
+              display:'flex', alignItems:'center', gap:'.4rem', flexWrap:'wrap',
             }}>
-              {COURTS.find(c => c.id === quickBookTarget.court_id)?.icon}{' '}
-              {COURTS.find(c => c.id === quickBookTarget.court_id)?.label}
-              {' — '}
-              {PERIODS.find(p => p.num === quickBookTarget.period_number)?.label}
-              {' — '}
-              {AR_DAYS[new Date(quickBookTarget.date + 'T00:00:00').getDay()]}{' '}
-              {formatDateAr(new Date(quickBookTarget.date + 'T00:00:00'))}
+              <span>{COURTS.find(c => c.id === quickBookTarget.court_id)?.icon}</span>
+              <span style={{ fontWeight:600, color:'var(--text-primary)' }}>
+                {COURTS.find(c => c.id === quickBookTarget.court_id)?.label}
+              </span>
+              <span style={{ opacity:.5 }}>•</span>
+              <span>{PERIODS.find(p => p.num === quickBookTarget.period_number)?.label}</span>
+              <span style={{ opacity:.5 }}>•</span>
+              <span>{AR_DAYS[new Date(quickBookTarget.date + 'T00:00:00').getDay()]}</span>
+              <span>{formatDateAr(new Date(quickBookTarget.date + 'T00:00:00'))}</span>
             </div>
 
             {/* رقم الجوال + بحث */}
-            <div className="av-field">
+            <div style={{ marginBottom:'.5rem' }}>
               <label className="av-label" htmlFor="qb-phone">رقم الجوال</label>
-              <div style={{ display:'flex', gap:'.5rem' }}>
+              <div style={{ display:'flex', gap:'.4rem' }}>
                 <input
                   id="qb-phone"
                   className="av-input"
@@ -1267,7 +1275,7 @@ export default function AvailabilityPage() {
                   className="av-btn av-btn-ghost"
                   onClick={searchCustomer}
                   disabled={qbSearching || !qbPhone.trim()}
-                  style={{ whiteSpace:'nowrap', padding:'.45rem .9rem' }}
+                  style={{ whiteSpace:'nowrap', padding:'.4rem .8rem', fontSize:'.82rem' }}
                 >
                   {qbSearching ? '...' : '🔍 بحث'}
                 </button>
@@ -1277,7 +1285,7 @@ export default function AvailabilityPage() {
             {/* نتيجة البحث */}
             {qbCustomer && (
               <div style={{
-                padding:'.6rem .85rem', borderRadius:7, marginBottom:'.75rem', fontSize:'.87rem',
+                padding:'.4rem .75rem', borderRadius:6, marginBottom:'.5rem', fontSize:'.83rem',
                 ...(qbCustomer.is_suspended
                   ? { background:'var(--color-danger-bg)', color:'var(--color-danger)', border:'1px solid rgba(224,85,85,.3)' }
                   : qbCustomer.found
@@ -1294,8 +1302,16 @@ export default function AvailabilityPage() {
             )}
 
             {/* الاسم */}
-            <div className="av-field">
-              <label className="av-label" htmlFor="qb-name">الاسم</label>
+            <div style={{ marginBottom:'.5rem' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'.2rem' }}>
+                <label className="av-label" htmlFor="qb-name" style={{ marginBottom:0 }}>الاسم</label>
+                {qbCustomer?.found && !qbNameEditable && (
+                  <button
+                    style={{ fontSize:'.75rem', color:'var(--color-lime)', background:'none', border:'none', cursor:'pointer' }}
+                    onClick={() => setQbNameEditable(true)}
+                  >تعديل</button>
+                )}
+              </div>
               <input
                 id="qb-name"
                 className="av-input"
@@ -1304,27 +1320,19 @@ export default function AvailabilityPage() {
                 onChange={e => setQbName(e.target.value)}
                 readOnly={!qbNameEditable && !!qbCustomer?.found}
               />
-              {qbCustomer?.found && !qbNameEditable && (
-                <button
-                  style={{ fontSize:'.78rem', color:'var(--color-lime)', background:'none', border:'none', cursor:'pointer', marginTop:'.2rem' }}
-                  onClick={() => setQbNameEditable(true)}
-                >
-                  تعديل الاسم
-                </button>
-              )}
             </div>
 
-            {/* حالة الدفع */}
-            <div className="av-field">
+            {/* حالة التأكيد */}
+            <div style={{ marginBottom:'.6rem' }}>
               <label className="av-label">حالة التأكيد</label>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'.5rem' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'.4rem' }}>
                 {([['confirmed','✅ مؤكد (مدفوع)'],['pending','⏳ بانتظار الإيصال']] as const).map(([val, lbl]) => (
                   <label key={val} style={{
-                    display:'flex', alignItems:'center', gap:'.5rem',
-                    padding:'.55rem .8rem', borderRadius:7, cursor:'pointer',
+                    display:'flex', alignItems:'center', gap:'.4rem',
+                    padding:'.45rem .7rem', borderRadius:6, cursor:'pointer',
                     border: qbStatus === val ? '1px solid var(--color-lime-dim)' : '1px solid var(--border-color)',
                     background: qbStatus === val ? 'var(--color-lime-muted)' : 'var(--bg-elevated)',
-                    fontSize:'.85rem', color: qbStatus === val ? 'var(--color-lime)' : 'var(--text-secondary)',
+                    fontSize:'.82rem', color: qbStatus === val ? 'var(--color-lime)' : 'var(--text-secondary)',
                   }}>
                     <input type="radio" name="qb-status" value={val} checked={qbStatus === val}
                       onChange={() => setQbStatus(val)} style={{ display:'none' }} />
@@ -1334,38 +1342,38 @@ export default function AvailabilityPage() {
               </div>
             </div>
 
-            {/* كود الخصم */}
-            <div className="av-field">
-              <label className="av-label" htmlFor="qb-code">كود خصم (اختياري)</label>
-              <input
-                id="qb-code"
-                className="av-input"
-                placeholder="SUMMER25"
-                value={qbCode}
-                onChange={e => setQbCode(e.target.value.toUpperCase())}
-                dir="ltr"
-              />
-            </div>
-
-            {/* المياه */}
-            <div className="av-field">
-              <label className="av-label" htmlFor="qb-water">كمية المياه (كراتين)</label>
-              <input
-                id="qb-water"
-                className="av-input"
-                type="number"
-                min={0}
-                value={qbWater}
-                onChange={e => setQbWater(Math.max(0, Number(e.target.value)))}
-              />
+            {/* كود الخصم + المياه في صف واحد */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'.5rem', marginBottom:'.6rem' }}>
+              <div>
+                <label className="av-label" htmlFor="qb-code">كود خصم (اختياري)</label>
+                <input
+                  id="qb-code"
+                  className="av-input"
+                  placeholder="SUMMER25"
+                  value={qbCode}
+                  onChange={e => setQbCode(e.target.value.toUpperCase())}
+                  dir="ltr"
+                />
+              </div>
+              <div>
+                <label className="av-label" htmlFor="qb-water">المياه (كراتين)</label>
+                <input
+                  id="qb-water"
+                  className="av-input"
+                  type="number"
+                  min={0}
+                  value={qbWater}
+                  onChange={e => setQbWater(Math.max(0, Number(e.target.value)))}
+                />
+              </div>
             </div>
 
             {/* السعر */}
             {qbPrice && (
               <div style={{
                 background:'var(--bg-elevated)', border:'1px solid var(--border-color)',
-                borderRadius:8, padding:'.65rem .9rem', fontSize:'.85rem',
-                color:'var(--text-secondary)', marginBottom:'.75rem',
+                borderRadius:7, padding:'.5rem .8rem', fontSize:'.82rem',
+                color:'var(--text-secondary)', marginBottom:'.6rem',
               }}>
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
                   <span>السعر الأصلي</span><span>{qbPrice.base_price} ر.س</span>
@@ -1375,13 +1383,17 @@ export default function AvailabilityPage() {
                     <span>الخصم</span><span>-{qbPrice.discount_amount} ر.س</span>
                   </div>
                 )}
-                <div style={{ display:'flex', justifyContent:'space-between', fontWeight:700, color:'var(--text-primary)', marginTop:'.35rem', borderTop:'1px solid var(--border-subtle)', paddingTop:'.35rem' }}>
+                <div style={{
+                  display:'flex', justifyContent:'space-between',
+                  fontWeight:700, color:'var(--text-primary)',
+                  marginTop:'.3rem', borderTop:'1px solid var(--border-subtle)', paddingTop:'.3rem',
+                }}>
                   <span>المبلغ النهائي</span><span>{qbPrice.final_price} ر.س</span>
                 </div>
               </div>
             )}
 
-            <div className="av-modal-btns">
+            <div className="av-modal-btns" style={{ marginTop:'.6rem' }}>
               <button className="av-btn av-btn-ghost" onClick={() => setQuickBookTarget(null)} disabled={qbSaving}>إلغاء</button>
               <button
                 id="btn-confirm-quickbook"
