@@ -203,7 +203,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
-  overflow-x: hidden;
+  /* overflow-x:hidden على html/body يكسر position:fixed (drawer الجوال) — محذوف */
 
   /* انتقال ناعم للخلفية والنصوص فقط — لا transitions عامة لتجنب إبطاء التفاعلية */
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -216,7 +216,7 @@ body {
   color: var(--text-primary);
   line-height: 1.7;
   min-height: 100vh;
-  overflow-x: hidden;
+  /* overflow-x:hidden حذف — يكسر position:fixed على الجوال (يحجب drawer القائمة الجانبية) */
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 

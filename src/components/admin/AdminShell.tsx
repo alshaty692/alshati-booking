@@ -43,6 +43,11 @@ export default function AdminShell({ role, userName, userEmail, children }: Prop
       >
         {children}
       </main>
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-main { margin-right: 0 !important; }
+        }
+      `}</style>
     </div>
   )
 }
