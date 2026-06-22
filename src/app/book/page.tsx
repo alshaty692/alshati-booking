@@ -829,7 +829,7 @@ export default function BookPage() {
         .live-summary-btn:hover { background: #d4b77a; }
 
         /* ── المحتوى ── */
-        .book-main { max-width: 720px; margin-inline: auto; padding: 1.25rem 1rem 5rem; }
+        .book-main { display: block; width: 100%; max-width: 720px; margin-inline: auto; padding: 1.25rem 1rem 5rem; }
         .book-step { animation: slideUp 0.3s ease; }
         .step-title { font-size: 1.4rem; margin-bottom: 0.4rem; color: ${C.navy}; font-weight: 800; }
         .step-desc  { color: #64748b; margin-bottom: 1.25rem; font-size: 0.9rem; }
@@ -874,18 +874,25 @@ export default function BookPage() {
         .date-pill.selected .date-pill-num   { color: ${C.green}; }
         .date-pill.selected .date-pill-month { color: ${C.green}; }
 
-        /* ── كمبيوتر: الكروت تتمدد لتملأ العرض ديناميكياً ── */
+        /* ── كمبيوتر: محتوى بعرض كامل مع padding متماثل ── */
         @media (min-width: 1024px) {
-          /* توسيع جميع الحاويات — margin-inline يعمل صحيح في RTL بخلاف margin: 0 auto */
-          .book-main,
-          .book-header-inner,
-          .closure-banner-inner,
-          .book-progress-wrap > *,
-          .live-summary-bar > * {
-            max-width: 1100px;
-          }
           .book-main {
-            padding: 1.5rem 2rem 5rem;
+            max-width: none;
+            padding: 1.5rem 10vw 5rem;
+          }
+          .book-header-inner {
+            max-width: none;
+            padding: 0.875rem 10vw;
+          }
+          .closure-banner-inner {
+            max-width: none;
+            padding: 0.875rem 10vw;
+          }
+          .book-progress-wrap {
+            padding: 0.75rem 10vw 0.625rem;
+          }
+          .live-summary-bar {
+            padding: 0.5rem 10vw;
           }
           .dates-scroll-wrap {
             overflow-x: visible;
