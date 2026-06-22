@@ -876,6 +876,11 @@ export default function BookPage() {
 
         /* ── كمبيوتر: الكروت تتمدد لتملأ العرض ديناميكياً ── */
         @media (min-width: 1024px) {
+          /* توسيع الحاوي الرئيسي — هذا هو السبب الحقيقي للتجمّع */
+          .book-main {
+            max-width: 1100px;
+            padding: 1.5rem 2rem 5rem;
+          }
           .dates-scroll-wrap {
             overflow-x: visible;
             margin: 0 0 1.5rem;
@@ -888,7 +893,6 @@ export default function BookPage() {
           .date-pill {
             flex: 1;
             min-width: 0;
-            max-width: 180px;
           }
           .courts-grid {
             gap: 0.75rem;
