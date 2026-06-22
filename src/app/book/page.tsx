@@ -840,7 +840,7 @@ export default function BookPage() {
         }
         .step-back:hover { text-decoration: underline; }
 
-        /* ── أزرار الأيام (أفقية قابلة للتمرير) ── */
+        /* ── أزرار الأيام (أفقية قابلة للتمرير على الجوال) ── */
         .dates-scroll-wrap {
           overflow-x: auto; -webkit-overflow-scrolling: touch;
           margin: 0 -1rem 1.5rem; padding: 0 1rem;
@@ -873,6 +873,30 @@ export default function BookPage() {
         .date-pill.selected .date-pill-day   { color: ${C.green}; }
         .date-pill.selected .date-pill-num   { color: ${C.green}; }
         .date-pill.selected .date-pill-month { color: ${C.green}; }
+
+        /* ── كمبيوتر: الكروت تتمدد لتملأ العرض ديناميكياً ── */
+        @media (min-width: 1024px) {
+          .dates-scroll-wrap {
+            overflow-x: visible;
+            margin: 0 0 1.5rem;
+            padding: 0;
+          }
+          .dates-scroll {
+            width: 100%;
+            flex-wrap: nowrap;
+          }
+          .date-pill {
+            flex: 1;
+            min-width: 0;
+            max-width: 180px;
+          }
+          .courts-grid {
+            gap: 0.75rem;
+          }
+          .court-col {
+            padding: 0.875rem 0.75rem;
+          }
+        }
 
         /* ── تلميح اختر يوماً ── */
         .date-hint {
