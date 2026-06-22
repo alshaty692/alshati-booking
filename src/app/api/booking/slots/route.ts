@@ -21,8 +21,11 @@ export async function GET(request: NextRequest) {
       .single()
 
     const windowDays = Math.max(1, Number(windowSetting?.value) || 7)
-    const today      = new Date().toISOString().slice(0, 10)
-    const maxDate    = new Date(Date.now() + windowDays * 86_400_000).toISOString().slice(0, 10)
+    // استخدم التوقيت المحلي السعودي بدل UTC لتجنب فرق يوم
+    const nowSA   = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
+    const today   = `${nowSA.getFullYear()}-${String(nowSA.getMonth()+1).padStart(2,'0')}-${String(nowSA.getDate()).padStart(2,'0')}`
+    const maxD    = new Date(nowSA); maxD.setDate(maxD.getDate() + windowDays)
+    const maxDate = `${maxD.getFullYear()}-${String(maxD.getMonth()+1).padStart(2,'0')}-${String(maxD.getDate()).padStart(2,'0')}`
 
     // ١) جلب الفترات المتاحة من الـ View — مفلترة بنافذة الحجز مباشرة
     const { data: slots, error } = await supabase

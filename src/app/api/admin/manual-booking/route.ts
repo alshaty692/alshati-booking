@@ -90,10 +90,37 @@ export async function POST(request: NextRequest) {
       p_code: code_used || null,
     })
 
-    const effectiveFinalPrice = final_price
+    const waterQty = Math.max(0, Math.min(Number(water_quantity) || 0, 50)) // حد أمان
+
+    // ── حساب سعر المياه + التحقق من المخزون ────────────────
+    let waterTotal = 0
+    let waterPricePerCarton = 0
+    if (waterQty > 0) {
+      const { data: waterSettings } = await admin
+        .from('settings')
+        .select('key, value')
+        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available'])
+
+      waterPricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
+      const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+      const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '0')
+
+      if (stockAvailable <= 0) {
+        return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
+      }
+      if (waterQty > stockAvailable) {
+        return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
+      }
+
+      const clampedQty = Math.min(waterQty, maxCartons)
+      waterTotal = clampedQty * waterPricePerCarton
+    }
+
+    // السعر النهائي = سعر الملعب (بعد الخصم) + سعر المياه
+    const courtPrice = final_price
       ? Number(final_price)
       : (priceData?.final_price ?? 0)
-    const waterQty = Number(water_quantity ?? 0)
+    const effectiveFinalPrice = courtPrice + waterTotal
 
     // ── إنشاء سجل حجز جديد نظيف ────────────────────────────
     const { data: booking, error: insertError } = await admin
@@ -105,7 +132,7 @@ export async function POST(request: NextRequest) {
         customer_phone,
         customer_name,
         code_used:       code_used || null,
-        base_price:      priceData?.base_price ?? effectiveFinalPrice,
+        base_price:      priceData?.base_price ?? courtPrice,
         discount_amount: priceData?.discount_amount ?? 0,
         final_price:     effectiveFinalPrice,
         water_quantity:  waterQty,
@@ -142,13 +169,13 @@ export async function POST(request: NextRequest) {
         .from('settings')
         .select('value')
         .eq('key', 'water_stock_available')
-        .single()
+        .maybeSingle()
       const current = Number(stockRow?.value ?? 0)
       if (current >= waterQty) {
-        await admin.from('settings').upsert(
-          { key: 'water_stock_available', value: String(current - waterQty) },
-          { onConflict: 'key' }
-        )
+        await admin
+          .from('settings')
+          .update({ value: String(current - waterQty) })
+          .eq('key', 'water_stock_available')
       }
     }
 

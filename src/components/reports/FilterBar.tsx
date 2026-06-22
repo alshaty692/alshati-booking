@@ -32,7 +32,12 @@ const STATUSES: { id: StatusFilter; label: string }[] = [
 
 // ── دالة حساب التاريخ حسب الـ preset ──
 export function getDateRange(preset: TimePreset): { from: string; to: string } {
-  const fmt   = (d: Date) => d.toISOString().split('T')[0]
+  const fmt = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${dd}`
+  }
   const now   = new Date()
   const today = fmt(now)
   switch (preset) {

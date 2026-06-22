@@ -4,7 +4,7 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatDate, formatAmount, formatDateTime, getCourtName, getPeriodName } from '@/lib/utils'
+import { formatDate, formatAmount, formatDateTime, getCourtName, getPeriodName, localDateStr } from '@/lib/utils'
 import type { Booking } from '@/types'
 import {
   ArrowRight, Star, X, CalendarDays, Clock,
@@ -166,7 +166,7 @@ export default function MyBookingsPage() {
   const [error,      setError]      = useState('')
   const [ratingFor,  setRatingFor]  = useState<string | null>(null)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDateStr(new Date())
 
   const canRate = useCallback((bk: BookingWithRating): boolean => (
     bk.status === 'confirmed' && bk.booking_date < today && !bk.rating

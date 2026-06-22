@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
     }
 
     // يجب أن يكون تاريخ الحجز قبل اليوم
-    const today = new Date().toISOString().split('T')[0]
+    const nowSA = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
+    const today = `${nowSA.getFullYear()}-${String(nowSA.getMonth()+1).padStart(2,'0')}-${String(nowSA.getDate()).padStart(2,'0')}`
     if (booking.booking_date >= today) {
       return Response.json({ error: 'يمكن التقييم بعد انتهاء موعد الحجز فقط' }, { status: 400 })
     }

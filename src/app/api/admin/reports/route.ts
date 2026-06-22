@@ -63,8 +63,11 @@ export async function GET(request: NextRequest) {
 
     // 2. قراءة الفلاتر من الـ URL
     const { searchParams } = new URL(request.url)
-    const today = new Date().toISOString().split('T')[0]
-    const from   = searchParams.get('from')   ?? new Date(Date.now() - 29 * 86400000).toISOString().split('T')[0]
+    const nowSA = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
+    const fmtSA = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    const today = fmtSA(nowSA)
+    const defaultFrom = new Date(nowSA); defaultFrom.setDate(defaultFrom.getDate() - 29)
+    const from   = searchParams.get('from')   ?? fmtSA(defaultFrom)
     const to     = searchParams.get('to')     ?? today
     const court  = (searchParams.get('court')  ?? 'all') as CourtFilter
     const status = (searchParams.get('status') ?? 'all') as StatusFilter

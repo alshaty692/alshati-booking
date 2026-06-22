@@ -46,7 +46,10 @@ function addDays(date: Date, n: number): Date {
 }
 
 function toISO(date: Date): string {
-  return date.toISOString().slice(0, 10)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function formatDateAr(date: Date): string {
@@ -1607,7 +1610,7 @@ export default function AvailabilityPage() {
               </thead>
               <tbody>
                 {venueClosures.map(vc => {
-                  const today = new Date().toISOString().slice(0,10)
+                  const today = toISO(new Date())
                   const isActive = vc.start_date <= today && vc.end_date >= today
                   const isExpired = vc.end_date < today
                   const court = COURTS.find(c => c.id === vc.court_id)

@@ -50,13 +50,22 @@ export function formatAmount(amount: number): string {
   }).format(amount)
 }
 
+// تحويل Date لنص YYYY-MM-DD بالتوقيت المحلي (بدل UTC)
+// مهم جداً: toISOString() يُرجع UTC ويسبب فرق يوم في المنطقة الزمنية +3
+export function localDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 // الحصول على أيام الأسبوع القادمة
 export function getNextDays(count: number = 7): string[] {
   const days: string[] = []
   for (let i = 0; i < count; i++) {
     const date = new Date()
     date.setDate(date.getDate() + i)
-    days.push(date.toISOString().split('T')[0])
+    days.push(localDateStr(date))
   }
   return days
 }
