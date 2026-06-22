@@ -1,6 +1,7 @@
 // ============================================================
 // API Route — جلب الفترات المتاحة
 // يدمج: available_slots + blocked_slots + slot_holds
+// يطبّق نافذة الحجز (booking_window_days) من الإعدادات live
 // ============================================================
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
@@ -12,10 +13,23 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies()
     const myPhone = cookieStore.get('booking_phone')?.value ?? ''
 
-    // ١) جلب الفترات المتاحة من الـ View
+    // ٠) جلب نافذة الحجز من الإعدادات (live)
+    const { data: windowSetting } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'booking_window_days')
+      .single()
+
+    const windowDays = Math.max(1, Number(windowSetting?.value) || 7)
+    const today      = new Date().toISOString().slice(0, 10)
+    const maxDate    = new Date(Date.now() + windowDays * 86_400_000).toISOString().slice(0, 10)
+
+    // ١) جلب الفترات المتاحة من الـ View — مفلترة بنافذة الحجز مباشرة
     const { data: slots, error } = await supabase
       .from('available_slots')
       .select('day_date, court_id, period_number, is_available')
+      .gte('day_date', today)
+      .lte('day_date', maxDate)
       .order('day_date')
       .order('court_id')
       .order('period_number')
@@ -26,6 +40,8 @@ export async function GET(request: NextRequest) {
     const { data: blocked } = await supabase
       .from('blocked_slots')
       .select('date, court_id, period_number')
+      .gte('date', today)
+      .lte('date', maxDate)
 
     // ٣) جلب الحجوزات المؤقتة النشطة (غير منتهية)
     const { data: holds } = await supabase
@@ -55,11 +71,11 @@ export async function GET(request: NextRequest) {
       return {
         ...slot,
         is_available: slot.is_available && !isBlocked && !isHeldByOther,
-        is_held: !!isHeldByOther, // للتمييز في الواجهة بين "محجوز" و"قيد الحجز"
+        is_held: !!isHeldByOther,
       }
     })
 
-    return Response.json({ slots: mergedSlots })
+    return Response.json({ slots: mergedSlots, window_days: windowDays })
   } catch (err) {
     console.error('[slots]', err)
     return Response.json({ error: 'فشل جلب المواعيد' }, { status: 500 })

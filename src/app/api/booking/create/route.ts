@@ -44,13 +44,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── التحقق من حد الحجوزات المعلّقة لهذا الجوال ─────────
-    const { data: limitOk } = await supabase.rpc('check_pending_limit', {
-      p_phone: phone,
-    })
-    if (!limitOk) {
+    // ── جلب حد الحجوزات المعلّقة من الإعدادات (live) ───────────────
+    const { data: pendingLimitRow } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'max_pending_bookings')
+      .single()
+
+    const maxPending = Math.max(1, Number(pendingLimitRow?.value) || 3)
+
+    // عد الحجوزات المعلّقة الحالية لهذا الجوال
+    const { count: pendingCount } = await supabase
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('customer_phone', phone)
+      .eq('status', 'pending')
+
+    if ((pendingCount ?? 0) >= maxPending) {
       return Response.json(
-        { error: 'لديك حجوزات معلّقة، يرجى إكمالها أو انتظار إلغائها التلقائي' },
+        { error: `لديك حجوزات معلّقة (الحد: ${maxPending}). يرجى إكمالها أو انتظار إلغائها التلقائي` },
         { status: 429 }
       )
     }
