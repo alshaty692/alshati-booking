@@ -35,7 +35,7 @@ const C = {
   beige: '#F5F2EC',
 }
 const COURTS = ['football', 'volleyball', 'multi'] as const
-const COURT_ICONS: Record<string, string> = { football:'⚽', volleyball:'🏐', multi:'🏅' }
+const COURT_ICONS: Record<string, string> = { football:'⚽', volleyball:'🏐', multi:'🏀🏐' }
 
 // ── الصفحة ───────────────────────────────────────────────────
 export default function BookPage() {
