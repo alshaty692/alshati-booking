@@ -7,21 +7,22 @@ import type { AdminRole } from '@/types'
 import {
   LayoutDashboard, ClipboardList, PenLine, Users, Tag,
   CalendarDays, BarChart2, Settings2, AlignJustify, X,
-  LogOut, ChevronRight,
+  LogOut, ChevronRight, Package,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
 interface Props { role: AdminRole; userName: string; userEmail: string }
 
 const NAV = [
-  { href: '/admin',              Icon: LayoutDashboard, label: 'الرئيسية',   roles: ['admin','editor','viewer'] },
-  { href: '/admin/bookings',     Icon: ClipboardList,   label: 'الحجوزات',   roles: ['admin','editor','viewer'] },
-  { href: '/admin/bookings/new', Icon: PenLine,         label: 'حجز يدوي',   roles: ['admin','editor'] },
-  { href: '/admin/customers',    Icon: Users,           label: 'العملاء',    roles: ['admin','editor','viewer'] },
-  { href: '/admin/codes',        Icon: Tag,             label: 'الأكواد',    roles: ['admin','editor'] },
-  { href: '/admin/availability', Icon: CalendarDays,    label: 'التوافر',    roles: ['admin','editor'] },
-  { href: '/admin/reports',      Icon: BarChart2,       label: 'التقارير',   roles: ['admin','editor','viewer'] },
-  { href: '/admin/settings',     Icon: Settings2,       label: 'الإعدادات',  roles: ['admin'] },
+  { href: '/admin',                Icon: LayoutDashboard, label: 'الرئيسية',    roles: ['admin','editor','viewer'] },
+  { href: '/admin/bookings',       Icon: ClipboardList,   label: 'الحجوزات',    roles: ['admin','editor','viewer'] },
+  { href: '/admin/bookings/new',   Icon: PenLine,         label: 'حجز يدوي',    roles: ['admin','editor'] },
+  { href: '/admin/batch-booking',  Icon: Package,         label: 'حجز متعدد',   roles: ['admin','editor'] },
+  { href: '/admin/customers',      Icon: Users,           label: 'العملاء',     roles: ['admin','editor','viewer'] },
+  { href: '/admin/codes',          Icon: Tag,             label: 'الأكواد',     roles: ['admin','editor'] },
+  { href: '/admin/availability',   Icon: CalendarDays,    label: 'التوافر',     roles: ['admin','editor'] },
+  { href: '/admin/reports',        Icon: BarChart2,       label: 'التقارير',    roles: ['admin','editor','viewer'] },
+  { href: '/admin/settings',       Icon: Settings2,       label: 'الإعدادات',   roles: ['admin'] },
 ]
 
 const LS_KEY = 'admin_sidebar_expanded'

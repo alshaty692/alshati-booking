@@ -76,6 +76,7 @@ export interface Booking {
   is_manual: boolean
   confirmed_by: string | null
   confirmed_at: string | null
+  batch_id: string | null       // مُضاف: ربط الحجوزات المتعددة — NULL = حجز فردي
   created_at: string
   updated_at: string
 }

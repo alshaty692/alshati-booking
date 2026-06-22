@@ -7,9 +7,10 @@ import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
 import {
   ClipboardList, FileText, CheckCircle2, XCircle, Trash2,
-  StickyNote, Star, Droplets, PenLine, Globe, Save, AlertTriangle,
+  StickyNote, Star, Droplets, PenLine, Globe, Save, AlertTriangle, Package,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
+import BatchCancelButton from '@/components/admin/BatchCancelButton'
 
 export const metadata: Metadata = { title: 'تفاصيل الحجز' }
 
@@ -208,6 +209,19 @@ export default async function BookingDetailPage({ params }: Props) {
               }
             </span>
           } />
+          {booking.batch_id && (
+            <Row label="رقم الباقة" value={
+              <span style={{
+                fontFamily:'monospace', fontWeight:700, fontSize:'0.85rem',
+                color:'#a78bfa', background:'rgba(139,92,246,0.1)',
+                padding:'0.15rem 0.4rem', borderRadius:'0.3rem',
+                border:'1px solid rgba(139,92,246,0.25)',
+                display:'inline-flex', alignItems:'center', gap:'0.3rem',
+              }}>
+                <Package size={12}/> {booking.batch_id}
+              </span>
+            } />
+          )}
           <Row label="وقت الحجز" value={formatDateTime(booking.created_at)} />
           {booking.confirmed_at && <Row label="وقت الاعتماد" value={formatDateTime(booking.confirmed_at)} />}
           {booking.rejection_reason && (
@@ -280,6 +294,20 @@ export default async function BookingDetailPage({ params }: Props) {
                   هذا الإجراء لا يمكن التراجع عنه — ستتحرر الفترة
                 </p>
               </form>
+            </div>
+          )}
+
+          {/* إلغاء جماعي للباقة — يظهر فقط إذا كان الحجز ضمن باقة */}
+          {canEdit && booking.batch_id && ['pending', 'uploaded', 'confirmed'].includes(booking.status) && (
+            <div className="card" style={{ borderColor: 'rgba(139,92,246,0.3)' }}>
+              <CardHead
+                icon={<Package size={16} strokeWidth={1.75} />}
+                title={`إلغاء كامل الباقة (${booking.batch_id})`}
+              />
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
+                يُلغي جميع الحجوزات النشطة المرتبطة بهذه الباقة دفعة واحدة (لا يشمل المُلغاة مسبقاً).
+              </p>
+              <BatchCancelButton batchId={booking.batch_id} />
             </div>
           )}
 

@@ -3,12 +3,12 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { formatAmount, formatDateTime, getCourtName, getPeriodName } from '@/lib/utils'
 import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
-import { Search, X, PenLine } from 'lucide-react'
+import { Search, X, PenLine, Package } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 
 export const metadata: Metadata = { title: 'الحجوزات' }
 
-interface Props { searchParams: Promise<{ status?: string; court?: string; date?: string; q?: string }> }
+interface Props { searchParams: Promise<{ status?: string; court?: string; date?: string; q?: string; batch_only?: string }> }
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'badge-pending', uploaded: 'badge-uploaded', confirmed: 'badge-confirmed',
@@ -35,14 +35,15 @@ export default async function BookingsPage({ searchParams }: Props) {
 
   let query = supabase
     .from('bookings')
-    .select('id,booking_date,court_id,period_number,customer_name,customer_phone,code_used,final_price,status,is_manual,created_at,receipt_url')
+    .select('id,booking_date,court_id,period_number,customer_name,customer_phone,code_used,final_price,status,is_manual,created_at,receipt_url,batch_id')
     .order('created_at', { ascending: false })
     .limit(200)
 
-  if (params.status) query = query.eq('status', params.status)
-  if (params.court)  query = query.eq('court_id', params.court)
-  if (params.date)   query = query.eq('booking_date', params.date)
-  if (params.q)      query = query.or(`customer_name.ilike.%${params.q}%,customer_phone.ilike.%${params.q}%`)
+  if (params.status)     query = query.eq('status', params.status)
+  if (params.court)      query = query.eq('court_id', params.court)
+  if (params.date)       query = query.eq('booking_date', params.date)
+  if (params.q)          query = query.or(`customer_name.ilike.%${params.q}%,customer_phone.ilike.%${params.q}%`)
+  if (params.batch_only) query = query.not('batch_id', 'is', null)
 
   const { data: bookings, error } = await query
   if (error) console.error('[BookingsPage]', error)
@@ -59,10 +60,16 @@ export default async function BookingsPage({ searchParams }: Props) {
         title="الحجوزات"
         subtitle={`${bookings?.length ?? 0} حجز`}
         action={
-          <Link href="/admin/bookings/new" className="btn btn-primary">
-            <PenLine size={16} strokeWidth={2} />
-            حجز يدوي
-          </Link>
+          <div style={{ display:'flex', gap:'0.5rem' }}>
+            <Link href="/admin/batch-booking" className="btn btn-secondary">
+              <Package size={15} strokeWidth={2} />
+              حجز متعدد
+            </Link>
+            <Link href="/admin/bookings/new" className="btn btn-primary">
+              <PenLine size={16} strokeWidth={2} />
+              حجز يدوي
+            </Link>
+          </div>
         }
       />
 
@@ -71,12 +78,21 @@ export default async function BookingsPage({ searchParams }: Props) {
         {FILTERS.map(f => (
           <Link
             key={f.value}
-            href={buildUrl({ status: f.value })}
-            className={`bk-tab ${(params.status === f.value || (!params.status && !f.value)) ? 'bk-tab-active' : ''}`}
+            href={buildUrl({ status: f.value, batch_only: '' })}
+            className={`bk-tab ${(params.status === f.value || (!params.status && !f.value)) && !params.batch_only ? 'bk-tab-active' : ''}`}
           >
             {f.label}
           </Link>
         ))}
+        {/* فلتر الباقات */}
+        <Link
+          href={buildUrl({ batch_only: params.batch_only ? '' : '1', status: '' })}
+          className={`bk-tab ${params.batch_only ? 'bk-tab-pkg' : ''}`}
+          style={params.batch_only ? { background:'rgba(139,92,246,0.15)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.3)' } : {}}
+        >
+          <Package size={12} style={{ verticalAlign:'middle', marginLeft:4 }}/>
+          باقات فقط
+        </Link>
       </div>
 
       {/* بحث وفلتر */}
@@ -128,7 +144,21 @@ export default async function BookingsPage({ searchParams }: Props) {
                   <td>
                     <div style={{ fontWeight: 'var(--font-semibold)' as React.CSSProperties['fontWeight'] }}>{b.customer_name}</div>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', direction: 'ltr', textAlign: 'right' }}>{b.customer_phone}</div>
-                    {b.is_manual && <span className="badge badge-confirmed" style={{ marginTop: 'var(--space-1)', display: 'inline-block' }}>يدوي</span>}
+                    <div style={{ display:'flex', gap:'0.25rem', flexWrap:'wrap', marginTop:'0.2rem' }}>
+                      {b.is_manual && <span className="badge badge-confirmed" style={{ display: 'inline-block' }}>يدوي</span>}
+                      {b.batch_id  && (
+                        <span title={`باقة: ${b.batch_id}`} style={{
+                          display:'inline-block', padding:'0.1rem 0.35rem',
+                          background:'rgba(139,92,246,0.15)', color:'#a78bfa',
+                          border:'1px solid rgba(139,92,246,0.3)',
+                          borderRadius:'0.3rem', fontSize:'0.65rem', fontWeight:700,
+                          fontFamily:'monospace', letterSpacing:'0.02em',
+                        }}>
+                          <Package size={9} style={{ verticalAlign:'middle', marginLeft:2 }}/>
+                          {b.batch_id}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div style={{ fontSize: 'var(--text-sm)' }}>{getCourtName(b.court_id)}</div>
