@@ -756,7 +756,7 @@ export default function BookPage() {
         /* ── هيدر ── */
         .book-header { background: ${C.navy}; position: sticky; top: 0; z-index: 50; }
         .book-header-inner {
-          max-width: 720px; margin: 0 auto;
+          max-width: 720px; margin-inline: auto;
           padding: 0.875rem 1.25rem;
           display: flex; align-items: center; justify-content: space-between;
         }
@@ -765,7 +765,7 @@ export default function BookPage() {
         /* ── بانر الإغلاق ── */
         .closure-banner { background: ${C.green}; padding: 0.875rem 1.25rem; }
         .closure-banner-inner {
-          max-width: 720px; margin: 0 auto;
+          max-width: 720px; margin-inline: auto;
           display: flex; align-items: center; gap: 0.875rem;
         }
         .closure-icon { font-size: 1.5rem; }
@@ -829,7 +829,7 @@ export default function BookPage() {
         .live-summary-btn:hover { background: #d4b77a; }
 
         /* ── المحتوى ── */
-        .book-main { max-width: 720px; margin: 0 auto; padding: 1.25rem 1rem 5rem; }
+        .book-main { max-width: 720px; margin-inline: auto; padding: 1.25rem 1rem 5rem; }
         .book-step { animation: slideUp 0.3s ease; }
         .step-title { font-size: 1.4rem; margin-bottom: 0.4rem; color: ${C.navy}; font-weight: 800; }
         .step-desc  { color: #64748b; margin-bottom: 1.25rem; font-size: 0.9rem; }
@@ -876,9 +876,15 @@ export default function BookPage() {
 
         /* ── كمبيوتر: الكروت تتمدد لتملأ العرض ديناميكياً ── */
         @media (min-width: 1024px) {
-          /* توسيع الحاوي الرئيسي — هذا هو السبب الحقيقي للتجمّع */
-          .book-main {
+          /* توسيع جميع الحاويات — margin-inline يعمل صحيح في RTL بخلاف margin: 0 auto */
+          .book-main,
+          .book-header-inner,
+          .closure-banner-inner,
+          .book-progress-wrap > *,
+          .live-summary-bar > * {
             max-width: 1100px;
+          }
+          .book-main {
             padding: 1.5rem 2rem 5rem;
           }
           .dates-scroll-wrap {
