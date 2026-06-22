@@ -5,6 +5,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isValidSaudiPhone, normalizePhone } from '@/lib/utils'
+import { Phone, KeyRound, ArrowLeft, RefreshCw, AlertCircle, Dumbbell } from 'lucide-react'
+import ThemeToggle from '@/components/ui/ThemeToggle'
 
 type Step = 'phone' | 'otp'
 
@@ -66,239 +68,523 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      {/* خلفية */}
-      <div className="login-bg" />
+    <div className="cl-page">
+      {/* زر تبديل الثيم */}
+      <ThemeToggle />
 
-      <div className="login-container animate-fade-in">
-        {/* شعار المنشأة */}
-        <div className="login-header">
-          <div className="login-logo">🏟️</div>
-          <h1>مركز حي الشاطئ</h1>
-          <p>احجز ملعبك بكل سهولة</p>
+      {/* خلفية شبكة دقيقة */}
+      <div className="cl-grid-bg" aria-hidden="true" />
+
+      {/* كرة زخرفية ضوئية */}
+      <div className="cl-glow" aria-hidden="true" />
+
+      <div className="cl-wrap animate-fade-in">
+
+        {/* ── الشعار والعنوان ── */}
+        <div className="cl-brand">
+          <div className="cl-brand-icon">
+            <Dumbbell size={28} strokeWidth={1.75} />
+          </div>
+          <h1 className="cl-brand-name">مركز حي الشاطئ</h1>
+          <p className="cl-brand-sub">احجز ملعبك بكل سهولة</p>
         </div>
 
-        {/* البطاقة */}
-        <div className="card login-card">
-          {step === 'phone' ? (
-            <form onSubmit={handleSendOtp} id="form-send-otp">
-              <h2 className="form-title">أدخل رقم جوالك</h2>
-              <p className="form-subtitle">سنرسل لك رمز تحقق مكوّن من 4 أرقام</p>
+        {/* ── البطاقة ── */}
+        <div className="cl-card">
+          {/* خط Lime علوي */}
+          <div className="cl-card-accent" aria-hidden="true" />
 
-              <div className="form-group">
-                <label htmlFor="phone-input">رقم الجوال</label>
-                <input
-                  id="phone-input"
-                  type="tel"
-                  className="input phone-input"
-                  placeholder="05XXXXXXXX"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  maxLength={10}
-                  inputMode="numeric"
-                  autoFocus
-                  required
-                />
+          {step === 'phone' ? (
+            <form onSubmit={handleSendOtp} id="form-send-otp" className="cl-form">
+              <div className="cl-form-head">
+                <div className="cl-step-icon">
+                  <Phone size={20} strokeWidth={1.75} />
+                </div>
+                <h2 className="cl-form-title">أدخل رقم جوالك</h2>
+                <p className="cl-form-sub">سنرسل لك رمز تحقق مكوّن من 4 أرقام</p>
               </div>
 
-              {error && <div className="form-error" role="alert">{error}</div>}
+              <div className="cl-field">
+                <label htmlFor="phone-input" className="cl-label">رقم الجوال</label>
+                <div className="cl-input-wrap">
+                  <Phone size={16} strokeWidth={1.75} className="cl-input-icon" />
+                  <input
+                    id="phone-input"
+                    type="tel"
+                    className="cl-input"
+                    placeholder="05XXXXXXXX"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    maxLength={10}
+                    inputMode="numeric"
+                    dir="ltr"
+                    autoFocus
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="cl-error" role="alert">
+                  <AlertCircle size={15} strokeWidth={2} className="cl-error-icon" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <button
                 id="btn-send-otp"
                 type="submit"
-                className="btn btn-primary btn-full btn-lg"
+                className="cl-btn-primary"
                 disabled={loading}
               >
-                {loading ? <><span className="spinner" /> جاري الإرسال...</> : 'إرسال رمز التحقق →'}
+                {loading ? (
+                  <><span className="cl-spinner" />جاري الإرسال...</>
+                ) : (
+                  <>إرسال رمز التحقق<ArrowLeft size={16} strokeWidth={2} /></>
+                )}
               </button>
             </form>
+
           ) : (
-            <form onSubmit={handleVerifyOtp} id="form-verify-otp">
+            <form onSubmit={handleVerifyOtp} id="form-verify-otp" className="cl-form">
               <button
                 type="button"
-                className="back-btn"
+                className="cl-back-btn"
                 onClick={() => { setStep('phone'); setOtp(''); setError('') }}
               >
-                ← تغيير الرقم
+                <ArrowLeft size={14} strokeWidth={2} />
+                تغيير الرقم
               </button>
 
-              <h2 className="form-title">أدخل رمز التحقق</h2>
-              <p className="form-subtitle">
-                أُرسل رمز مكوّن من 4 أرقام إلى <strong>{phone}</strong>
-              </p>
+              <div className="cl-form-head">
+                <div className="cl-step-icon">
+                  <KeyRound size={20} strokeWidth={1.75} />
+                </div>
+                <h2 className="cl-form-title">أدخل رمز التحقق</h2>
+                <p className="cl-form-sub">
+                  أُرسل رمز إلى <strong className="cl-phone-highlight">{phone}</strong>
+                </p>
+              </div>
 
               {devOtp && (
-                <div className="dev-hint">
+                <div className="cl-dev-hint">
                   🔧 وضع التطوير — الرمز: <strong>{devOtp}</strong>
                 </div>
               )}
 
-              <div className="form-group">
-                <label htmlFor="otp-input">رمز التحقق</label>
+              <div className="cl-field">
+                <label htmlFor="otp-input" className="cl-label">رمز التحقق</label>
                 <input
                   id="otp-input"
                   type="text"
-                  className="input otp-input"
+                  className="cl-input cl-otp-input"
                   placeholder="- - - -"
                   value={otp}
                   onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   maxLength={4}
                   inputMode="numeric"
+                  dir="ltr"
                   autoFocus
                   required
                 />
               </div>
 
-              {error && <div className="form-error" role="alert">{error}</div>}
+              {error && (
+                <div className="cl-error" role="alert">
+                  <AlertCircle size={15} strokeWidth={2} className="cl-error-icon" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <button
                 id="btn-verify-otp"
                 type="submit"
-                className="btn btn-primary btn-full btn-lg"
+                className="cl-btn-primary"
                 disabled={loading || otp.length !== 4}
               >
-                {loading ? <><span className="spinner" /> جاري التحقق...</> : 'تأكيد →'}
+                {loading ? (
+                  <><span className="cl-spinner" />جاري التحقق...</>
+                ) : (
+                  <>تأكيد الدخول<ArrowLeft size={16} strokeWidth={2} /></>
+                )}
               </button>
 
               <button
                 id="btn-resend-otp"
                 type="button"
-                className="btn btn-secondary btn-full"
-                style={{ marginTop: '0.75rem' }}
+                className="cl-btn-secondary"
                 onClick={() => handleSendOtp({ preventDefault: () => {} } as React.FormEvent)}
                 disabled={loading}
               >
+                <RefreshCw size={14} strokeWidth={2} />
                 إعادة إرسال الرمز
               </button>
             </form>
           )}
         </div>
 
-        <p className="login-footer">
-          مركز حي الشاطئ — جدة
-        </p>
+        <p className="cl-footer">مركز حي الشاطئ — جدة</p>
       </div>
 
       <style>{`
-        .login-page {
+        * { box-sizing: border-box; }
+
+        /* ══ الصفحة ══ */
+        .cl-page {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
+          padding: var(--space-6);
+          background: var(--bg-base);
           position: relative;
           overflow: hidden;
         }
-        .login-bg {
+
+        /* شبكة دقيقة في الخلفية */
+        .cl-grid-bg {
           position: fixed;
           inset: 0;
-          background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 40%, #0ea5e9 100%);
+          background-image:
+            linear-gradient(var(--border-subtle) 1px, transparent 1px),
+            linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+          background-size: 44px 44px;
+          opacity: 0.45;
+          pointer-events: none;
           z-index: 0;
         }
-        .login-bg::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+
+        /* توهّج Lime زخرفي */
+        .cl-glow {
+          position: fixed;
+          top: -180px;
+          right: -120px;
+          width: 480px;
+          height: 480px;
+          border-radius: 50%;
+          background: radial-gradient(circle, var(--color-lime-glow) 0%, transparent 70%);
+          pointer-events: none;
+          z-index: 0;
         }
-        .login-container {
+
+        /* ══ الغلاف الرئيسي ══ */
+        .cl-wrap {
           position: relative;
           z-index: 1;
           width: 100%;
           max-width: 420px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-6);
         }
-        .login-header {
+
+        /* ══ الشعار ══ */
+        .cl-brand {
           text-align: center;
-          margin-bottom: 1.75rem;
-          color: #fff;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-2);
         }
-        .login-logo {
-          font-size: 3.5rem;
-          margin-bottom: 0.5rem;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,.3));
+
+        .cl-brand-icon {
+          width: 64px;
+          height: 64px;
+          border-radius: var(--radius-xl);
+          background: var(--color-lime-muted);
+          border: 1.5px solid var(--color-lime-dim);
+          color: var(--color-lime);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 0 24px var(--color-lime-glow);
         }
-        .login-header h1 {
-          font-size: 1.6rem;
-          font-weight: 800;
-          color: #fff;
-          margin: 0 0 0.3rem;
+
+        .cl-brand-name {
+          font-size: var(--text-2xl);
+          font-weight: var(--font-black);
+          color: var(--text-primary);
+          margin: 0;
+          letter-spacing: -0.02em;
         }
-        .login-header p {
-          color: rgba(255,255,255,.75);
-          font-size: 0.95rem;
+
+        .cl-brand-sub {
+          font-size: var(--text-sm);
+          color: var(--text-muted);
           margin: 0;
         }
-        .login-card {
-          padding: 2rem;
-          backdrop-filter: blur(12px);
-          background: rgba(255,255,255,.97);
+
+        /* ══ البطاقة ══ */
+        .cl-card {
+          width: 100%;
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-2xl);
+          box-shadow: var(--shadow-lg);
+          padding: var(--space-8);
+          position: relative;
+          overflow: hidden;
         }
-        .form-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          margin: 0 0 0.3rem;
+
+        /* شريط Lime علوي */
+        .cl-card-accent {
+          position: absolute;
+          top: 0;
+          right: var(--space-8);
+          left: var(--space-8);
+          height: 2px;
+          background: linear-gradient(90deg, transparent, var(--color-lime), transparent);
+          border-radius: 0 0 var(--radius-sm) var(--radius-sm);
         }
-        .form-subtitle {
-          color: var(--text-secondary);
-          font-size: 0.9rem;
-          margin: 0 0 1.5rem;
+
+        /* ══ النموذج ══ */
+        .cl-form {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-4);
         }
-        .form-group {
-          margin-bottom: 1.25rem;
+
+        .cl-form-head {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: var(--space-2);
+          margin-bottom: var(--space-2);
         }
-        .form-group label {
-          display: block;
-          font-weight: 600;
-          font-size: 0.9rem;
-          margin-bottom: 0.4rem;
+
+        .cl-step-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: var(--radius-lg);
+          background: var(--color-lime-muted);
+          border: 1px solid var(--color-lime-dim);
+          color: var(--color-lime);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .cl-form-title {
+          font-size: var(--text-xl);
+          font-weight: var(--font-black);
           color: var(--text-primary);
+          margin: 0;
         }
-        .phone-input {
-          font-size: 1.1rem;
-          text-align: center;
-          letter-spacing: 0.05em;
+
+        .cl-form-sub {
+          font-size: var(--text-sm);
+          color: var(--text-muted);
+          margin: 0;
         }
-        .otp-input {
+
+        .cl-phone-highlight {
+          color: var(--color-lime);
+          direction: ltr;
+          display: inline-block;
+        }
+
+        /* ══ الحقول ══ */
+        .cl-field {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-2);
+        }
+
+        .cl-label {
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--text-secondary);
+        }
+
+        .cl-input-wrap {
+          position: relative;
+        }
+
+        .cl-input-icon {
+          position: absolute;
+          top: 50%;
+          right: var(--space-3);
+          transform: translateY(-50%);
+          color: var(--text-muted);
+          pointer-events: none;
+        }
+
+        .cl-input {
+          width: 100%;
+          height: 44px;
+          padding: 0 var(--space-3);
+          padding-right: calc(var(--space-3) + 16px + var(--space-2));
+          background: var(--bg-elevated);
+          border: 1.5px solid var(--border-color);
+          border-radius: var(--radius-md);
+          color: var(--text-primary);
+          font-size: var(--text-base);
+          font-family: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+          transition: border-color 0.15s, box-shadow 0.15s;
+          outline: none;
+        }
+
+        .cl-input:focus {
+          border-color: var(--color-lime-dim);
+          box-shadow: 0 0 0 3px var(--color-lime-glow);
+        }
+
+        /* OTP — رقم كبير بدون أيقونة */
+        .cl-otp-input {
+          padding-right: var(--space-3);
           font-size: 2rem;
+          font-weight: var(--font-black);
+          letter-spacing: 0.6em;
           text-align: center;
-          letter-spacing: 0.5em;
-          font-weight: 700;
+          height: 64px;
         }
-        .form-error {
-          background: #fee2e2;
-          color: #991b1b;
-          padding: 0.6rem 0.875rem;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          margin-bottom: 1rem;
-          border-right: 3px solid #ef4444;
+
+        /* ══ الأزرار ══ */
+        .cl-btn-primary {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-2);
+          width: 100%;
+          height: 48px;
+          background: var(--color-lime);
+          color: #0a1a0a;
+          border: none;
+          border-radius: var(--radius-md);
+          font-size: var(--text-base);
+          font-weight: var(--font-black);
+          font-family: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+          cursor: pointer;
+          transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+          box-shadow: 0 4px 16px var(--color-lime-glow);
         }
-        .dev-hint {
-          background: #fef3c7;
-          color: #92400e;
-          padding: 0.6rem 0.875rem;
-          border-radius: 0.5rem;
-          font-size: 0.875rem;
-          margin-bottom: 1rem;
-          border-right: 3px solid #f59e0b;
+
+        .cl-btn-primary:hover:not(:disabled) {
+          opacity: 0.92;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px var(--color-lime-glow);
         }
-        .back-btn {
+
+        .cl-btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+        .cl-btn-primary:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
+        }
+
+        .cl-btn-secondary {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-2);
+          width: 100%;
+          height: 42px;
+          background: transparent;
+          color: var(--text-muted);
+          border: 1.5px solid var(--border-color);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          font-family: 'Tajawal', 'IBM Plex Sans Arabic', sans-serif;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+
+        .cl-btn-secondary:hover:not(:disabled) {
+          border-color: var(--color-lime-dim);
+          color: var(--color-lime);
+          background: var(--color-lime-muted);
+        }
+
+        .cl-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ══ زر الرجوع ══ */
+        .cl-back-btn {
+          display: flex;
+          align-items: center;
+          gap: var(--space-1);
           background: none;
           border: none;
-          color: var(--color-primary);
-          font-size: 0.875rem;
+          color: var(--text-muted);
+          font-size: var(--text-sm);
           font-family: inherit;
           cursor: pointer;
           padding: 0;
-          margin-bottom: 1rem;
-          font-weight: 600;
+          font-weight: var(--font-semibold);
+          transition: color 0.15s;
+          margin-bottom: var(--space-1);
         }
-        .back-btn:hover { text-decoration: underline; }
-        .login-footer {
+
+        .cl-back-btn:hover { color: var(--color-lime); }
+
+        /* ══ الخطأ ══ */
+        .cl-error {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          background: var(--color-danger-bg);
+          color: var(--color-danger);
+          border: 1px solid rgba(224,85,85,.25);
+          border-right: 3px solid var(--color-danger);
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+        }
+
+        .cl-error-icon { flex-shrink: 0; }
+
+        /* ══ تلميح التطوير ══ */
+        .cl-dev-hint {
+          background: rgba(234,179,8,.12);
+          color: #ca8a04;
+          border: 1px solid rgba(234,179,8,.3);
+          border-right: 3px solid #ca8a04;
+          padding: var(--space-2) var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+        }
+
+        /* ══ Spinner ══ */
+        .cl-spinner {
+          display: inline-block;
+          width: 18px;
+          height: 18px;
+          border: 2.5px solid rgba(10,26,10,.25);
+          border-top-color: #0a1a0a;
+          border-radius: 50%;
+          animation: cl-spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+
+        @keyframes cl-spin { to { transform: rotate(360deg); } }
+
+        /* ══ الفوتر ══ */
+        .cl-footer {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+          margin: 0;
           text-align: center;
-          color: rgba(255,255,255,.55);
-          font-size: 0.8rem;
-          margin-top: 1.25rem;
+          opacity: 0.7;
+        }
+
+        /* ══ فيد إن ══ */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: none; }
+        }
+        .animate-fade-in { animation: fadeIn 0.35s ease both; }
+
+        /* ══ جوال ══ */
+        @media (max-width: 480px) {
+          .cl-page { padding: var(--space-4); align-items: flex-start; padding-top: 10vh; }
+          .cl-card { padding: var(--space-6); }
+          .cl-brand-icon { width: 52px; height: 52px; }
+          .cl-brand-name { font-size: var(--text-xl); }
         }
       `}</style>
     </div>
