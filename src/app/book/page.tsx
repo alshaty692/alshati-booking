@@ -249,16 +249,37 @@ export default function BookPage() {
     setBookingId(''); setUploadFile(null); setError(''); setCodeError(''); setSlotTakenError('')
   }
 
-  // ── شاشة التحميل ─────────────────────────────────────────
-  if (loadingSlots) return (
-    <div className="book-loading">
-      <div className="spinner" style={{ width:'2.5rem', height:'2.5rem', borderWidth:'3px' }} />
-      <p>جاري تحميل المواعيد...</p>
-    </div>
-  )
-
   return (
     <div className="book-page">
+
+      {/* ── شاشة التحميل ── */}
+      {loadingSlots && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '1rem',
+            background: C.beige,
+            fontFamily: "'Tajawal',sans-serif",
+            color: '#64748b',
+            zIndex: 9999,
+          }}
+        >
+          <div style={{
+            width: '2.5rem', height: '2.5rem',
+            border: '3px solid rgba(27,42,59,.15)',
+            borderTopColor: C.green,
+            borderRadius: '50%',
+            animation: 'spin 0.75s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>جاري تحميل المواعيد...</p>
+        </div>
+      )}
 
       {/* ── هيدر ── */}
       <header className="book-header">
@@ -721,11 +742,6 @@ export default function BookPage() {
       <style>{`
         * { box-sizing: border-box; }
         .book-page  { min-height: 100vh; background: ${C.beige}; font-family: 'Tajawal','IBM Plex Sans Arabic',sans-serif; }
-        .book-loading {
-          min-height: 100vh; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; gap: 1rem; color: #64748b;
-          font-family: 'Tajawal',sans-serif;
-        }
 
         /* ── هيدر ── */
         .book-header { background: ${C.navy}; position: sticky; top: 0; z-index: 50; }
