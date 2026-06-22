@@ -285,16 +285,18 @@ export default function BookPage() {
         </div>
       )}
 
-      {/* ── Stepper ── */}
+      {/* ── Progress Bar Stepper ── */}
       {step < 4 && (
-        <div className="book-stepper-wrap">
-          <div className="stepper">
-            {STEPS.slice(0,4).map((s,i) => (
-              <div key={i} className={`step ${i===step?'active':i<step?'done':''}`}>
-                <div className="step-number">{i<step?'✓':s.icon}</div>
-                <div className="step-label">{s.label}</div>
-              </div>
-            ))}
+        <div className="book-progress-wrap">
+          <div className="book-progress-bar">
+            <div
+              className="book-progress-fill"
+              style={{ width: `${(step + 1) * 25}%` }}
+            />
+          </div>
+          <div className="book-progress-label">
+            <span className="book-progress-step">الخطوة {step + 1} من 4</span>
+            <span className="book-progress-name">{STEPS[step]?.label ?? ''}</span>
           </div>
         </div>
       )}
@@ -740,17 +742,40 @@ export default function BookPage() {
         .closure-msg  { font-weight: 700; color: #fff; font-size: 0.95rem; }
         .closure-date { color: ${C.gold}; font-size: 0.8rem; margin-top: 0.15rem; }
 
-        /* ── Stepper ── */
-        .book-stepper-wrap { background: ${C.navy}; padding: 0 1rem; }
-        .book-stepper-wrap .stepper { max-width: 720px; margin: 0 auto; }
-        .book-stepper-wrap .step-label { color: rgba(255,255,255,.6); font-size: 0.75rem; }
-        .book-stepper-wrap .step.active .step-label { color: ${C.gold}; }
-        .book-stepper-wrap .step.done  .step-label { color: rgba(255,255,255,.5); }
-        .book-stepper-wrap .step-number {
-          border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: rgba(255,255,255,.5);
+        /* ── Progress Bar Stepper ── */
+        .book-progress-wrap {
+          background: ${C.navy};
+          padding: 0.75rem 1.25rem 0.625rem;
+          border-bottom: 1px solid rgba(255,255,255,.08);
         }
-        .book-stepper-wrap .step.active .step-number { background: ${C.gold}; border-color: ${C.gold}; color: ${C.navy}; }
-        .book-stepper-wrap .step.done  .step-number  { background: ${C.green}; border-color: ${C.green}; color: #fff; }
+        .book-progress-bar {
+          height: 4px;
+          background: rgba(255,255,255,.12);
+          border-radius: 99px;
+          overflow: hidden;
+          margin-bottom: 0.5rem;
+        }
+        .book-progress-fill {
+          height: 100%;
+          background: ${C.gold};
+          border-radius: 99px;
+          transition: width 0.4s cubic-bezier(.4,0,.2,1);
+        }
+        .book-progress-label {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .book-progress-step {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,.45);
+          font-weight: 600;
+        }
+        .book-progress-name {
+          font-size: 0.8rem;
+          color: ${C.gold};
+          font-weight: 700;
+        }
 
         /* ── شريط الاختيار اللحظي ── */
         .live-summary-bar {
