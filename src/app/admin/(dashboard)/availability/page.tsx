@@ -383,6 +383,7 @@ export default function AvailabilityPage() {
       if (r.ok) {
         showToast('ok', 'تم إنشاء الحجز بنجاح ✓')
         setQuickBookTarget(null)
+        setAvail(null)
         fetchGrid(weekStart)
       } else {
         showToast('err', d.error ?? 'فشل إنشاء الحجز')
@@ -428,6 +429,9 @@ export default function AvailabilityPage() {
       if (r.ok) {
         showToast('ok', 'تم إلغاء الحجز ✓')
         setBookingDetail(null)
+        setCancelMode(false)
+        // صفّر الحالة فوراً ثم أعد الجلب — يضمن عدم ظهور بيانات قديمة بين العمليتين
+        setAvail(null)
         fetchGrid(weekStart)
       } else {
         showToast('err', d.error ?? 'فشل الإلغاء')

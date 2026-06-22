@@ -1,5 +1,6 @@
 // ============================================================
 // API Route — الحجز اليدوي (من الإدارة)
+// يدعم إعادة حجز فترات سبق إلغاؤها (UPSERT-style)
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
 
-    // حساب السعر
+    // ── حساب السعر ──────────────────────────────────────────
     const { data: priceData } = await admin.rpc('calculate_price', {
       p_court_id: court_id,
       p_code: code_used || null,
@@ -44,39 +45,81 @@ export async function POST(request: NextRequest) {
     const effectiveFinalPrice = final_price ? Number(final_price) : (priceData?.final_price ?? 0)
     const waterQty = Number(water_quantity ?? 0)
 
-    // إنشاء الحجز
-    const { data: booking, error } = await admin
-      .from('bookings')
-      .insert({
-        booking_date, court_id,
-        period_number: Number(period_number),
-        customer_phone,
-        customer_name,
-        code_used: code_used || null,
-        base_price: priceData?.base_price ?? effectiveFinalPrice,
-        discount_amount: priceData?.discount_amount ?? 0,
-        final_price: effectiveFinalPrice,
-        water_quantity: waterQty,
-        status: finalStatus,
-        is_manual: true,
-        ...(isConfirmed ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() } : {}),
-        internal_note: internal_note || null,
-      })
-      .select().single()
-
-    if (error) {
-      if (error.code === '23505') return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
-      throw error
+    const bookingFields = {
+      booking_date,
+      court_id,
+      period_number: Number(period_number),
+      customer_phone,
+      customer_name,
+      code_used:        code_used || null,
+      base_price:       priceData?.base_price ?? effectiveFinalPrice,
+      discount_amount:  priceData?.discount_amount ?? 0,
+      final_price:      effectiveFinalPrice,
+      water_quantity:   waterQty,
+      status:           finalStatus,
+      is_manual:        true,
+      internal_note:    internal_note || null,
+      ...(isConfirmed ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() } : {}),
     }
 
-    // تفعيل كود الخصم إن وُجد
+    // ── التحقق من وجود حجز قائم (سواء نشط أو ملغى) ─────────
+    const { data: existingBooking } = await admin
+      .from('bookings')
+      .select('id, status')
+      .eq('booking_date', booking_date)
+      .eq('court_id', court_id)
+      .eq('period_number', Number(period_number))
+      .single()
+
+    let bookingId: string
+
+    if (existingBooking) {
+      // الفترة موجودة في الجدول — هل هي ملغاة/مرفوضة/منتهية؟
+      const INACTIVE = ['cancelled', 'rejected', 'expired']
+      if (!INACTIVE.includes(existingBooking.status)) {
+        // حجز نشط → رفض
+        return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
+      }
+
+      // حجز غير نشط → نُعيد استخدام الصف بالتحديث بدل الإدراج
+      const { data: updated, error: updateError } = await admin
+        .from('bookings')
+        .update(bookingFields)
+        .eq('id', existingBooking.id)
+        .select('id')
+        .single()
+
+      if (updateError || !updated) {
+        console.error('[manual-booking] updateError:', updateError)
+        throw updateError ?? new Error('فشل التحديث')
+      }
+      bookingId = updated.id
+    } else {
+      // لا يوجد حجز سابق → إدراج جديد
+      const { data: inserted, error: insertError } = await admin
+        .from('bookings')
+        .insert(bookingFields)
+        .select('id')
+        .single()
+
+      if (insertError) {
+        // نادراً: تضارب متزامن بين طلبين
+        if (insertError.code === '23505') {
+          return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
+        }
+        throw insertError
+      }
+      bookingId = inserted!.id
+    }
+
+    // ── تفعيل كود الخصم إن وُجد ────────────────────────────
     if (code_used) {
       try {
         await admin.rpc('increment_code_usage', { p_code: code_used })
       } catch { /* تجاهل خطأ الكود */ }
     }
 
-    // خصم مخزون المياه إن كان الحجز مؤكداً وفيه مياه
+    // ── خصم مخزون المياه إن كان الحجز مؤكداً وفيه مياه ────
     if (isConfirmed && waterQty > 0) {
       const { data: stockRow } = await admin
         .from('settings').select('value').eq('key', 'water_stock_available').single()
@@ -88,12 +131,12 @@ export async function POST(request: NextRequest) {
     }
 
     await admin.from('audit_log').insert({
-      table_name: 'bookings', record_id: booking.id, action: 'insert',
+      table_name: 'bookings', record_id: bookingId, action: 'insert',
       performed_by: user.id,
       notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}`,
     })
 
-    return Response.json({ success: true, booking_id: booking.id })
+    return Response.json({ success: true, booking_id: bookingId })
   } catch (err) {
     console.error('[manual-booking]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })
