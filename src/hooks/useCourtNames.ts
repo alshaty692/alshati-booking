@@ -81,13 +81,18 @@ export async function fetchCourtNames(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
 ): Promise<Record<string, string>> {
-  const keys = ['venue_1_name', 'venue_2_name', 'venue_3_name']
-  const { data } = await supabase.from('settings').select('key, value').in('key', keys)
-  const map: Record<string, string> = { ...DEFAULT_NAMES }
-  data?.forEach((r: { key: string; value: string }) => {
-    if (r.key === 'venue_1_name' && r.value) map.football   = r.value
-    if (r.key === 'venue_2_name' && r.value) map.volleyball = r.value
-    if (r.key === 'venue_3_name' && r.value) map.multi      = r.value
-  })
-  return map
+  try {
+    const keys = ['venue_1_name', 'venue_2_name', 'venue_3_name']
+    const { data } = await supabase.from('settings').select('key, value').in('key', keys)
+    const map: Record<string, string> = { ...DEFAULT_NAMES }
+    data?.forEach((r: { key: string; value: string }) => {
+      if (r.key === 'venue_1_name' && r.value) map.football   = r.value
+      if (r.key === 'venue_2_name' && r.value) map.volleyball = r.value
+      if (r.key === 'venue_3_name' && r.value) map.multi      = r.value
+    })
+    return map
+  } catch (err) {
+    console.error('[fetchCourtNames] فشل جلب أسماء الملاعب — fallback:', err)
+    return { ...DEFAULT_NAMES }
+  }
 }

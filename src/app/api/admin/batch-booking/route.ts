@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
     const admin = createAdminClient()
 
     /* ── جلب أسماء الملاعب من الإعدادات (مصدر وحيد) ── */
-    const COURT_NAMES = await fetchCourtNames(admin)
+    let COURT_NAMES: Record<string, string> = { football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'السلة' }
+    try { COURT_NAMES = await fetchCourtNames(admin) } catch { /* fallback */ }
 
     /* ── جلب إعدادات المياه مرة واحدة ── */
     const { data: waterSettings } = await admin

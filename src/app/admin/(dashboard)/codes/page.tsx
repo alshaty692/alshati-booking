@@ -37,10 +37,9 @@ function DiscountDisplay({ discountType, discountValue }: { discountType: string
 
 export default async function CodesPage() {
   const supabase = createAdminClient()
-  const [{ data: codes }, courtMap] = await Promise.all([
-    supabase.from('codes').select('*').order('created_at', { ascending: false }),
-    fetchCourtNames(supabase),
-  ])
+  const { data: codes } = await supabase.from('codes').select('*').order('created_at', { ascending: false })
+  let courtMap: Record<string, string> = { football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'السلة' }
+  try { courtMap = await fetchCourtNames(supabase) } catch { /* fallback */ }
 
   return (
     <div className="animate-fade-in">

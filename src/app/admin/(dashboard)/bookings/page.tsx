@@ -33,7 +33,8 @@ export default async function BookingsPage({ searchParams }: Props) {
   if (!user) return <div>غير مصرح</div>
 
   const supabase = createAdminClient()
-  const courtMap = await fetchCourtNames(supabase)
+  let courtMap: Record<string, string> = { football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'السلة' }
+  try { courtMap = await fetchCourtNames(supabase) } catch { /* fallback */ }
   const getCourtName = (id: string) => courtMap[id] ?? id
 
   let query = supabase
