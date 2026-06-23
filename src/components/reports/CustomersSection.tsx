@@ -73,8 +73,8 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
 
           {/* توزيع التصنيف */}
           {customers.top_list.some(c => c.classification) && (
-            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1B2A3B', marginBottom: '0.5rem' }}>التصنيف</div>
+            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>التصنيف</div>
               {(['new', 'regular', 'gold', 'inactive'] as const).map(cls => {
                 const count = customers.top_list.filter(c => c.classification === cls).length
                 if (count === 0) return null
@@ -83,7 +83,7 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
                     <span style={{ color: CLASSIFICATION_COLOR[cls] }}>
                       {CLASSIFICATION_LABEL[cls]}
                     </span>
-                    <strong>{count}</strong>
+                    <strong style={{ color: 'var(--text-primary)' }}>{count}</strong>
                   </div>
                 )
               })}
@@ -97,7 +97,7 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
           {customers.top_list.slice(0, 8).map((c, i) => (
             <div key={i} className="rpt-detail-row">
               <span style={{ fontSize: '0.82rem' }}>
-                <span style={{ fontWeight: 700, color: '#C9A96E', marginLeft: '0.4rem' }}>#{i + 1}</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-lime)', marginLeft: '0.4rem' }}>#{i + 1}</span>
                 {c.is_vip && <span style={{ marginLeft: '0.25rem' }}>⭐</span>}
                 {c.name}
                 {c.classification && (
@@ -109,11 +109,11 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
                     {CLASSIFICATION_LABEL[c.classification]}
                   </span>
                 )}
-                <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{c.phone}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{c.phone}</div>
               </span>
               <span style={{ textAlign: 'left' }}>
-                <div style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{c.count} حجز</div>
-                <strong style={{ color: '#2D5C4E' }}>{formatAmount(c.revenue)}</strong>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{c.count} حجز</div>
+                <strong style={{ color: 'var(--color-success)' }}>{formatAmount(c.revenue)}</strong>
               </span>
             </div>
           ))}
@@ -138,13 +138,13 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
               <tbody>
                 {customers.top_list.map((c, i) => (
                   <tr key={i}>
-                    <td style={{ color: '#C9A96E', fontWeight: 700 }}>{i + 1}</td>
-                    <td style={{ fontWeight: 600 }}>
+                    <td style={{ color: 'var(--color-lime)', fontWeight: 700 }}>{i + 1}</td>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {c.is_vip && '⭐ '}{c.name}
                     </td>
-                    <td style={{ direction: 'ltr', textAlign: 'right', color: '#94a3b8' }}>{c.phone}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.count}</td>
-                    <td style={{ fontWeight: 700, color: '#2D5C4E' }}>{formatAmount(c.revenue)}</td>
+                    <td style={{ direction: 'ltr', textAlign: 'right', color: 'var(--text-muted)' }}>{c.phone}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)' }}>{c.count}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--color-success)' }}>{formatAmount(c.revenue)}</td>
                     <td>
                       {c.classification ? (
                         <span style={{
@@ -156,7 +156,7 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
                         </span>
                       ) : '—'}
                     </td>
-                    <td style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       {c.first_booking_at
                         ? new Date(c.first_booking_at).toLocaleDateString('ar-SA')
                         : '—'}

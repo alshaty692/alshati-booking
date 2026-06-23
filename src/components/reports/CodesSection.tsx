@@ -1,7 +1,6 @@
 'use client'
 // ============================================================
-// CodesSection — قسم أكواد الخصم
-// بيانات مُثراة بـ JOIN مع جدول codes في السيرفر
+// CodesSection — قسم أكواد الخصم — ثيم-aware
 // ============================================================
 import { formatAmount } from '@/lib/utils'
 import type { ReportCodes } from '@/types/reports'
@@ -30,10 +29,10 @@ export default function CodesSection({ codes, onExportPDF, onExportExcel, onWhat
         <div className="rpt-card">
           <h3 className="rpt-card-title">🏷️ ملخص الأكواد</h3>
           {[
-            { label: 'عدد الأكواد المستخدمة',  value: String(codes.unique_codes_used), color: '#1B2A3B' },
-            { label: 'إجمالي الاستخدامات',     value: String(codes.total_uses),        color: '#1B2A3B' },
-            { label: 'إجمالي الخصومات',        value: formatAmount(codes.total_discount), color: '#ef4444' },
-            { label: 'نسبة استخدام الأكواد',   value: `${codes.usage_rate}%`,          color: '#C9A96E' },
+            { label: 'عدد الأكواد المستخدمة', value: String(codes.unique_codes_used), color: 'var(--text-primary)' },
+            { label: 'إجمالي الاستخدامات',    value: String(codes.total_uses),        color: 'var(--text-primary)' },
+            { label: 'إجمالي الخصومات',       value: formatAmount(codes.total_discount), color: 'var(--color-danger)' },
+            { label: 'نسبة استخدام الأكواد',  value: `${codes.usage_rate}%`,          color: 'var(--color-lime)' },
           ].map((r, i) => (
             <div key={i} className="rpt-detail-row">
               <span>{r.label}</span>
@@ -46,28 +45,29 @@ export default function CodesSection({ codes, onExportPDF, onExportExcel, onWhat
         <div className="rpt-card">
           <h3 className="rpt-card-title">🏆 الأكثر استخداماً</h3>
           {codes.details.length === 0 && (
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>لا توجد أكواد مستخدمة في هذه الفترة</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>لا توجد أكواد مستخدمة في هذه الفترة</p>
           )}
           {codes.details.slice(0, 8).map((c, i) => (
             <div key={i} className="rpt-detail-row">
-              <span>
-                <span style={{ fontWeight: 700, color: '#C9A96E', marginLeft: '0.4rem' }}>#{i + 1}</span>
-                <strong style={{ fontSize: '0.95rem', letterSpacing: '0.05em' }}>{c.code}</strong>
-                <span style={{ color: '#94a3b8', fontSize: '0.75rem', marginRight: '0.4rem' }}>
-                  {c.count} استخدام
-                  {c.max_uses ? ` / ${c.max_uses}` : ''}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, color: 'var(--color-lime)', fontSize: '0.78rem' }}>#{i + 1}</span>
+                <strong style={{ fontSize: '0.92rem', letterSpacing: '0.05em', color: 'var(--text-primary)' }}>{c.code}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
+                  {c.count} استخدام{c.max_uses ? ` / ${c.max_uses}` : ''}
                 </span>
                 {!c.is_active && (
-                  <span style={{ fontSize: '0.65rem', color: '#ef4444', background: '#fee2e2', padding: '0.1rem 0.4rem', borderRadius: '1rem', marginRight: '0.25rem' }}>
-                    غير نشط
-                  </span>
+                  <span style={{
+                    fontSize: '0.65rem', color: 'var(--color-danger)',
+                    background: 'var(--color-danger-bg)', padding: '0.1rem 0.4rem',
+                    borderRadius: '1rem',
+                  }}>غير نشط</span>
                 )}
               </span>
-              <span>
-                <span style={{ color: '#ef4444', fontSize: '0.78rem', marginLeft: '0.5rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: 'var(--color-danger)', fontSize: '0.78rem' }}>
                   -{formatAmount(c.total_discount)}
                 </span>
-                <strong style={{ color: '#2D5C4E' }}>{formatAmount(c.total_revenue)}</strong>
+                <strong style={{ color: 'var(--color-success)' }}>{formatAmount(c.total_revenue)}</strong>
               </span>
             </div>
           ))}
@@ -91,25 +91,25 @@ export default function CodesSection({ codes, onExportPDF, onExportExcel, onWhat
               </thead>
               <tbody>
                 {codes.details.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>لا توجد أكواد</td></tr>
+                  <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>لا توجد أكواد</td></tr>
                 )}
                 {codes.details.map((c, i) => (
                   <tr key={i}>
-                    <td><strong style={{ letterSpacing: '0.08em', fontSize: '1rem' }}>{c.code}</strong></td>
-                    <td style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                    <td><strong style={{ letterSpacing: '0.08em', fontSize: '1rem', color: 'var(--text-primary)' }}>{c.code}</strong></td>
+                    <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                       {c.discount_type === 'percent'
                         ? `${c.discount_value}%`
                         : c.discount_value ? formatAmount(c.discount_value) : '—'}
                     </td>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.count}</td>
-                    <td style={{ textAlign: 'center', color: '#94a3b8' }}>{c.max_uses ?? '∞'}</td>
-                    <td style={{ color: '#ef4444', fontWeight: 600 }}>{formatAmount(c.total_discount)}</td>
-                    <td style={{ fontWeight: 700, color: '#2D5C4E' }}>{formatAmount(c.total_revenue)}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)' }}>{c.count}</td>
+                    <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{c.max_uses ?? '∞'}</td>
+                    <td style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{formatAmount(c.total_discount)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--color-success)' }}>{formatAmount(c.total_revenue)}</td>
                     <td>
                       <span style={{
-                        fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '1rem',
-                        background: c.is_active ? '#dcfce7' : '#fee2e2',
-                        color: c.is_active ? '#16a34a' : '#ef4444', fontWeight: 700,
+                        fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '1rem', fontWeight: 700,
+                        background: c.is_active ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
+                        color: c.is_active ? 'var(--color-success)' : 'var(--color-danger)',
                       }}>
                         {c.is_active ? 'نشط' : 'غير نشط'}
                       </span>

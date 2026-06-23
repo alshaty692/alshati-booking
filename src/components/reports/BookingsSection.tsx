@@ -1,8 +1,7 @@
 'use client'
 // ============================================================
-// BookingsSection — قسم الحجوزات
+// BookingsSection — قسم الحجوزات — ثيم-aware
 // ============================================================
-import { getCourtName } from '@/lib/utils'
 import type { ReportBookings, ReportKpis } from '@/types/reports'
 
 const PERIOD_LABELS: Record<string, string> = { '1': '5–7م (الأولى)', '2': '7–9م (الثانية)', '3': '9–11م (الثالثة)' }
@@ -10,9 +9,14 @@ const STATUS_AR: Record<string, string> = {
   confirmed: 'مؤكد', pending: 'بانتظار إيصال', uploaded: 'قيد المراجعة',
   rejected: 'مرفوض', cancelled: 'ملغى', expired: 'منتهي',
 }
-const STATUS_BADGE: Record<string, string> = {
-  confirmed: '#2D5C4E', uploaded: '#0ea5e9', pending: '#f59e0b',
-  rejected: '#ef4444', cancelled: '#94a3b8', expired: '#cbd5e1',
+// ألوان ثيم-aware: نستخدم CSS variables حيث ممكن، وألوان ثيمية ثابتة للـ status dots
+const STATUS_COLOR: Record<string, string> = {
+  confirmed: 'var(--color-success)',
+  uploaded:  'var(--color-info)',
+  pending:   'var(--color-warning)',
+  rejected:  'var(--color-danger)',
+  cancelled: 'var(--text-muted)',
+  expired:   'var(--text-muted)',
 }
 
 interface Props {
@@ -46,11 +50,17 @@ export default function BookingsSection({ bookings, kpis, onExportPDF, onExportE
             return (
               <div key={period} style={{ marginBottom: '0.875rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.82rem' }}>
-                  <span style={{ fontWeight: 600 }}>{PERIOD_LABELS[period] ?? `فترة ${period}`}</span>
-                  <span style={{ fontWeight: 700 }}>{count} <span style={{ color: '#94a3b8' }}>({pct}%)</span></span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{PERIOD_LABELS[period] ?? `فترة ${period}`}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {count} <span style={{ color: 'var(--text-muted)' }}>({pct}%)</span>
+                  </span>
                 </div>
-                <div style={{ height: 8, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#2D5C4E,#C9A96E)', borderRadius: 99, transition: 'width 0.5s' }} />
+                <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{
+                    height: '100%', width: `${pct}%`,
+                    background: 'linear-gradient(90deg, var(--color-lime-dim), var(--color-lime))',
+                    borderRadius: 99, transition: 'width 0.5s',
+                  }} />
                 </div>
               </div>
             )
@@ -61,35 +71,35 @@ export default function BookingsSection({ bookings, kpis, onExportPDF, onExportE
         <div className="rpt-card">
           <h3 className="rpt-card-title">📡 مصدر الحجز</h3>
           {[
-            { label: 'أونلاين (تطبيق)', count: bookings.online_count, color: '#2D5C4E', icon: '🌐' },
-            { label: 'يدوي (إداري)',    count: bookings.manual_count, color: '#C9A96E', icon: '✍️' },
+            { label: 'أونلاين (تطبيق)', count: bookings.online_count, color: 'var(--color-info)',    icon: '🌐' },
+            { label: 'يدوي (إداري)',    count: bookings.manual_count, color: 'var(--color-warning)', icon: '✍️' },
           ].map(item => {
             const pct = bookings.total > 0 ? Math.round(item.count / bookings.total * 100) : 0
             return (
               <div key={item.label} style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem', fontSize: '0.85rem' }}>
-                  <span style={{ fontWeight: 600 }}>{item.icon} {item.label}</span>
-                  <span style={{ fontWeight: 700 }}>{item.count} ({pct}%)</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.icon} {item.label}</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{item.count} ({pct}%)</span>
                 </div>
-                <div style={{ height: 10, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: 99, transition: 'width 0.6s' }} />
+                <div style={{ height: 10, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: item.color, borderRadius: 99, transition: 'width 0.6s', opacity: 0.85 }} />
                 </div>
               </div>
             )
           })}
 
-          <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
             <div className="rpt-detail-row">
               <span>إجمالي الحجوزات</span>
-              <strong style={{ color: '#1B2A3B' }}>{bookings.total}</strong>
+              <strong style={{ color: 'var(--text-primary)' }}>{bookings.total}</strong>
             </div>
             <div className="rpt-detail-row">
               <span>المؤكدة</span>
-              <strong style={{ color: '#2D5C4E' }}>{kpis.confirmed_count}</strong>
+              <strong style={{ color: 'var(--color-success)' }}>{kpis.confirmed_count}</strong>
             </div>
             <div className="rpt-detail-row">
               <span>نسبة الإلغاء</span>
-              <strong style={{ color: kpis.cancellation_rate > 30 ? '#ef4444' : '#94a3b8' }}>
+              <strong style={{ color: kpis.cancellation_rate > 30 ? 'var(--color-danger)' : 'var(--text-muted)' }}>
                 {kpis.cancellation_rate}%
               </strong>
             </div>
@@ -109,14 +119,15 @@ export default function BookingsSection({ bookings, kpis, onExportPDF, onExportE
           }).filter(([, c]) => c > 0)
           .map(([status, count]) => (
             <div key={status} className="rpt-detail-row">
-              <span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <span style={{
-                  display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-                  background: STATUS_BADGE[status] ?? '#ccc', marginLeft: '0.4rem',
+                  display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+                  background: STATUS_COLOR[status] ?? 'var(--text-muted)',
+                  flexShrink: 0,
                 }} />
                 {STATUS_AR[status] ?? status}
               </span>
-              <strong>{count}</strong>
+              <strong style={{ color: 'var(--text-primary)' }}>{count}</strong>
             </div>
           ))}
         </div>

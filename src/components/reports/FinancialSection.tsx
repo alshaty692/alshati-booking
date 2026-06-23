@@ -20,17 +20,17 @@ function BarChart({ items, max }: { items: { label: string; value: number }[]; m
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
       {items.map((item, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 90px', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'right', color: '#1B2A3B' }}>{item.label}</span>
-          <div style={{ height: 10, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, textAlign: 'right', color: 'var(--text-primary)' }}>{item.label}</span>
+          <div style={{ height: 10, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
             <div style={{
               height: '100%',
               width: `${max > 0 ? Math.round(item.value / max * 100) : 0}%`,
-              background: 'linear-gradient(90deg,#2D5C4E,#C9A96E)',
+              background: 'linear-gradient(90deg, var(--color-lime-dim), var(--color-lime))',
               borderRadius: 99,
               transition: 'width 0.6s ease',
             }} />
           </div>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#2D5C4E' }}>{formatAmount(item.value)}</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-success)' }}>{formatAmount(item.value)}</span>
         </div>
       ))}
     </div>
@@ -82,15 +82,15 @@ export default function FinancialSection({
             {financial.by_court.map(c => (
               <div key={c.court_id} className="rpt-detail-row">
                 <span>{c.name}</span>
-                <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{c.count} حجز</span>
-                <strong style={{ color: '#2D5C4E' }}>{formatAmount(c.revenue)}</strong>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{c.count} حجز</span>
+                <strong style={{ color: 'var(--color-success)' }}>{formatAmount(c.revenue)}</strong>
               </div>
             ))}
             {/* ملخص المياه */}
             {kpis.water_revenue > 0 && (
-              <div className="rpt-detail-row" style={{ borderTop: '2px dashed #e2e8f0', marginTop: '0.5rem' }}>
-                <span style={{ color: '#0ea5e9' }}>💧 إيرادات المياه</span>
-                <strong style={{ color: '#0ea5e9' }}>{formatAmount(kpis.water_revenue)}</strong>
+              <div className="rpt-detail-row" style={{ borderTop: '2px dashed var(--border-color)', marginTop: '0.5rem' }}>
+                <span style={{ color: 'var(--color-info)' }}>💧 إيرادات المياه</span>
+                <strong style={{ color: 'var(--color-info)' }}>{formatAmount(kpis.water_revenue)}</strong>
               </div>
             )}
           </div>
@@ -107,18 +107,18 @@ export default function FinancialSection({
               return (
                 <div key={status} style={{ marginBottom: '0.875rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.85rem' }}>
-                    <span style={{ fontWeight: 600 }}>{STATUS_AR[status] ?? status}</span>
-                    <span style={{ fontWeight: 700 }}>{count} <span style={{ color: '#94a3b8' }}>({pct}%)</span></span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{STATUS_AR[status] ?? status}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{count} <span style={{ color: 'var(--text-muted)' }}>({pct}%)</span></span>
                   </div>
-                  <div style={{ height: 8, background: '#e2e8f0', borderRadius: 99, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: STATUS_COLOR[status] ?? '#ccc', borderRadius: 99, transition: 'width 0.5s' }} />
+                  <div style={{ height: 8, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: STATUS_COLOR[status] ?? 'var(--text-muted)', borderRadius: 99, transition: 'width 0.5s', opacity: 0.85 }} />
                   </div>
                 </div>
               )
             })}
 
           {/* ملخص مالي */}
-          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
             {[
               { label: 'المبلغ الأصلي',  value: formatAmount(kpis.total_base) },
               { label: 'الخصومات',       value: `- ${formatAmount(kpis.total_discount)}` },
@@ -126,7 +126,7 @@ export default function FinancialSection({
             ].map((r, i) => (
               <div key={i} className="rpt-detail-row">
                 <span style={{ fontSize: '0.85rem' }}>{r.label}</span>
-                <strong style={{ color: '#1B2A3B' }}>{r.value}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>{r.value}</strong>
               </div>
             ))}
           </div>
@@ -153,7 +153,7 @@ export default function FinancialSection({
               </thead>
               <tbody>
                 {confirmedDetails.length === 0 && (
-                  <tr><td colSpan={8} style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem' }}>لا توجد حجوزات مؤكدة</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>لا توجد حجوزات مؤكدة</td></tr>
                 )}
                 {confirmedDetails.map(b => (
                   <tr key={b.id}>
@@ -161,21 +161,21 @@ export default function FinancialSection({
                     <td>{getCourtName(b.court_id)}</td>
                     <td>{PERIOD_LABELS[b.period_number] ?? b.period_number}</td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{b.customer_name}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{b.customer_phone}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{b.customer_name}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{b.customer_phone}</div>
                     </td>
                     <td>
                       {b.code_used
-                        ? <span className="badge badge-confirmed">{b.code_used}</span>
-                        : <span style={{ color: '#94a3b8' }}>—</span>}
+                        ? <span style={{ background: 'var(--color-success-bg)', color: 'var(--color-success)', fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '1rem', fontWeight: 700 }}>{b.code_used}</span>
+                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                     </td>
-                    <td style={{ color: '#0ea5e9' }}>
+                    <td style={{ color: 'var(--color-info)' }}>
                       {(b.water_quantity ?? 0) > 0 ? `${b.water_quantity} 💧` : '—'}
                     </td>
-                    <td style={{ color: '#2D5C4E' }}>
+                    <td style={{ color: 'var(--color-danger)' }}>
                       {b.discount_amount > 0 ? formatAmount(b.discount_amount) : '—'}
                     </td>
-                    <td style={{ fontWeight: 700, color: '#1B2A3B' }}>{formatAmount(b.final_price)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatAmount(b.final_price)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,7 +1,7 @@
 'use client'
 // ============================================================
-// صفحة التقارير — إعادة بناء كاملة
-// مبدأ: الصفحة تعرض فقط — كل الحسابات في السيرفر
+// صفحة التقارير — نظام التبديل بين أنواع التقارير
+// كل نوع يعرض أقسامه فقط + تصدير مستقل
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
 
@@ -18,678 +18,629 @@ import ExportAllBar from '@/components/reports/ExportAllBar'
 import type { FilterState, ReportData } from '@/types/reports'
 import { formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
 
-// ──────────────────────────────────────────────────────────────
-// الحالة الافتراضية للفلتر
-// ──────────────────────────────────────────────────────────────
+// ── نوع التقرير ──
+type ReportType = 'all' | 'financial' | 'bookings' | 'customers' | 'codes'
+const REPORT_TYPES: { id: ReportType; label: string; icon: string }[] = [
+  { id: 'all',       label: 'شامل',         icon: '📊' },
+  { id: 'financial', label: 'مالي',          icon: '💰' },
+  { id: 'bookings',  label: 'الحجوزات',      icon: '📋' },
+  { id: 'customers', label: 'العملاء',        icon: '👥' },
+  { id: 'codes',     label: 'أكواد الخصم',   icon: '🏷️' },
+]
+
 function getInitialFilter(): FilterState {
   const { from, to } = getDateRange('month')
   return { preset: 'month', from, to, court: 'all', status: 'all' }
 }
 
-// ──────────────────────────────────────────────────────────────
-// مكوّن التحميل
-// ──────────────────────────────────────────────────────────────
 function LoadingState() {
   return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1rem', padding:'5rem', color:'#94a3b8' }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1rem', padding:'5rem', color:'var(--text-muted)' }}>
       <div className="spinner" style={{ width:'2.5rem', height:'2.5rem', borderWidth:'3px' }} />
-      <p style={{ margin:0, fontFamily:'Tajawal,sans-serif' }}>جاري تحميل التقارير…</p>
+      <p style={{ margin:0 }}>جاري تحميل التقارير…</p>
     </div>
   )
 }
 
 function ErrorState({ error, onRetry }: { error: string; onRetry: () => void }) {
   return (
-    <div style={{ textAlign:'center', padding:'4rem', color:'#94a3b8' }}>
+    <div style={{ textAlign:'center', padding:'4rem', color:'var(--text-muted)' }}>
       <div style={{ fontSize:'2rem', marginBottom:'0.75rem' }}>⚠️</div>
-      <p style={{ fontFamily:'Tajawal,sans-serif', margin:'0 0 1rem' }}>{error}</p>
-      <button
-        onClick={onRetry}
-        style={{ padding:'0.5rem 1.25rem', borderRadius:'0.5rem', background:'#2D5C4E', color:'#fff', border:'none', cursor:'pointer', fontFamily:'Tajawal,sans-serif', fontWeight:700 }}
-      >
-        إعادة المحاولة
-      </button>
+      <p style={{ margin:'0 0 1rem' }}>{error}</p>
+      <button onClick={onRetry} style={{
+        padding:'0.5rem 1.25rem', borderRadius:'0.5rem',
+        background:'var(--color-lime)', color:'var(--text-on-lime)',
+        border:'none', cursor:'pointer', fontWeight:700,
+      }}>إعادة المحاولة</button>
     </div>
   )
 }
 
-// ──────────────────────────────────────────────────────────────
-// الصفحة الرئيسية
-// ──────────────────────────────────────────────────────────────
-export default function ReportsPage() {
-  const [filter,  setFilter]  = useState<FilterState>(getInitialFilter)
-  const [data,    setData]    = useState<ReportData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState<string | null>(null)
-  const [settings, setSettings] = useState<Record<string, string>>({})
+// ── مساعد تنزيل الملف ──
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
 
-  // جلب الإعدادات (اسم المنشأة)
+// ── مساعد بناء PDF (html2canvas) ──
+async function buildSectionPDF(html: string, filename: string) {
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ])
+  const container = document.createElement('div')
+  container.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-9999;'
+  container.innerHTML = html
+  document.body.appendChild(container)
+  await document.fonts.ready
+  await new Promise(r => setTimeout(r, 200))
+  const el = container.querySelector('.pdf-report') as HTMLElement
+  if (!el) { document.body.removeChild(container); return }
+  const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, windowWidth:800 })
+  document.body.removeChild(container)
+  const imgW = 210, pageH = 297
+  const imgH = (canvas.height * imgW) / canvas.width
+  const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' })
+  let left = imgH, pos = 0
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, pos, imgW, imgH)
+  left -= pageH
+  while (left > 0) { pos -= pageH; pdf.addPage(); pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, pos, imgW, imgH); left -= pageH }
+  pdf.save(filename)
+}
+
+// ── هيكل HTML مشترك للـ PDF ──
+const PDF_CSS = `
+  * { box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal','IBM Plex Sans Arabic',Arial,sans-serif;direction:rtl; }
+  .pdf-report { width:760px;padding:20px;background:#fff;color:#1B2A3B; }
+  .pdf-header { background:#1B2A3B;color:#fff;padding:18px 22px;border-radius:10px;text-align:center;margin-bottom:18px; }
+  .pdf-header h1 { color:#C8FF3E;font-size:20px;font-weight:800;margin-bottom:4px; }
+  .pdf-header p  { font-size:11px;color:#94a3b8; }
+  .pdf-section { margin-bottom:20px; }
+  .pdf-section-title { font-size:15px;font-weight:800;color:#2D5C4E;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #C8FF3E; }
+  .pdf-stats { display:flex;gap:10px;margin-bottom:14px; }
+  .pdf-stat  { flex:1;background:#f0f5f1;border-radius:8px;padding:12px;text-align:center; }
+  .pdf-stat-val { font-size:16px;font-weight:800;color:#1B2A3B; }
+  .pdf-stat-lbl { font-size:10px;color:#94a3b8;margin-top:2px; }
+  table { width:100%;border-collapse:collapse;font-size:11px; }
+  th { background:#1B2A3B;color:#C8FF3E;padding:7px 9px;text-align:right;font-weight:700; }
+  td { padding:6px 9px;border-bottom:1px solid #e2e8f0;text-align:right; }
+  tr:nth-child(even) td { background:#f8f9fa; }
+  .footer { text-align:center;color:#94a3b8;font-size:9px;margin-top:18px;padding-top:10px;border-top:1px solid #e2e8f0; }
+`
+
+// ═══════════════════════════════════════════════════════════
+export default function ReportsPage() {
+  const [filter,      setFilter]      = useState<FilterState>(getInitialFilter)
+  const [data,        setData]        = useState<ReportData | null>(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState<string | null>(null)
+  const [settings,    setSettings]    = useState<Record<string, string>>({})
+  const [reportType,  setReportType]  = useState<ReportType>('all')
+
   useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(d => setSettings(d.settings ?? {}))
-      .catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(d => setSettings(d.settings ?? {})).catch(() => {})
   }, [])
 
-  // جلب بيانات التقارير
   const fetchData = useCallback(async (f: FilterState) => {
     if (!f.from || !f.to) return
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
-      const params = new URLSearchParams({
-        from:   f.from,
-        to:     f.to,
-        court:  f.court,
-        status: f.status,
-      })
-      const res  = await fetch(`/api/admin/reports?${params}`)
+      const params = new URLSearchParams({ from: f.from, to: f.to, court: f.court, status: f.status })
+      const res = await fetch(`/api/admin/reports?${params}`)
       if (!res.ok) throw new Error(`خطأ ${res.status}`)
-      const json = await res.json()
-      setData(json)
+      setData(await res.json())
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'فشل جلب التقارير')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [])
 
-  // إعادة الجلب عند تغيير الفلتر
-  useEffect(() => {
-    fetchData(filter)
-  }, [filter, fetchData])
+  useEffect(() => { fetchData(filter) }, [filter, fetchData])
 
   const centerName = settings.facility_name ?? 'مركز حي الشاطئ'
 
-  // ──────────────────────────────────────────────────────────────
-  // دوال التصدير — القسم المالي
-  // ──────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // دوال PDF — مخصصة لكل قسم
+  // ═══════════════════════════════════════════════════════════
   async function exportFinancialPDF() {
     if (!data) return
-    const { generateReport } = await import('@/lib/pdf-generator')
-    await generateReport({
-      centerName,
-      from: filter.from,
-      to:   filter.to,
-      summary: {
-        total_bookings:     data.kpis.total_count,
-        confirmed_bookings: data.kpis.confirmed_count,
-        total_revenue:      data.kpis.total_revenue,
-        total_discount:     data.kpis.total_discount,
-        avg_booking_value:  data.kpis.avg_booking_value,
-        status_count:       data.financial.status_breakdown as unknown as Record<string, number>,
-      },
-      revenueByCourt: data.financial.by_court.map(c => ({
-        court:   c.name,
-        count:   c.count,
-        revenue: c.revenue,
-      })),
-      customers: data.customers.top_list,
-      heatmap:   data.heatmap.all,
-      codeStats: data.codes.details.map(c => ({ code: c.code, count: c.count, discount: c.total_discount, revenue: c.total_revenue })),
-      bookings:  data.bookings_report.details.map(b => ({
-        customer_name:    b.customer_name,
-        customer_phone:   b.customer_phone,
-        court:            getCourtName(b.court_id),
-        period:           getPeriodName(b.period_number),
-        booking_date:     b.booking_date,
-        final_price:      b.final_price,
-        discount_amount:  b.discount_amount,
-        status:           b.status,
-      })),
-    })
+    const { kpis, financial } = data
+    const fmt = (n: number) => n.toLocaleString('ar-SA') + ' ر.س'
+    const html = `<style>${PDF_CSS}</style>
+    <div class="pdf-report">
+      <div class="pdf-header">
+        <h1>${centerName}</h1>
+        <p>التقرير المالي · ${filter.from} ← ${filter.to}</p>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">💰 الملخص المالي</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.total_revenue)}</div><div class="pdf-stat-lbl">الإيرادات الصافية</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.total_discount)}</div><div class="pdf-stat-lbl">الخصومات</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.water_revenue)}</div><div class="pdf-stat-lbl">إيرادات المياه</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.avg_booking_value)}</div><div class="pdf-stat-lbl">متوسط الحجز</div></div>
+        </div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">🏟️ الإيرادات حسب الملعب</div>
+        <table><thead><tr><th>الملعب</th><th>الحجوزات</th><th>الإيرادات</th></tr></thead>
+        <tbody>${financial.by_court.map(c => `<tr><td>${c.name}</td><td>${c.count}</td><td>${fmt(c.revenue)}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div class="footer">تم الإنشاء بواسطة النظام الداخلي · ${new Date().toLocaleString('ar-SA')}</div>
+    </div>`
+    await buildSectionPDF(html, `${centerName}-مالي-${filter.from}-${filter.to}.pdf`)
   }
+
+  async function exportBookingsPDF() {
+    if (!data) return
+    const { kpis, bookings_report: br } = data
+    const STATUS_AR: Record<string, string> = { confirmed:'مؤكد',pending:'بانتظار',uploaded:'قيد المراجعة',rejected:'مرفوض',cancelled:'ملغى',expired:'منتهي' }
+    const html = `<style>${PDF_CSS}</style>
+    <div class="pdf-report">
+      <div class="pdf-header">
+        <h1>${centerName}</h1>
+        <p>تقرير الحجوزات · ${filter.from} ← ${filter.to}</p>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">📋 ملخص الحجوزات</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="pdf-stat-val">${br.total}</div><div class="pdf-stat-lbl">الإجمالي</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${kpis.confirmed_count}</div><div class="pdf-stat-lbl">المؤكدة</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${kpis.cancellation_rate}%</div><div class="pdf-stat-lbl">نسبة الإلغاء</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${br.online_count}</div><div class="pdf-stat-lbl">أونلاين</div></div>
+        </div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">📋 تفاصيل الحجوزات (${br.details.length})</div>
+        <table><thead><tr><th>الاسم</th><th>الملعب</th><th>الفترة</th><th>التاريخ</th><th>المبلغ</th><th>الحالة</th></tr></thead>
+        <tbody>${br.details.slice(0, 100).map(b => `<tr><td>${b.customer_name}</td><td>${getCourtName(b.court_id)}</td><td>${getPeriodName(b.period_number)}</td><td>${b.booking_date}</td><td>${b.final_price.toLocaleString('ar-SA')} ر.س</td><td>${STATUS_AR[b.status]??b.status}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div class="footer">تم الإنشاء بواسطة النظام الداخلي · ${new Date().toLocaleString('ar-SA')}</div>
+    </div>`
+    await buildSectionPDF(html, `${centerName}-حجوزات-${filter.from}-${filter.to}.pdf`)
+  }
+
+  async function exportCustomersPDF() {
+    if (!data) return
+    const { customers } = data
+    const html = `<style>${PDF_CSS}</style>
+    <div class="pdf-report">
+      <div class="pdf-header">
+        <h1>${centerName}</h1>
+        <p>تقرير العملاء · ${filter.from} ← ${filter.to}</p>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">👥 ملخص العملاء</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="pdf-stat-val">${customers.total_unique}</div><div class="pdf-stat-lbl">إجمالي العملاء</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${customers.new_customers}</div><div class="pdf-stat-lbl">عملاء جدد</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${customers.repeat_customers}</div><div class="pdf-stat-lbl">متكررون</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${customers.repeat_rate}%</div><div class="pdf-stat-lbl">معدل التكرار</div></div>
+        </div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">🏆 أفضل العملاء</div>
+        <table><thead><tr><th>#</th><th>الاسم</th><th>الجوال</th><th>الحجوزات</th><th>الإيرادات</th></tr></thead>
+        <tbody>${customers.top_list.slice(0, 30).map((c, i) => `<tr><td>${i+1}</td><td>${c.name}</td><td>${c.phone}</td><td>${c.count}</td><td>${c.revenue.toLocaleString('ar-SA')} ر.س</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div class="footer">تم الإنشاء بواسطة النظام الداخلي · ${new Date().toLocaleString('ar-SA')}</div>
+    </div>`
+    await buildSectionPDF(html, `${centerName}-عملاء-${filter.from}-${filter.to}.pdf`)
+  }
+
+  async function exportCodesPDF() {
+    if (!data) return
+    const { codes } = data
+    const fmt = (n: number) => n.toLocaleString('ar-SA') + ' ر.س'
+    const html = `<style>${PDF_CSS}</style>
+    <div class="pdf-report">
+      <div class="pdf-header">
+        <h1>${centerName}</h1>
+        <p>تقرير أكواد الخصم · ${filter.from} ← ${filter.to}</p>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">🏷️ ملخص الأكواد</div>
+        <div class="pdf-stats">
+          <div class="pdf-stat"><div class="pdf-stat-val">${codes.unique_codes_used}</div><div class="pdf-stat-lbl">أكواد مستخدمة</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${codes.total_uses}</div><div class="pdf-stat-lbl">إجمالي الاستخدامات</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(codes.total_discount)}</div><div class="pdf-stat-lbl">إجمالي الخصومات</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${codes.usage_rate}%</div><div class="pdf-stat-lbl">نسبة الاستخدام</div></div>
+        </div>
+      </div>
+      <div class="pdf-section">
+        <div class="pdf-section-title">📋 تفاصيل الأكواد</div>
+        <table><thead><tr><th>الكود</th><th>الاستخدامات</th><th>الحد الأقصى</th><th>إجمالي الخصم</th><th>إجمالي الإيرادات</th><th>الحالة</th></tr></thead>
+        <tbody>${codes.details.map(c => `<tr><td><strong>${c.code}</strong></td><td>${c.count}</td><td>${c.max_uses ?? '∞'}</td><td>${fmt(c.total_discount)}</td><td>${fmt(c.total_revenue)}</td><td>${c.is_active ? 'نشط' : 'غير نشط'}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div class="footer">تم الإنشاء بواسطة النظام الداخلي · ${new Date().toLocaleString('ar-SA')}</div>
+    </div>`
+    await buildSectionPDF(html, `${centerName}-أكواد-${filter.from}-${filter.to}.pdf`)
+  }
+
+  async function exportAllPDF() {
+    if (!data) return
+    // الشامل يصدر كل الأقسام = يستخدم PDF المالي + الحجوزات
+    await exportFinancialPDF()
+    await exportBookingsPDF()
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // دوال Excel
+  // ═══════════════════════════════════════════════════════════
+  const HEADER_FILL = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
+  const HEADER_FONT = { bold: true, color: { argb: 'FFC8FF3E' }, size: 11, name: 'Tahoma' }
+  const STATUS_AR: Record<string, string> = { confirmed:'مؤكد',pending:'بانتظار',uploaded:'قيد المراجعة',rejected:'مرفوض',cancelled:'ملغى',expired:'منتهي' }
 
   async function exportFinancialExcel() {
     if (!data) return
     const ExcelJS = (await import('exceljs')).default
-    const wb = new ExcelJS.Workbook()
-    wb.creator = centerName
-
-    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
-    const headerFont = { bold: true, color: { argb: 'FFC9A96E' }, size: 11, name: 'Tahoma' }
-
+    const wb = new ExcelJS.Workbook(); wb.creator = centerName
     // Sheet 1: ملخص مالي
     const ws = wb.addWorksheet('الملخص المالي')
-    ws.columns = [
-      { header: 'البند',  key: 'label',  width: 25 },
-      { header: 'القيمة', key: 'value',  width: 20 },
-    ]
-    ws.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont })
-    ws.addRow({ label: 'الإيرادات الصافية',  value: data.kpis.total_revenue })
-    ws.addRow({ label: 'الخصومات',           value: data.kpis.total_discount })
-    ws.addRow({ label: 'إيرادات المياه',      value: data.kpis.water_revenue })
-    ws.addRow({ label: 'متوسط قيمة الحجز',   value: data.kpis.avg_booking_value })
-    ws.addRow({ label: 'المؤكدة',             value: data.kpis.confirmed_count })
+    ws.columns = [{ header:'البند', key:'label', width:28 }, { header:'القيمة', key:'value', width:20 }]
+    ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
+    ws.addRow({ label:'الإيرادات الصافية', value:data.kpis.total_revenue })
+    ws.addRow({ label:'الخصومات', value:data.kpis.total_discount })
+    ws.addRow({ label:'إيرادات المياه', value:data.kpis.water_revenue })
+    ws.addRow({ label:'متوسط قيمة الحجز', value:data.kpis.avg_booking_value })
     ws.addRow({})
-    data.financial.by_court.forEach(c => {
-      ws.addRow({ label: c.name, value: c.revenue })
-    })
-
-    // Sheet 2: الحجوزات المؤكدة
-    const ws2 = wb.addWorksheet('الحجوزات المؤكدة')
+    data.financial.by_court.forEach(c => ws.addRow({ label:c.name, value:c.revenue }))
+    // Sheet 2: تفاصيل مالية
+    const ws2 = wb.addWorksheet('التفاصيل المالية')
     ws2.columns = [
-      { header: 'التاريخ',        key: 'date',     width: 14 },
-      { header: 'الملعب',         key: 'court',    width: 18 },
-      { header: 'الفترة',         key: 'period',   width: 10 },
-      { header: 'الاسم',          key: 'name',     width: 22 },
-      { header: 'الجوال',         key: 'phone',    width: 16 },
-      { header: 'الكود',          key: 'code',     width: 12 },
-      { header: 'المياه',         key: 'water',    width: 10 },
-      { header: 'الخصم',          key: 'discount', width: 12 },
-      { header: 'المبلغ النهائي', key: 'final',    width: 14 },
+      { header:'التاريخ', key:'date', width:14 }, { header:'الملعب', key:'court', width:18 },
+      { header:'الاسم', key:'name', width:22 }, { header:'الجوال', key:'phone', width:16 },
+      { header:'الكود', key:'code', width:12 }, { header:'المياه', key:'water', width:10 },
+      { header:'المبلغ الأصلي', key:'base', width:14 }, { header:'الخصم', key:'disc', width:12 },
+      { header:'المبلغ النهائي', key:'final', width:14 },
     ]
-    ws2.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont })
+    ws2.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
     data.bookings_report.details.filter(b => b.status === 'confirmed').forEach(b => {
-      ws2.addRow({
-        date:     b.booking_date,
-        court:    getCourtName(b.court_id),
-        period:   getPeriodName(b.period_number),
-        name:     b.customer_name,
-        phone:    b.customer_phone,
-        code:     b.code_used ?? '',
-        water:    b.water_quantity ?? 0,
-        discount: b.discount_amount,
-        final:    b.final_price,
-      })
+      ws2.addRow({ date:b.booking_date, court:getCourtName(b.court_id), name:b.customer_name,
+        phone:b.customer_phone, code:b.code_used??'', water:b.water_quantity??0,
+        base:b.base_price, disc:b.discount_amount, final:b.final_price })
     })
-
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `${centerName}-مالي-${filter.from}-${filter.to}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function shareFinancialWhatsApp() {
-    if (!data) return
-    const lines = [
-      `💰 *التقرير المالي — ${centerName}*`,
-      `📅 ${filter.from} ← ${filter.to}`,
-      '',
-      `✅ الحجوزات المؤكدة: ${data.kpis.confirmed_count}`,
-      `💰 الإيرادات: ${formatAmount(data.kpis.total_revenue)}`,
-      `🏷️ الخصومات: ${formatAmount(data.kpis.total_discount)}`,
-      `💧 إيرادات المياه: ${formatAmount(data.kpis.water_revenue)}`,
-      `📊 متوسط الحجز: ${formatAmount(data.kpis.avg_booking_value)}`,
-      '',
-      ...data.financial.by_court.map(c =>
-        `🏟️ ${c.name}: ${c.count} حجز — ${formatAmount(c.revenue)}`
-      ),
-    ]
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
-  }
-
-  // ──────────────────────────────────────────────────────────────
-  // دوال التصدير — قسم الحجوزات
-  // ──────────────────────────────────────────────────────────────
-  function shareBookingsWhatsApp() {
-    if (!data) return
-    const { kpis, bookings_report: br } = data
-    const lines = [
-      `📋 *تقرير الحجوزات — ${centerName}*`,
-      `📅 ${filter.from} ← ${filter.to}`,
-      '',
-      `📋 الإجمالي: ${br.total}`,
-      `✅ مؤكدة: ${kpis.confirmed_count}`,
-      `❌ نسبة الإلغاء: ${kpis.cancellation_rate}%`,
-      '',
-      `⏰ الفترات:`,
-      `   5–7م: ${br.by_period['1'] ?? 0}`,
-      `   7–9م: ${br.by_period['2'] ?? 0}`,
-      `   9–11م: ${br.by_period['3'] ?? 0}`,
-      '',
-      `🌐 أونلاين: ${br.online_count} | ✍️ يدوي: ${br.manual_count}`,
-    ]
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+    const buf = await wb.xlsx.writeBuffer()
+    downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${centerName}-مالي-${filter.from}-${filter.to}.xlsx`)
   }
 
   async function exportBookingsExcel() {
     if (!data) return
     const ExcelJS = (await import('exceljs')).default
-    const wb  = new ExcelJS.Workbook()
-    wb.creator = centerName
-    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
-    const headerFont = { bold: true, color: { argb: 'FFC9A96E' }, size: 11, name: 'Tahoma' }
-
+    const wb = new ExcelJS.Workbook(); wb.creator = centerName
     const ws = wb.addWorksheet('جميع الحجوزات')
     ws.columns = [
-      { header: 'التاريخ',  key: 'date',    width: 14 },
-      { header: 'الملعب',   key: 'court',   width: 18 },
-      { header: 'الفترة',   key: 'period',  width: 10 },
-      { header: 'الاسم',    key: 'name',    width: 22 },
-      { header: 'الجوال',   key: 'phone',   width: 16 },
-      { header: 'الحالة',   key: 'status',  width: 14 },
-      { header: 'يدوي',     key: 'manual',  width: 8  },
-      { header: 'المبلغ',   key: 'final',   width: 14 },
+      { header:'التاريخ', key:'date', width:14 }, { header:'الملعب', key:'court', width:18 },
+      { header:'الفترة', key:'period', width:10 }, { header:'الاسم', key:'name', width:22 },
+      { header:'الجوال', key:'phone', width:16 }, { header:'الحالة', key:'status', width:14 },
+      { header:'المصدر', key:'src', width:10 }, { header:'المبلغ', key:'final', width:14 },
     ]
-    ws.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont })
-
-    const STATUS_AR: Record<string, string> = {
-      confirmed:'مؤكد', pending:'بانتظار', uploaded:'قيد المراجعة',
-      rejected:'مرفوض', cancelled:'ملغى', expired:'منتهي',
-    }
+    ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
     data.bookings_report.details.forEach(b => {
-      ws.addRow({
-        date:   b.booking_date,
-        court:  getCourtName(b.court_id),
-        period: getPeriodName(b.period_number),
-        name:   b.customer_name,
-        phone:  b.customer_phone,
-        status: STATUS_AR[b.status] ?? b.status,
-        manual: b.is_manual ? 'يدوي' : 'أونلاين',
-        final:  b.final_price,
-      })
+      ws.addRow({ date:b.booking_date, court:getCourtName(b.court_id),
+        period:getPeriodName(b.period_number), name:b.customer_name, phone:b.customer_phone,
+        status:STATUS_AR[b.status]??b.status, src:b.is_manual?'يدوي':'أونلاين', final:b.final_price })
     })
-
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `${centerName}-حجوزات-${filter.from}-${filter.to}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // ──────────────────────────────────────────────────────────────
-  // دوال التصدير — قسم العملاء
-  // ──────────────────────────────────────────────────────────────
-  function shareCustomersWhatsApp() {
-    if (!data) return
-    const { customers } = data
-    const lines = [
-      `👥 *تقرير العملاء — ${centerName}*`,
-      `📅 ${filter.from} ← ${filter.to}`,
-      '',
-      `إجمالي العملاء: ${customers.total_unique}`,
-      `جدد حقيقيون: ${customers.new_customers}`,
-      `متكررون: ${customers.repeat_customers}`,
-      `معدل التكرار: ${customers.repeat_rate}%`,
-      '',
-      `⭐ أفضل 5 عملاء:`,
-      ...customers.top_list.slice(0, 5).map((c, i) =>
-        `${i + 1}. ${c.name} — ${c.count} حجز — ${formatAmount(c.revenue)}`
-      ),
-    ]
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+    const buf = await wb.xlsx.writeBuffer()
+    downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${centerName}-حجوزات-${filter.from}-${filter.to}.xlsx`)
   }
 
   async function exportCustomersExcel() {
     if (!data) return
     const ExcelJS = (await import('exceljs')).default
-    const wb  = new ExcelJS.Workbook()
-    wb.creator = centerName
-    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
-    const headerFont = { bold: true, color: { argb: 'FFC9A96E' }, size: 11, name: 'Tahoma' }
-
+    const wb = new ExcelJS.Workbook(); wb.creator = centerName
     const ws = wb.addWorksheet('العملاء')
     ws.columns = [
-      { header: '#',              key: 'rank',   width: 6  },
-      { header: 'الاسم',          key: 'name',   width: 22 },
-      { header: 'الجوال',         key: 'phone',  width: 16 },
-      { header: 'الحجوزات',       key: 'count',  width: 12 },
-      { header: 'الإيرادات',      key: 'rev',    width: 16 },
-      { header: 'التصنيف',        key: 'cls',    width: 12 },
-      { header: 'أول حجز',        key: 'first',  width: 16 },
+      { header:'#', key:'rank', width:6 }, { header:'الاسم', key:'name', width:22 },
+      { header:'الجوال', key:'phone', width:16 }, { header:'الحجوزات', key:'count', width:12 },
+      { header:'الإيرادات', key:'rev', width:16 }, { header:'التصنيف', key:'cls', width:12 },
+      { header:'أول حجز', key:'first', width:16 },
     ]
-    ws.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont })
+    ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
     data.customers.top_list.forEach((c, i) => {
-      ws.addRow({
-        rank:  i + 1,
-        name:  c.name,
-        phone: c.phone,
-        count: c.count,
-        rev:   c.revenue,
-        cls:   c.classification ?? '',
-        first: c.first_booking_at ? new Date(c.first_booking_at).toLocaleDateString('ar-SA') : '',
-      })
+      ws.addRow({ rank:i+1, name:c.name, phone:c.phone, count:c.count, rev:c.revenue,
+        cls:c.classification??'',
+        first:c.first_booking_at ? new Date(c.first_booking_at).toLocaleDateString('ar-SA') : '' })
     })
-
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `${centerName}-عملاء-${filter.from}-${filter.to}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // ──────────────────────────────────────────────────────────────
-  // دوال التصدير — قسم الأكواد
-  // ──────────────────────────────────────────────────────────────
-  function shareCodesWhatsApp() {
-    if (!data) return
-    const { codes } = data
-    const lines = [
-      `🏷️ *تقرير الأكواد — ${centerName}*`,
-      `📅 ${filter.from} ← ${filter.to}`,
-      '',
-      `أكواد مستخدمة: ${codes.unique_codes_used}`,
-      `إجمالي استخدامات: ${codes.total_uses}`,
-      `إجمالي الخصومات: ${formatAmount(codes.total_discount)}`,
-      `نسبة الاستخدام: ${codes.usage_rate}%`,
-      '',
-      `🏆 أفضل 5 أكواد:`,
-      ...codes.details.slice(0, 5).map((c, i) =>
-        `${i + 1}. ${c.code} — ${c.count} استخدام — خصم ${formatAmount(c.total_discount)}`
-      ),
-    ]
-    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+    const buf = await wb.xlsx.writeBuffer()
+    downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${centerName}-عملاء-${filter.from}-${filter.to}.xlsx`)
   }
 
   async function exportCodesExcel() {
     if (!data) return
     const ExcelJS = (await import('exceljs')).default
-    const wb  = new ExcelJS.Workbook()
-    wb.creator = centerName
-    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
-    const headerFont = { bold: true, color: { argb: 'FFC9A96E' }, size: 11, name: 'Tahoma' }
-
+    const wb = new ExcelJS.Workbook(); wb.creator = centerName
     const ws = wb.addWorksheet('الأكواد')
     ws.columns = [
-      { header: 'الكود',              key: 'code',    width: 14 },
-      { header: 'الاستخدامات',        key: 'count',   width: 14 },
-      { header: 'الحد الأقصى',        key: 'max',     width: 12 },
-      { header: 'إجمالي الخصم',       key: 'disc',    width: 16 },
-      { header: 'إجمالي الإيرادات',   key: 'rev',     width: 16 },
-      { header: 'الحالة',              key: 'active',  width: 10 },
+      { header:'الكود', key:'code', width:14 }, { header:'الاستخدامات', key:'count', width:14 },
+      { header:'الحد الأقصى', key:'max', width:12 }, { header:'إجمالي الخصم', key:'disc', width:16 },
+      { header:'إجمالي الإيرادات', key:'rev', width:16 }, { header:'الحالة', key:'active', width:10 },
     ]
-    ws.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont })
+    ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
     data.codes.details.forEach(c => {
-      ws.addRow({
-        code:   c.code,
-        count:  c.count,
-        max:    c.max_uses ?? 'غير محدود',
-        disc:   c.total_discount,
-        rev:    c.total_revenue,
-        active: c.is_active ? 'نشط' : 'غير نشط',
-      })
+      ws.addRow({ code:c.code, count:c.count, max:c.max_uses??'غير محدود',
+        disc:c.total_discount, rev:c.total_revenue, active:c.is_active?'نشط':'غير نشط' })
     })
-
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `${centerName}-أكواد-${filter.from}-${filter.to}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
+    const buf = await wb.xlsx.writeBuffer()
+    downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${centerName}-أكواد-${filter.from}-${filter.to}.xlsx`)
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // التصدير الشامل
-  // ──────────────────────────────────────────────────────────────
   async function exportAllExcel() {
     if (!data) return
     const ExcelJS = (await import('exceljs')).default
-    const wb  = new ExcelJS.Workbook()
-    wb.creator = centerName
-    wb.created = new Date()
-
-    const headerFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF1B2A3B' } }
-    const headerFont = { bold: true, color: { argb: 'FFC9A96E' }, size: 11, name: 'Tahoma' }
-    const styleRow   = (ws: InstanceType<typeof ExcelJS.Workbook>['worksheets'][0]) => {
-      ws.getRow(1).eachCell(c => { c.fill = headerFill; c.font = headerFont; c.alignment = { horizontal: 'right', vertical: 'middle' } })
+    const wb = new ExcelJS.Workbook(); wb.creator = centerName; wb.created = new Date()
+    const styleRow = (ws: InstanceType<typeof ExcelJS.Workbook>['worksheets'][0]) => {
+      ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT; c.alignment = { horizontal:'right', vertical:'middle' } })
       ws.getRow(1).height = 28
     }
-
-    // Sheet 1: ملخص عام
+    // Sheet 1: ملخص
     const ws1 = wb.addWorksheet('ملخص عام')
-    ws1.columns = [{ header: 'البند', key: 'label', width: 28 }, { header: 'القيمة', key: 'value', width: 20 }]
+    ws1.columns = [{ header:'البند', key:'label', width:28 }, { header:'القيمة', key:'value', width:20 }]
     styleRow(ws1)
-    ws1.addRow({ label: 'الإيرادات الصافية',  value: data.kpis.total_revenue })
-    ws1.addRow({ label: 'الخصومات الكلية',    value: data.kpis.total_discount })
-    ws1.addRow({ label: 'إيرادات المياه',      value: data.kpis.water_revenue })
-    ws1.addRow({ label: 'إجمالي الحجوزات',    value: data.kpis.total_count })
-    ws1.addRow({ label: 'الحجوزات المؤكدة',   value: data.kpis.confirmed_count })
-    ws1.addRow({ label: 'متوسط قيمة الحجز',   value: data.kpis.avg_booking_value })
-    ws1.addRow({ label: 'نسبة الإشغال',        value: `${data.operations.occupancy_rate}%` })
-
-    // Sheet 2: جميع الحجوزات
+    ws1.addRow({ label:'الإيرادات الصافية', value:data.kpis.total_revenue })
+    ws1.addRow({ label:'الخصومات الكلية', value:data.kpis.total_discount })
+    ws1.addRow({ label:'إيرادات المياه', value:data.kpis.water_revenue })
+    ws1.addRow({ label:'إجمالي الحجوزات', value:data.kpis.total_count })
+    ws1.addRow({ label:'الحجوزات المؤكدة', value:data.kpis.confirmed_count })
+    ws1.addRow({ label:'متوسط قيمة الحجز', value:data.kpis.avg_booking_value })
+    ws1.addRow({ label:'نسبة الإشغال', value:`${data.operations.occupancy_rate}%` })
+    // Sheet 2: الحجوزات
     const ws2 = wb.addWorksheet('الحجوزات')
     ws2.columns = [
-      { header: 'التاريخ',  key: 'date',    width: 14 },
-      { header: 'الملعب',   key: 'court',   width: 18 },
-      { header: 'الفترة',   key: 'period',  width: 10 },
-      { header: 'الاسم',    key: 'name',    width: 22 },
-      { header: 'الجوال',   key: 'phone',   width: 16 },
-      { header: 'الكود',    key: 'code',    width: 12 },
-      { header: 'المياه',   key: 'water',   width: 8  },
-      { header: 'الخصم',    key: 'disc',    width: 12 },
-      { header: 'المبلغ',   key: 'final',   width: 14 },
-      { header: 'الحالة',   key: 'status',  width: 14 },
-      { header: 'المصدر',   key: 'src',     width: 10 },
+      { header:'التاريخ', key:'date', width:14 }, { header:'الملعب', key:'court', width:18 },
+      { header:'الفترة', key:'period', width:10 }, { header:'الاسم', key:'name', width:22 },
+      { header:'الجوال', key:'phone', width:16 }, { header:'الكود', key:'code', width:12 },
+      { header:'المياه', key:'water', width:8 }, { header:'الخصم', key:'disc', width:12 },
+      { header:'المبلغ', key:'final', width:14 }, { header:'الحالة', key:'status', width:14 },
+      { header:'المصدر', key:'src', width:10 },
     ]
     styleRow(ws2)
-    const STATUS_AR: Record<string,string> = {
-      confirmed:'مؤكد',pending:'بانتظار',uploaded:'قيد المراجعة',rejected:'مرفوض',cancelled:'ملغى',expired:'منتهي',
-    }
     data.bookings_report.details.forEach(b => {
-      ws2.addRow({
-        date:   b.booking_date,
-        court:  getCourtName(b.court_id),
-        period: getPeriodName(b.period_number),
-        name:   b.customer_name,
-        phone:  b.customer_phone,
-        code:   b.code_used ?? '',
-        water:  b.water_quantity ?? 0,
-        disc:   b.discount_amount,
-        final:  b.final_price,
-        status: STATUS_AR[b.status] ?? b.status,
-        src:    b.is_manual ? 'يدوي' : 'أونلاين',
-      })
+      ws2.addRow({ date:b.booking_date, court:getCourtName(b.court_id), period:getPeriodName(b.period_number),
+        name:b.customer_name, phone:b.customer_phone, code:b.code_used??'', water:b.water_quantity??0,
+        disc:b.discount_amount, final:b.final_price, status:STATUS_AR[b.status]??b.status, src:b.is_manual?'يدوي':'أونلاين' })
     })
-
     // Sheet 3: العملاء
     const ws3 = wb.addWorksheet('العملاء')
     ws3.columns = [
-      { header: '#',          key: 'rank',  width: 6  },
-      { header: 'الاسم',      key: 'name',  width: 22 },
-      { header: 'الجوال',     key: 'phone', width: 16 },
-      { header: 'الحجوزات',   key: 'count', width: 12 },
-      { header: 'الإيرادات',  key: 'rev',   width: 16 },
-      { header: 'التصنيف',    key: 'cls',   width: 12 },
+      { header:'#', key:'rank', width:6 }, { header:'الاسم', key:'name', width:22 },
+      { header:'الجوال', key:'phone', width:16 }, { header:'الحجوزات', key:'count', width:12 },
+      { header:'الإيرادات', key:'rev', width:16 }, { header:'التصنيف', key:'cls', width:12 },
     ]
     styleRow(ws3)
     data.customers.top_list.forEach((c, i) => {
-      ws3.addRow({ rank: i+1, name: c.name, phone: c.phone, count: c.count, rev: c.revenue, cls: c.classification ?? '' })
+      ws3.addRow({ rank:i+1, name:c.name, phone:c.phone, count:c.count, rev:c.revenue, cls:c.classification??'' })
     })
-
     // Sheet 4: الأكواد
     const ws4 = wb.addWorksheet('الأكواد')
     ws4.columns = [
-      { header: 'الكود',        key: 'code',  width: 14 },
-      { header: 'الاستخدامات',  key: 'count', width: 14 },
-      { header: 'إجمالي الخصم', key: 'disc',  width: 16 },
-      { header: 'إجمالي الإير', key: 'rev',   width: 16 },
+      { header:'الكود', key:'code', width:14 }, { header:'الاستخدامات', key:'count', width:14 },
+      { header:'إجمالي الخصم', key:'disc', width:16 }, { header:'إجمالي الإيرادات', key:'rev', width:16 },
     ]
     styleRow(ws4)
-    data.codes.details.forEach(c => {
-      ws4.addRow({ code: c.code, count: c.count, disc: c.total_discount, rev: c.total_revenue })
-    })
+    data.codes.details.forEach(c => ws4.addRow({ code:c.code, count:c.count, disc:c.total_discount, rev:c.total_revenue }))
 
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `${centerName}-تقرير-شامل-${filter.from}-${filter.to}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
+    const buf = await wb.xlsx.writeBuffer()
+    downloadBlob(new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${centerName}-تقرير-شامل-${filter.from}-${filter.to}.xlsx`)
   }
 
-  async function exportAllPDF() {
+  // ═══════════════════════════════════════════════════════════
+  // WhatsApp — مخصص لكل قسم
+  // ═══════════════════════════════════════════════════════════
+  function shareFinancialWhatsApp() {
     if (!data) return
-    await exportFinancialPDF()
+    const { kpis, financial } = data
+    const lines = [
+      `💰 *التقرير المالي — ${centerName}*`,
+      `📅 ${filter.from} ← ${filter.to}`, '',
+      `✅ مؤكدة: ${kpis.confirmed_count}`,
+      `💰 الإيرادات: ${formatAmount(kpis.total_revenue)}`,
+      `🏷️ الخصومات: ${formatAmount(kpis.total_discount)}`,
+      `💧 المياه: ${formatAmount(kpis.water_revenue)}`,
+      `📊 متوسط: ${formatAmount(kpis.avg_booking_value)}`, '',
+      ...financial.by_court.map(c => `🏟️ ${c.name}: ${c.count} حجز — ${formatAmount(c.revenue)}`),
+    ]
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // الـ UI
-  // ──────────────────────────────────────────────────────────────
+  function shareBookingsWhatsApp() {
+    if (!data) return
+    const { kpis, bookings_report: br } = data
+    const lines = [
+      `📋 *تقرير الحجوزات — ${centerName}*`,
+      `📅 ${filter.from} ← ${filter.to}`, '',
+      `📋 الإجمالي: ${br.total}`,
+      `✅ مؤكدة: ${kpis.confirmed_count}`,
+      `❌ نسبة الإلغاء: ${kpis.cancellation_rate}%`, '',
+      `🌐 أونلاين: ${br.online_count} | ✍️ يدوي: ${br.manual_count}`,
+    ]
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+  }
+
+  function shareCustomersWhatsApp() {
+    if (!data) return
+    const { customers } = data
+    const lines = [
+      `👥 *تقرير العملاء — ${centerName}*`,
+      `📅 ${filter.from} ← ${filter.to}`, '',
+      `إجمالي العملاء: ${customers.total_unique}`,
+      `جدد: ${customers.new_customers}`,
+      `متكررون: ${customers.repeat_customers}`,
+      `معدل التكرار: ${customers.repeat_rate}%`, '',
+      `⭐ أفضل 5 عملاء:`,
+      ...customers.top_list.slice(0, 5).map((c, i) => `${i+1}. ${c.name} — ${c.count} حجز — ${formatAmount(c.revenue)}`),
+    ]
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+  }
+
+  function shareCodesWhatsApp() {
+    if (!data) return
+    const { codes } = data
+    const lines = [
+      `🏷️ *تقرير الأكواد — ${centerName}*`,
+      `📅 ${filter.from} ← ${filter.to}`, '',
+      `أكواد مستخدمة: ${codes.unique_codes_used}`,
+      `إجمالي الاستخدامات: ${codes.total_uses}`,
+      `إجمالي الخصومات: ${formatAmount(codes.total_discount)}`,
+      `نسبة الاستخدام: ${codes.usage_rate}%`, '',
+      `🏆 أفضل 5 أكواد:`,
+      ...codes.details.slice(0, 5).map((c, i) => `${i+1}. ${c.code} — ${c.count} استخدام — ${formatAmount(c.total_discount)}`),
+    ]
+    window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank')
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // دوال PDF/Excel حسب النوع الحالي
+  // ═══════════════════════════════════════════════════════════
+  function currentPDF() {
+    const map: Record<ReportType, () => void> = {
+      all: exportAllPDF, financial: exportFinancialPDF,
+      bookings: exportBookingsPDF, customers: exportCustomersPDF, codes: exportCodesPDF,
+    }
+    return map[reportType] ?? exportAllPDF
+  }
+  function currentExcel() {
+    const map: Record<ReportType, () => void> = {
+      all: exportAllExcel, financial: exportFinancialExcel,
+      bookings: exportBookingsExcel, customers: exportCustomersExcel, codes: exportCodesExcel,
+    }
+    return map[reportType] ?? exportAllExcel
+  }
+  function currentWhatsApp() {
+    const map: Record<ReportType, () => void> = {
+      all: shareFinancialWhatsApp, financial: shareFinancialWhatsApp,
+      bookings: shareBookingsWhatsApp, customers: shareCustomersWhatsApp, codes: shareCodesWhatsApp,
+    }
+    return map[reportType] ?? shareFinancialWhatsApp
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
   return (
     <div className="reports-page">
-      {/* الرأس */}
+      {/* ─── الرأس ─── */}
       <div className="rpt-header">
         <div>
-          <h1 className="rpt-title">التقارير</h1>
+          <h1 className="rpt-title">📈 التقارير</h1>
           <p className="rpt-sub">
             {data
               ? `${data.meta.from} ← ${data.meta.to} · آخر تحديث: ${new Date(data.meta.generated_at).toLocaleTimeString('ar-SA')}`
               : 'جاري التحميل…'}
           </p>
         </div>
+        {/* أزرار التصدير الشاملة — تصدر التقرير الحالي */}
+        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap', alignItems:'center' }}>
+          <button
+            className="sec-btn sec-btn-pdf"
+            onClick={currentPDF()}
+            disabled={!data || loading}
+          >📄 PDF</button>
+          <button
+            className="sec-btn sec-btn-excel"
+            onClick={currentExcel()}
+            disabled={!data || loading}
+          >📊 Excel</button>
+          <button
+            className="sec-btn sec-btn-wa"
+            onClick={currentWhatsApp()}
+            disabled={!data || loading}
+          >💬 واتساب</button>
+        </div>
       </div>
 
-      {/* الفلتر الموحّد */}
-      <FilterBar
-        filter={filter}
-        loading={loading}
-        onChange={setFilter}
-      />
+      {/* ─── شريط نوع التقرير ─── */}
+      <div className="report-type-bar">
+        {REPORT_TYPES.map(rt => (
+          <button
+            key={rt.id}
+            className={`report-type-btn${reportType === rt.id ? ' active' : ''}`}
+            onClick={() => setReportType(rt.id)}
+          >
+            {rt.icon} {rt.label}
+          </button>
+        ))}
+      </div>
 
-      {/* حالة التحميل / الخطأ */}
+      {/* ─── الفلتر ─── */}
+      <FilterBar filter={filter} loading={loading} onChange={setFilter} />
+
+      {/* ─── حالات التحميل ─── */}
       {loading && !data && <LoadingState />}
       {error && !loading && <ErrorState error={error} onRetry={() => fetchData(filter)} />}
 
-      {/* المحتوى */}
+      {/* ─── المحتوى ─── */}
       {data && (
         <>
-          {/* KPIs */}
+          {/* KPIs — تظهر دائماً */}
           <KpiStrip kpis={data.kpis} loading={loading} />
 
-          {/* Heatmap */}
-          <Heatmap data={data.heatmap} />
+          {/* الشامل */}
+          {(reportType === 'all') && (
+            <>
+              <Heatmap data={data.heatmap} />
+              <FinancialSection
+                financial={data.financial} kpis={data.kpis} details={data.bookings_report.details}
+                from={filter.from} to={filter.to} centerName={centerName}
+                waterPrice={data.meta.water_price_per_carton}
+                onExportPDF={exportFinancialPDF} onExportExcel={exportFinancialExcel} onWhatsApp={shareFinancialWhatsApp}
+              />
+              <BookingsSection
+                bookings={data.bookings_report} kpis={data.kpis}
+                onExportPDF={exportBookingsPDF} onExportExcel={exportBookingsExcel} onWhatsApp={shareBookingsWhatsApp}
+              />
+              <CustomersSection
+                customers={data.customers} from={filter.from} to={filter.to}
+                onExportPDF={exportCustomersPDF} onExportExcel={exportCustomersExcel} onWhatsApp={shareCustomersWhatsApp}
+              />
+              <CodesSection
+                codes={data.codes}
+                onExportPDF={exportCodesPDF} onExportExcel={exportCodesExcel} onWhatsApp={shareCodesWhatsApp}
+              />
+              <OperationsSection operations={data.operations} kpis={data.kpis} />
+              <ExportAllBar onExportAllPDF={exportAllPDF} onExportAllExcel={exportAllExcel} loading={loading} />
+            </>
+          )}
 
-          {/* القسم المالي */}
-          <FinancialSection
-            financial={data.financial}
-            kpis={data.kpis}
-            details={data.bookings_report.details}
-            from={filter.from}
-            to={filter.to}
-            centerName={centerName}
-            waterPrice={data.meta.water_price_per_carton}
-            onExportPDF={exportFinancialPDF}
-            onExportExcel={exportFinancialExcel}
-            onWhatsApp={shareFinancialWhatsApp}
-          />
+          {/* مالي */}
+          {reportType === 'financial' && (
+            <FinancialSection
+              financial={data.financial} kpis={data.kpis} details={data.bookings_report.details}
+              from={filter.from} to={filter.to} centerName={centerName}
+              waterPrice={data.meta.water_price_per_carton}
+              onExportPDF={exportFinancialPDF} onExportExcel={exportFinancialExcel} onWhatsApp={shareFinancialWhatsApp}
+            />
+          )}
 
-          {/* قسم الحجوزات */}
-          <BookingsSection
-            bookings={data.bookings_report}
-            kpis={data.kpis}
-            onExportPDF={exportFinancialPDF}
-            onExportExcel={exportBookingsExcel}
-            onWhatsApp={shareBookingsWhatsApp}
-          />
+          {/* حجوزات */}
+          {reportType === 'bookings' && (
+            <>
+              <Heatmap data={data.heatmap} />
+              <BookingsSection
+                bookings={data.bookings_report} kpis={data.kpis}
+                onExportPDF={exportBookingsPDF} onExportExcel={exportBookingsExcel} onWhatsApp={shareBookingsWhatsApp}
+              />
+            </>
+          )}
 
-          {/* قسم العملاء */}
-          <CustomersSection
-            customers={data.customers}
-            from={filter.from}
-            to={filter.to}
-            onExportPDF={exportFinancialPDF}
-            onExportExcel={exportCustomersExcel}
-            onWhatsApp={shareCustomersWhatsApp}
-          />
+          {/* عملاء */}
+          {reportType === 'customers' && (
+            <CustomersSection
+              customers={data.customers} from={filter.from} to={filter.to}
+              onExportPDF={exportCustomersPDF} onExportExcel={exportCustomersExcel} onWhatsApp={shareCustomersWhatsApp}
+            />
+          )}
 
-          {/* قسم الأكواد */}
-          <CodesSection
-            codes={data.codes}
-            onExportPDF={exportFinancialPDF}
-            onExportExcel={exportCodesExcel}
-            onWhatsApp={shareCodesWhatsApp}
-          />
-
-          {/* قسم الأداء التشغيلي */}
-          <OperationsSection
-            operations={data.operations}
-            kpis={data.kpis}
-          />
-
-          {/* التصدير الشامل */}
-          <ExportAllBar
-            onExportAllPDF={exportAllPDF}
-            onExportAllExcel={exportAllExcel}
-            loading={loading}
-          />
+          {/* أكواد */}
+          {reportType === 'codes' && (
+            <CodesSection
+              codes={data.codes}
+              onExportPDF={exportCodesPDF} onExportExcel={exportCodesExcel} onWhatsApp={shareCodesWhatsApp}
+            />
+          )}
         </>
       )}
-
-      {/* ══ CSS موحّد ══ */}
-      <style>{`
-        .reports-page { font-family:'Tajawal','IBM Plex Sans Arabic',sans-serif; }
-
-        .rpt-header { display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap; }
-        .rpt-title  { font-size:1.6rem;font-weight:800;margin:0 0 0.2rem;color:#1B2A3B; }
-        .rpt-sub    { color:#94a3b8;font-size:0.82rem;margin:0; }
-
-        /* بطاقات عامة */
-        .rpt-card       { background:#fff;border-radius:0.875rem;border:1px solid #e2e8f0;padding:1.25rem; }
-        .rpt-card-title { font-size:0.95rem;font-weight:800;color:#1B2A3B;margin:0 0 1rem; }
-
-        /* شبكات */
-        .rpt-grid-2 { display:grid;grid-template-columns:1fr;gap:1.25rem; }
-        .rpt-grid-3 { display:grid;grid-template-columns:1fr;gap:1.25rem; }
-        @media (min-width:700px) {
-          .rpt-grid-2 { grid-template-columns:1fr 1fr; }
-          .rpt-grid-3 { grid-template-columns:repeat(3,1fr); }
-        }
-
-        /* صف تفصيلي */
-        .rpt-detail-row {
-          display:flex;align-items:center;justify-content:space-between;
-          padding:0.55rem 0;border-bottom:1px solid #f1f5f9;font-size:0.875rem;
-        }
-        .rpt-detail-row:last-child { border-bottom:none; }
-
-        /* أقسام */
-        .report-section { margin-bottom:1.5rem; }
-        .section-header {
-          display:flex;align-items:center;justify-content:space-between;
-          flex-wrap:wrap;gap:0.75rem;margin-bottom:1rem;
-        }
-        .section-title { font-size:1.15rem;font-weight:800;color:#1B2A3B;margin:0; }
-        .section-actions { display:flex;gap:0.5rem;flex-wrap:wrap; }
-
-        /* أزرار الأقسام */
-        .sec-btn {
-          display:inline-flex;align-items:center;gap:0.35rem;
-          padding:0.4rem 0.875rem;border-radius:0.5rem;font-size:0.8rem;
-          font-weight:700;cursor:pointer;border:none;
-          font-family:'Tajawal',sans-serif;transition:all 0.15s;white-space:nowrap;
-        }
-        .sec-btn:disabled { opacity:0.5;cursor:not-allowed; }
-        .sec-btn:hover:not(:disabled) { transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.15); }
-        .sec-btn-pdf   { background:#1B2A3B;color:#C9A96E; }
-        .sec-btn-excel { background:#2D5C4E;color:#fff; }
-        .sec-btn-wa    { background:#25D366;color:#fff; }
-
-        /* جداول */
-        .table-container { overflow-x:auto;-webkit-overflow-scrolling:touch; }
-        .table { width:100%;border-collapse:collapse;font-size:0.85rem; }
-        .table th {
-          background:#1B2A3B;color:#C9A96E;padding:0.6rem 0.75rem;
-          text-align:right;font-size:0.8rem;white-space:nowrap;
-        }
-        .table td { padding:0.6rem 0.75rem;border-bottom:1px solid #f1f5f9; }
-        .table tbody tr:hover { background:#f8fafc; }
-
-        /* شارات */
-        .badge { display:inline-block;padding:0.15rem 0.5rem;border-radius:1rem;font-size:0.72rem;font-weight:700; }
-        .badge-confirmed { background:#dcfce7;color:#16a34a; }
-
-        @media (max-width:700px) {
-          .section-header { flex-direction:column;align-items:flex-start; }
-          .section-actions { width:100%; }
-          .sec-btn { flex:1;justify-content:center; }
-        }
-      `}</style>
     </div>
   )
 }

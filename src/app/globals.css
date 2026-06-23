@@ -1285,3 +1285,123 @@ textarea.input {
     padding: 0 !important;
   }
 }
+
+/* ============================================================
+   [14] قسم التقارير — ثيم-aware (Dark/Light)
+   كل الألوان من CSS variables — لا hardcoded
+   ============================================================ */
+
+/* ── بطاقة التقارير ── */
+.rpt-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0.875rem;
+  padding: 1.25rem;
+  transition: background 0.2s;
+}
+.rpt-card-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── شبكات ── */
+.rpt-grid-2 { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+.rpt-grid-3 { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+@media (min-width: 700px) {
+  .rpt-grid-2 { grid-template-columns: 1fr 1fr; }
+  .rpt-grid-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── صف تفصيلي ── */
+.rpt-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.rpt-detail-row:last-child { border-bottom: none; }
+
+/* ── الرأس ── */
+.rpt-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.rpt-title  { font-size: 1.5rem; font-weight: 800; margin: 0 0 0.2rem; color: var(--text-primary); }
+.rpt-sub    { color: var(--text-muted); font-size: 0.82rem; margin: 0; }
+
+/* ── أقسام ── */
+.report-section { margin-bottom: 1.5rem; }
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;
+}
+.section-title {
+  font-size: 1.1rem; font-weight: 800; color: var(--text-primary);
+  margin: 0; display: flex; align-items: center; gap: 0.4rem;
+}
+.section-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── أزرار التصدير ── */
+.sec-btn {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.875rem; border-radius: 0.5rem;
+  font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  font-family: 'Tajawal', sans-serif; transition: all 0.15s; white-space: nowrap;
+}
+.sec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.sec-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.15); }
+.sec-btn-pdf   { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border-color); }
+.sec-btn-excel { background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-lime-dim); }
+.sec-btn-wa    { background: #25D366; color: #fff; border: none; }
+
+/* ── جداول التقارير ── */
+.table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+.table th {
+  background: var(--bg-elevated); color: var(--text-secondary);
+  padding: 0.55rem 0.75rem; text-align: right;
+  font-size: 0.77rem; font-weight: 700; white-space: nowrap;
+  border-bottom: 2px solid var(--border-color);
+}
+.table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); }
+.table tbody tr:hover { background: var(--bg-elevated); }
+
+/* ── شريط اختيار نوع التقرير ── */
+.report-type-bar {
+  display: flex; gap: 0.4rem; flex-wrap: wrap;
+  padding: 0.55rem; background: var(--bg-surface);
+  border: 1px solid var(--border-color); border-radius: 0.875rem;
+  margin-bottom: 1rem;
+}
+.report-type-btn {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  padding: 0.42rem 0.85rem; border-radius: 0.55rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; font-family: 'Tajawal', sans-serif;
+  color: var(--text-muted); background: transparent; transition: all 0.15s; white-space: nowrap;
+}
+.report-type-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.report-type-btn.active {
+  background: var(--color-lime-muted); color: var(--color-lime);
+  border-color: var(--color-lime-dim); font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .section-header { flex-direction: column; align-items: flex-start; }
+  .section-actions { width: 100%; }
+  .sec-btn { flex: 1; justify-content: center; }
+  .report-type-bar { gap: 0.3rem; }
+  .report-type-btn { padding: 0.35rem 0.5rem; font-size: 0.72rem; }
+}
