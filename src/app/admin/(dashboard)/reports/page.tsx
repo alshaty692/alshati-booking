@@ -67,54 +67,34 @@ function downloadBlob(blob: Blob, filename: string) {
 // ── رسم نص عربي كبير مباشرة بـ native canvas (يتجاوز مشكلة html2canvas مع ligatures) ──
 function renderArabicTitle(
   text: string,
-  opts: { fontSize?: number; color?: string; bgColor?: string; width?: number; height?: number } = {}
+  opts: { fontSize?: number; color?: string; width?: number; height?: number } = {}
 ): string {
   const { fontSize = 26, color = '#C8FF3E', width = 720, height = 56 } = opts
   const c = document.createElement('canvas')
-  c.width  = width
-  c.height = height
+  c.width = width; c.height = height
   const ctx = c.getContext('2d')!
-  // خلفية شفافة — الهيدر الداكن خلفه ستظهر من خلال الـ img
   ctx.clearRect(0, 0, width, height)
-  // نحاول الوزن 700 أولاً (أكثر موثوقية من 800 في canvas)
-  ctx.font          = `700 ${fontSize}px Tajawal, Arial`
-  ctx.fillStyle     = color
-  ctx.textAlign     = 'center'
-  ctx.direction     = 'rtl'
-  ctx.textBaseline  = 'middle'
+  ctx.font         = `700 ${fontSize}px Tajawal, Arial`
+  ctx.fillStyle    = color
+  ctx.textAlign    = 'center'
+  ctx.direction    = 'rtl'
+  ctx.textBaseline = 'middle'
   ctx.fillText(text, width / 2, height / 2)
   return c.toDataURL('image/png')
 }
 
-// ── مساعد بناء PDF (html2canvas) ──
-async function buildSectionPDF(html: string, filename: string) {
-  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-    import('html2canvas'),
-    import('jspdf'),
-  ])
-
-  // تحميل Tajawal في document (يكفي مرة واحدة طوال عمر الصفحة)
-  const FONT_URL = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block'
-  if (!document.querySelector(`link[href="${FONT_URL}"]`)) {
-    const link = document.createElement('link')
-    link.rel  = 'stylesheet'
-    link.href = FONT_URL
-    document.head.appendChild(link)
-  }
-  await document.fonts.ready
-  await Promise.allSettled([
-    document.fonts.load('700 26px Tajawal', 'مركز حي الشاطئ'),
-    document.fonts.load('400 16px Tajawal', 'مركز حي الشاطئ'),
-  ])
-
-  // بناء الـ container المؤقت
+// ── التقاط chunk واحد من HTML كـ canvas ──
+async function captureChunk(
+  chunkHtml: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  html2canvas: (el: HTMLElement, opts: object) => Promise<HTMLCanvasElement>
+): Promise<HTMLCanvasElement | null> {
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-9999;'
-  container.innerHTML = html
+  container.innerHTML = chunkHtml
   document.body.appendChild(container)
 
-  // ── الحل الجذري: استبدل h1 في الهيدر بـ img مرسوم بـ native canvas ──
-  // html2canvas يفشل في text shaping للعربي الكبير — canvas.fillText لا يعاني من هذا
+  // استبدل h1 الهيدر بصورة canvas مرسومة مباشرة (يحل مشكلة text shaping)
   const headerH1 = container.querySelector('.pdf-header h1') as HTMLElement | null
   if (headerH1) {
     const titleText = headerH1.textContent?.trim() ?? ''
@@ -128,69 +108,107 @@ async function buildSectionPDF(html: string, filename: string) {
     }
   }
 
-  await new Promise(r => setTimeout(r, 300))
+  await new Promise(r => setTimeout(r, 280))
+  const el = container.querySelector('.pdf-report') as HTMLElement | null
+  if (!el) { document.body.removeChild(container); return null }
 
-  const el = container.querySelector('.pdf-report') as HTMLElement
-  if (!el) { document.body.removeChild(container); return }
-  const pageCanvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, windowWidth:800 })
-
-  // ── احسب مواضع أسفل كل <tr> قبل حذف الـ container ──
-  // هذا يحدد نقاط التقسيم الآمنة (لا نقطع وسط صف)
-  const PAGE_W  = 210
-  const PAGE_H  = 297
-  const MARGIN  = 10
-  const CONT_W  = PAGE_W - MARGIN * 2   // 190mm
-  const CONT_H  = PAGE_H - MARGIN * 2   // 277mm
-
-  const elRect    = el.getBoundingClientRect()
-  const cssToMm   = CONT_W / el.offsetWidth   // CSS pixels → mm
-  // أسفل كل صف جدول (وكل section رئيسية) بالـ mm من أعلى .pdf-report
-  const rowBoundaries: number[] = []
-  el.querySelectorAll('tr, .pdf-section, .footer').forEach(node => {
-    const rect = (node as HTMLElement).getBoundingClientRect()
-    const bottomMm = (rect.bottom - elRect.top) * cssToMm
-    if (bottomMm > 0) rowBoundaries.push(bottomMm)
+  const canvas = await html2canvas(el, {
+    scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: 800,
   })
-  rowBoundaries.sort((a, b) => a - b)
-
   document.body.removeChild(container)
+  return canvas
+}
 
-  // ── الارتفاع الكلي للصورة بعد تحجيمها لعرض المحتوى ──
-  const imgH = (pageCanvas.height * CONT_W) / pageCanvas.width
+// ── المُنشئ الرئيسي للـ PDF — يقسّم بيانات الجدول قبل الالتقاط (لا يقسّم الصورة) ──
+const ROWS_PER_PAGE = 14   // حد أقصى لعدد صفوف الجدول في كل صفحة PDF
 
-  // ── احسب نقاط التقسيم الذكية — تنتهي دائماً عند حد صف كامل ──
-  function buildPageBreaks(totalH: number, pageH: number, boundaries: number[]): number[] {
-    const breaks: number[] = []
-    let cursor = 0
-    while (cursor + pageH < totalH - 1) {
-      const maxEnd = cursor + pageH
-      // آخر حد صف يقع داخل هذه الصفحة
-      const candidates = boundaries.filter(b => b > cursor && b <= maxEnd)
-      const breakAt = candidates.length > 0
-        ? candidates[candidates.length - 1]   // آخر حد صف يسع الصفحة
-        : maxEnd                               // لا صفوف → اقطع بالحد الثابت
-      breaks.push(breakAt)
-      cursor = breakAt
-    }
-    return breaks
+async function buildSectionPDF(html: string, filename: string) {
+  const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ])
+
+  // تحميل Tajawal (مرة واحدة طوال عمر الصفحة)
+  const FONT_URL = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block'
+  if (!document.querySelector(`link[href="${FONT_URL}"]`)) {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'; link.href = FONT_URL
+    document.head.appendChild(link)
   }
+  await document.fonts.ready
+  await Promise.allSettled([
+    document.fonts.load('700 26px Tajawal', 'مركز'),
+    document.fonts.load('400 14px Tajawal', 'مركز'),
+  ])
 
-  const pageBreaks = buildPageBreaks(imgH, CONT_H, rowBoundaries)
+  const PAGE_W = 210, MARGIN = 10, CONT_W = PAGE_W - MARGIN * 2
 
-  // ── ابن صفحات الـ PDF باستخدام نقاط التقسيم الذكية ──
-  const imgDataUrl = pageCanvas.toDataURL('image/jpeg', 0.92)
+  // ── تحليل الـ HTML لاستخراج صفوف الجدول الرئيسي ──
+  const tmpDiv = document.createElement('div')
+  tmpDiv.innerHTML = html
+
+  // ابحث عن أكبر tbody (جدول التفاصيل)
+  const allTbodies = Array.from(tmpDiv.querySelectorAll('tbody'))
+  const mainTbody = allTbodies.length > 0
+    ? allTbodies.reduce((max, tb) => tb.children.length > max.children.length ? tb : max, allTbodies[0])
+    : null
+  const mainTbodyIdx = mainTbody ? allTbodies.indexOf(mainTbody) : -1
+  const allRows = mainTbody ? Array.from(mainTbody.children) : []
+
+  // ── قسّم الصفوف إلى chunks ──
+  type RowChunk = Element[]
+  const rowChunks: RowChunk[] = allRows.length > ROWS_PER_PAGE
+    ? Array.from({ length: Math.ceil(allRows.length / ROWS_PER_PAGE) }, (_, i) =>
+        allRows.slice(i * ROWS_PER_PAGE, (i + 1) * ROWS_PER_PAGE)
+      )
+    : [allRows]   // chunk واحد فقط — لا تقسيم مطلوب
+
+  // ── انشئ HTML لكل chunk والتقطه كصفحة PDF مستقلة ──
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const totalChunks = rowChunks.length
 
-  let prevBreak = 0
-  const allBreaks = [...pageBreaks, imgH]   // أضف نهاية الصورة كنقطة أخيرة
+  for (let ci = 0; ci < totalChunks; ci++) {
+    let chunkHtml: string
 
-  for (let i = 0; i < allBreaks.length; i++) {
-    if (i > 0) pdf.addPage()
-    // الصورة تبدأ من MARGIN في الأعلى — ونزحّها لأعلى بمقدار prevBreak
-    // حتى يبدأ المقطع الصحيح عند y = MARGIN في هذه الصفحة
-    const yShift = MARGIN - prevBreak
-    pdf.addImage(imgDataUrl, 'JPEG', MARGIN, yShift, CONT_W, imgH)
-    prevBreak = allBreaks[i]
+    if (totalChunks === 1) {
+      // لا تقسيم — استخدم الـ HTML الأصلي بالكامل
+      chunkHtml = html
+    } else {
+      // استنسخ الـ HTML وبدّل محتوى tbody بصفوف هذا الـ chunk فقط
+      const cloneDiv = document.createElement('div')
+      cloneDiv.innerHTML = html
+
+      if (mainTbodyIdx >= 0) {
+        const cloneTbodies = Array.from(cloneDiv.querySelectorAll('tbody'))
+        const cloneTbody = cloneTbodies[mainTbodyIdx]
+        if (cloneTbody) {
+          cloneTbody.innerHTML = rowChunks[ci].map(r => r.outerHTML).join('')
+        }
+      }
+
+      // التذييل: يظهر في كل صفحة لكن مع رقم الصفحة في غير الأخيرة
+      const footerEl = cloneDiv.querySelector('.footer') as HTMLElement | null
+      if (footerEl && ci < totalChunks - 1) {
+        footerEl.textContent = `(${ci + 1} / ${totalChunks}) — تتمة في الصفحة التالية`
+      }
+
+      // احذف قسم الـ pdf-stats من الصفحات غير الأولى (اختصاراً)
+      if (ci > 0) {
+        cloneDiv.querySelectorAll('.pdf-stats').forEach(el => el.remove())
+      }
+
+      chunkHtml = cloneDiv.innerHTML
+    }
+
+    const canvas = await captureChunk(chunkHtml, html2canvas)
+    if (!canvas) continue
+
+    const imgDataUrl = canvas.toDataURL('image/jpeg', 0.92)
+    const imgH = (canvas.height * CONT_W) / canvas.width
+
+    if (ci > 0) pdf.addPage()
+    // ضع الصورة في منتصف الصفحة مع الهوامش
+    pdf.addImage(imgDataUrl, 'JPEG', MARGIN, MARGIN, CONT_W, imgH)
   }
 
   pdf.save(filename)
