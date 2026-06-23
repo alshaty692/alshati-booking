@@ -64,6 +64,28 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+// ── رسم نص عربي كبير مباشرة بـ native canvas (يتجاوز مشكلة html2canvas مع ligatures) ──
+function renderArabicTitle(
+  text: string,
+  opts: { fontSize?: number; color?: string; bgColor?: string; width?: number; height?: number } = {}
+): string {
+  const { fontSize = 26, color = '#C8FF3E', width = 720, height = 56 } = opts
+  const c = document.createElement('canvas')
+  c.width  = width
+  c.height = height
+  const ctx = c.getContext('2d')!
+  // خلفية شفافة — الهيدر الداكن خلفه ستظهر من خلال الـ img
+  ctx.clearRect(0, 0, width, height)
+  // نحاول الوزن 700 أولاً (أكثر موثوقية من 800 في canvas)
+  ctx.font          = `700 ${fontSize}px Tajawal, Arial`
+  ctx.fillStyle     = color
+  ctx.textAlign     = 'center'
+  ctx.direction     = 'rtl'
+  ctx.textBaseline  = 'middle'
+  ctx.fillText(text, width / 2, height / 2)
+  return c.toDataURL('image/png')
+}
+
 // ── مساعد بناء PDF (html2canvas) ──
 async function buildSectionPDF(html: string, filename: string) {
   const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
@@ -71,8 +93,7 @@ async function buildSectionPDF(html: string, filename: string) {
     import('jspdf'),
   ])
 
-  // احقن خط Tajawal بكل أوزانه في دوكيومنت الصفحة أولاً ← هذا يضمن تحميله بالكامل
-  // قبل أي html2canvas يلتقط عناصر مؤقتة (useCORS) خارج الشاشة
+  // تحميل Tajawal في document (يكفي مرة واحدة طوال عمر الصفحة)
   const FONT_URL = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block'
   if (!document.querySelector(`link[href="${FONT_URL}"]`)) {
     const link = document.createElement('link')
@@ -80,22 +101,34 @@ async function buildSectionPDF(html: string, filename: string) {
     link.href = FONT_URL
     document.head.appendChild(link)
   }
-  // انتظر تحميل جميع الخطوط المسجلة في document
   await document.fonts.ready
-  // تأكد تحميل الأوزان الثقيلة صراحةً — هذا يحل مشكلة الخط العريب المفكك في bold
   await Promise.allSettled([
-    document.fonts.load('400 16px Tajawal', 'مركز'),
-    document.fonts.load('700 16px Tajawal', 'مركز'),
-    document.fonts.load('800 16px Tajawal', 'مركز'),
+    document.fonts.load('700 26px Tajawal', 'مركز حي الشاطئ'),
+    document.fonts.load('400 16px Tajawal', 'مركز حي الشاطئ'),
   ])
 
+  // بناء الـ container المؤقت
   const container = document.createElement('div')
   container.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-9999;'
   container.innerHTML = html
   document.body.appendChild(container)
 
-  // انتظر render كامل تضمن ظهور النص بشكل صحيح
-  await new Promise(r => setTimeout(r, 400))
+  // ── الحل الجذري: استبدل h1 في الهيدر بـ img مرسوم بـ native canvas ──
+  // html2canvas يفشل في text shaping للعربي الكبير — canvas.fillText لا يعاني من هذا
+  const headerH1 = container.querySelector('.pdf-header h1') as HTMLElement | null
+  if (headerH1) {
+    const titleText = headerH1.textContent?.trim() ?? ''
+    if (titleText) {
+      const dataUrl = renderArabicTitle(titleText, { fontSize: 26, color: '#C8FF3E', width: 720, height: 56 })
+      const img = document.createElement('img')
+      img.src = dataUrl
+      img.style.cssText = 'display:block;margin:0 auto 4px;width:720px;height:56px;'
+      img.setAttribute('crossorigin', 'anonymous')
+      headerH1.replaceWith(img)
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 300))
 
   const el = container.querySelector('.pdf-report') as HTMLElement
   if (!el) { document.body.removeChild(container); return }
@@ -110,6 +143,7 @@ async function buildSectionPDF(html: string, filename: string) {
   while (left > 0) { pos -= pageH; pdf.addPage(); pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, pos, imgW, imgH); left -= pageH }
   pdf.save(filename)
 }
+
 
 // ── هيكل HTML مشترك للـ PDF ──
 const PDF_CSS = `
