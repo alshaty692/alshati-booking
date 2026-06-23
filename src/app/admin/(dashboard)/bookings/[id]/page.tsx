@@ -159,6 +159,16 @@ export default async function BookingDetailPage({ params }: Props) {
     : 0
   const waterUnitPrice = booking.water_quantity > 0 ? Math.round(waterCost / booking.water_quantity) : 0
 
+  /* حجوزات الباقة الأخرى */
+  const { data: batchSiblings } = booking.batch_id
+    ? await supabase
+        .from('bookings')
+        .select('id, booking_date, court_id, period_number, status')
+        .eq('batch_id', booking.batch_id)
+        .neq('id', id)
+        .order('booking_date', { ascending: true })
+    : { data: null }
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -228,6 +238,64 @@ export default async function BookingDetailPage({ params }: Props) {
             <Row label="سبب الرفض" value={<span style={{ color: 'var(--color-danger)' }}>{booking.rejection_reason}</span>} />
           )}
         </div>
+
+        {/* ── حجوزات الباقة الأخرى ── */}
+        {booking.batch_id && batchSiblings && batchSiblings.length > 0 && (
+          <div className="card">
+            <div className="bd-card-head">
+              <Package size={15} strokeWidth={1.75} />
+              <h2>حجوزات الباقة ({batchSiblings.length + 1} فترات)</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {/* الحجز الحالي */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.4rem 0.6rem', borderRadius: '0.4rem',
+                background: 'rgba(139,92,246,0.08)',
+                border: '1px solid rgba(139,92,246,0.2)',
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                  {formatDate(booking.booking_date)} · {getCourtName(booking.court_id)} · {getPeriodName(booking.period_number)}
+                </span>
+                <span style={{ fontSize: '0.72rem', color: '#a78bfa', fontWeight: 700 }}>الحجز الحالي</span>
+              </div>
+              {/* باقي الحجوزات */}
+              {batchSiblings.map(s => {
+                const sStyle: Record<string,string> = {
+                  pending:'#f59e0b', uploaded:'#3b82f6', confirmed:'#7bba00',
+                  rejected:'var(--danger)', cancelled:'var(--text-muted)', expired:'var(--text-muted)',
+                }
+                return (
+                  <Link key={s.id} href={`/admin/bookings/${s.id}`} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.4rem 0.6rem', borderRadius: '0.4rem',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      transition: 'border-color 0.15s',
+                      cursor: 'pointer',
+                    }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: sStyle[s.status] ?? '#888', flexShrink: 0 }} />
+                      <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                        {formatDate(s.booking_date)} · {getCourtName(s.court_id)} · {getPeriodName(s.period_number)}
+                      </span>
+                      <span style={{ fontSize: '0.7rem', color: sStyle[s.status] ?? 'var(--text-muted)', fontWeight: 600 }}>
+                        {STATUS_LABELS[s.status as keyof typeof STATUS_LABELS] ?? s.status}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+            <div style={{ marginTop: '0.65rem' }}>
+              <Link href={`/admin/bookings?batch=${booking.batch_id}`}
+                style={{ fontSize: '0.78rem', color: '#a78bfa', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <Package size={12}/> عرض كامل الباقة في قائمة الحجوزات
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* العمود الأيسر — الإجراءات */}
         <div className="bd-actions-col">

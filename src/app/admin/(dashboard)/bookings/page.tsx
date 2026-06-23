@@ -8,7 +8,7 @@ import PageHeader from '@/components/admin/PageHeader'
 
 export const metadata: Metadata = { title: 'الحجوزات' }
 
-interface Props { searchParams: Promise<{ status?: string; court?: string; date?: string; q?: string; batch_only?: string }> }
+interface Props { searchParams: Promise<{ status?: string; court?: string; date?: string; q?: string; batch_only?: string; batch?: string }> }
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'badge-pending', uploaded: 'badge-uploaded', confirmed: 'badge-confirmed',
@@ -44,6 +44,7 @@ export default async function BookingsPage({ searchParams }: Props) {
   if (params.date)       query = query.eq('booking_date', params.date)
   if (params.q)          query = query.or(`customer_name.ilike.%${params.q}%,customer_phone.ilike.%${params.q}%`)
   if (params.batch_only) query = query.not('batch_id', 'is', null)
+  if (params.batch)      query = query.eq('batch_id', params.batch)
 
   const { data: bookings, error } = await query
   if (error) console.error('[BookingsPage]', error)
@@ -72,6 +73,22 @@ export default async function BookingsPage({ searchParams }: Props) {
           </div>
         }
       />
+
+      {/* بانر الباقة المحددة */}
+      {params.batch && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:'0.65rem',
+          padding:'0.55rem 1rem', marginBottom:'0.25rem',
+          background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.25)',
+          borderRadius:'0.55rem', fontSize:'0.83rem', color:'var(--text-main)',
+        }}>
+          <Package size={14} style={{ color:'#a78bfa', flexShrink:0 }}/>
+          <span>عرض جميع حجوزات الباقة: <strong style={{ color:'#a78bfa', fontFamily:'monospace' }}>{params.batch}</strong></span>
+          <Link href="/admin/bookings" style={{ marginRight:'auto', color:'var(--text-muted)', fontSize:'0.78rem', display:'flex', alignItems:'center', gap:'0.2rem' }}>
+            <X size={12}/> إلغاء الفلتر
+          </Link>
+        </div>
+      )}
 
       {/* فلاتر الحالة */}
       <div className="bk-status-tabs">
