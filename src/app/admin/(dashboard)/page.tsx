@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/server'
-import { formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
+import { formatAmount, getPeriodName } from '@/lib/utils'
+import { fetchCourtNames } from '@/hooks/useCourtNames'
 import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
 import {
@@ -27,6 +28,11 @@ export default async function AdminDashboard() {
       .select('id,booking_date,court_id,period_number,customer_name,final_price,status,created_at')
       .order('created_at', { ascending: false }).limit(8),
   ])
+
+  // أسماء الملاعب الديناميكية من الإعدادات
+  let courtMap: Record<string, string> = { football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'السلة' }
+  try { courtMap = await fetchCourtNames(supabase) } catch { /* fallback */ }
+  const getCourtName = (id: string) => courtMap[id] ?? id
 
   const stats   = statsRes.data
   const pending = pendingRes.data ?? []
