@@ -1,1 +1,0 @@
-fix: add try-catch safety around all fetchCourtNames calls to prevent server crash  

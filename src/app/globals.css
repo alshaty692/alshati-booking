@@ -1076,7 +1076,7 @@ textarea.input {
   .sidebar { display: none !important; }
 
   .admin-main {
-    margin-right: 0;
+    margin-right: 0 !important;
     padding: var(--space-4);
     padding-top: calc(56px + var(--space-4));
   }
