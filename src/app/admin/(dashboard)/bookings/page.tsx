@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { formatAmount, formatDateTime, getCourtName, getPeriodName } from '@/lib/utils'
+import { formatAmount, formatDateTime, getPeriodName } from '@/lib/utils'
+import { fetchCourtNames } from '@/hooks/useCourtNames'
 import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
 import { Search, X, PenLine, Package } from 'lucide-react'
@@ -32,6 +33,8 @@ export default async function BookingsPage({ searchParams }: Props) {
   if (!user) return <div>غير مصرح</div>
 
   const supabase = createAdminClient()
+  const courtMap = await fetchCourtNames(supabase)
+  const getCourtName = (id: string) => courtMap[id] ?? id
 
   let query = supabase
     .from('bookings')
@@ -124,9 +127,9 @@ export default async function BookingsPage({ searchParams }: Props) {
         </div>
         <select name="court" className="input bk-select" defaultValue={params.court ?? ''}>
           <option value="">كل الملاعب</option>
-          <option value="football">كرة القدم</option>
-          <option value="volleyball">الكرة الطائرة</option>
-          <option value="multi">الملعب المتعدد</option>
+          {Object.entries(courtMap).map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
         </select>
         <input name="date" type="date" className="input bk-date" defaultValue={params.date} />
         <button type="submit" className="btn btn-secondary btn-sm bk-btn">

@@ -4,10 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { Save, Trash2, X, AlertCircle, ArrowRight } from 'lucide-react'
+import { useCourtNames } from '@/hooks/useCourtNames'
 
 export default function EditCodePage() {
   const router = useRouter()
   const params = useParams()
+  const { courts } = useCourtNames('/api/admin/settings')
   const id = params.id as string
 
   const [loading, setLoading] = useState(true)
@@ -177,9 +179,7 @@ export default function EditCodePage() {
             <label htmlFor="ec-court" className="ec-label">الملعب</label>
             <select id="ec-court" className="input" value={form.court_id} onChange={e => update('court_id', e.target.value)}>
               <option value="">الكل</option>
-              <option value="football">كرة القدم</option>
-              <option value="volleyball">الكرة الطائرة</option>
-              <option value="multi">الملعب المتعدد</option>
+              {courts.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>
 

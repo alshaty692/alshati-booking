@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { formatDateTime, formatAmount } from '@/lib/utils'
+import { fetchCourtNames } from '@/hooks/useCourtNames'
 import Link from 'next/link'
 import { Plus, ToggleLeft, ToggleRight, Tag, Percent, Coins } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
@@ -23,9 +24,6 @@ const TYPE_LABELS: Record<string, string> = {
 const TYPE_BADGE: Record<string, string> = {
   permanent: 'badge-confirmed', charity: 'badge-gold', free: 'badge-uploaded', custom: 'badge-regular',
 }
-const COURT_LABELS: Record<string, string> = {
-  football: 'القدم', volleyball: 'الطائرة', multi: 'المتعدد',
-}
 
 function DiscountDisplay({ discountType, discountValue }: { discountType: string; discountValue: number }) {
   if (discountType === 'free') return <span style={{ color: 'var(--color-lime)', fontWeight: 'var(--font-bold)' as React.CSSProperties['fontWeight'] }}>مجاني 100%</span>
@@ -39,7 +37,10 @@ function DiscountDisplay({ discountType, discountValue }: { discountType: string
 
 export default async function CodesPage() {
   const supabase = createAdminClient()
-  const { data: codes } = await supabase.from('codes').select('*').order('created_at', { ascending: false })
+  const [{ data: codes }, courtMap] = await Promise.all([
+    supabase.from('codes').select('*').order('created_at', { ascending: false }),
+    fetchCourtNames(supabase),
+  ])
 
   return (
     <div className="animate-fade-in">
@@ -99,7 +100,7 @@ export default async function CodesPage() {
                   <td><DiscountDisplay discountType={c.discount_type} discountValue={c.discount_value} /></td>
                   <td>
                     {c.court_id
-                      ? <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{COURT_LABELS[c.court_id as string] ?? c.court_id}</span>
+                      ? <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{courtMap[c.court_id as string] ?? c.court_id}</span>
                       : <span style={{ color: 'var(--text-muted)' }}>الكل</span>
                     }
                   </td>

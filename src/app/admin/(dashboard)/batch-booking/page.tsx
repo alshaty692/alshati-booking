@@ -10,13 +10,14 @@ import {
   Loader2, Plus, Minus, AlertCircle, CheckCircle2, Package,
   CalendarDays, Users, BadgeCheck, Trash2,
 } from 'lucide-react'
+import { useCourtNames } from '@/hooks/useCourtNames'
 
 /* ════════════════════════════════════════════════ ثوابت */
-const COURTS = [
-  { id: 'football',   label: 'كرة القدم',    abbr: 'قدم',   icon: '⚽', color: '#3b82f6' },
-  { id: 'volleyball', label: 'الكرة الطائرة', abbr: 'طائرة', icon: '🏐', color: '#a855f7' },
-  { id: 'multi',      label: 'الملعب المتعدد', abbr: 'متعدد', icon: '🏅', color: '#f59e0b' },
-]
+const COURT_META: Record<string, { abbr: string; color: string }> = {
+  football:   { abbr: 'قدم',   color: '#3b82f6' },
+  volleyball: { abbr: 'طائرة', color: '#a855f7' },
+  multi:      { abbr: 'متعدد', color: '#f59e0b' },
+}
 const PERIODS = [
   { num: 1, label: '5-7م',  chip: '5م'  },
   { num: 2, label: '7-9م',  chip: '7م'  },
@@ -65,6 +66,8 @@ interface CustomerInfo { found:boolean; name?:string; is_suspended?:boolean; sus
 /* ════════════════════════════════════════════════ الصفحة */
 export default function BatchBookingPage() {
   const router = useRouter()
+  const { courts: baseCourts } = useCourtNames('/api/admin/settings')
+  const COURTS = baseCourts.map(c => ({ ...c, ...COURT_META[c.id] }))
   const [step, setStep] = useState<'grid'|'details'|'result'>('grid')
 
   const [monthDate,   setMonthDate]   = useState<Date>(() => new Date())

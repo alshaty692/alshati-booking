@@ -12,7 +12,7 @@ export type DiscountType = 'percent' | 'fixed' | 'free'
 export type ContactType = 'whatsapp' | 'call' | 'sms' | 'other'
 export type SuspendType = 'manual' | 'holiday' | 'maintenance' | 'event'
 
-// أسماء الملاعب بالعربي
+/** @deprecated استخدم useCourtNames() hook أو fetchCourtNames() بدلاً من هذا الثابت */
 export const COURT_LABELS: Record<Court, string> = {
   football: 'كرة القدم',
   volleyball: 'الكرة الطائرة',

@@ -15,12 +15,7 @@ const PRESETS: { key: TimePreset; label: string }[] = [
   { key: 'custom', label: 'مخصص ▾' },
 ]
 
-const COURTS: { id: CourtFilter; label: string; icon: string }[] = [
-  { id: 'all',        label: 'كل الملاعب',     icon: '🏟️' },
-  { id: 'football',   label: 'كرة القدم',      icon: '⚽' },
-  { id: 'volleyball', label: 'الكرة الطائرة',  icon: '🏐' },
-  { id: 'multi',      label: 'الملعب المتعدد', icon: '🏟️' },
-]
+
 
 const STATUSES: { id: StatusFilter; label: string }[] = [
   { id: 'all',       label: 'كل الحالات' },
@@ -65,10 +60,11 @@ export function getDateRange(preset: TimePreset): { from: string; to: string } {
 interface FilterBarProps {
   filter:   FilterState
   loading:  boolean
+  courts:   { id: string; label: string; icon: string }[]
   onChange: (f: FilterState) => void
 }
 
-export default function FilterBar({ filter, loading, onChange }: FilterBarProps) {
+export default function FilterBar({ filter, loading, courts, onChange }: FilterBarProps) {
   const [customFrom, setCustomFrom] = useState(filter.from)
   const [customTo,   setCustomTo]   = useState(filter.to)
 
@@ -138,7 +134,7 @@ export default function FilterBar({ filter, loading, onChange }: FilterBarProps)
         onChange={e => onChange({ ...filter, court: e.target.value as CourtFilter })}
         disabled={loading}
       >
-        {COURTS.map(c => (
+        {courts.map(c => (
           <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
         ))}
       </select>

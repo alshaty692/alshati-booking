@@ -6,13 +6,12 @@ import { formatAmount } from '@/lib/utils'
 import type { ReportOperations, ReportKpis } from '@/types/reports'
 
 const PERIOD_LABELS: Record<number, string> = { 1: '5–7م', 2: '7–9م', 3: '9–11م' }
-const COURT_NAMES: Record<string, string> = {
-  football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'الملعب المتعدد',
-}
+
 
 interface Props {
   operations: ReportOperations
   kpis:       ReportKpis
+  getCourtName: (id: string) => string
 }
 
 function OccupancyMeter({ rate }: { rate: number }) {
@@ -31,7 +30,7 @@ function OccupancyMeter({ rate }: { rate: number }) {
   )
 }
 
-export default function OperationsSection({ operations, kpis }: Props) {
+export default function OperationsSection({ operations, kpis, getCourtName }: Props) {
   const confirmHours = operations.avg_confirmation_minutes > 0
     ? operations.avg_confirmation_minutes >= 60
       ? `${Math.round(operations.avg_confirmation_minutes / 60)} ساعة`
@@ -74,7 +73,7 @@ export default function OperationsSection({ operations, kpis }: Props) {
             <span>أكثر ملعب طلباً</span>
             <strong style={{ color: '#1B2A3B' }}>
               {operations.top_court
-                ? `${COURT_NAMES[operations.top_court.court_id] ?? operations.top_court.court_id} (${operations.top_court.count} حجز)`
+                ? `${getCourtName(operations.top_court.court_id)} (${operations.top_court.count} حجز)`
                 : '—'}
             </strong>
           </div>

@@ -1,15 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useCourtNames } from '@/hooks/useCourtNames'
 
 /* ================================================================
    ثوابت
    ================================================================ */
-const COURTS = [
-  { id: 'football',   label: 'كرة القدم',   icon: '⚽' },
-  { id: 'volleyball', label: 'الكرة الطائرة', icon: '🏐' },
-  { id: 'multi',      label: 'الملعب المتعدد', icon: '🏅' },
-]
 
 const PERIODS = [
   { num: 1, label: '5-7م'  },
@@ -106,6 +102,8 @@ interface BookingDetail {
    مكوّن الصفحة
    ================================================================ */
 export default function AvailabilityPage() {
+  const { courts } = useCourtNames('/api/admin/settings')
+
   /* ── حالة الإغلاق الكامل ── */
   const [closureActive,     setClosureActive]     = useState(false)
   const [closureReason,     setClosureReason]     = useState('')
@@ -1032,7 +1030,7 @@ export default function AvailabilityPage() {
                 </tr>
               </thead>
               <tbody>
-                {COURTS.map(court => (
+                {courts.map(court => (
                   <tr key={court.id}>
                     <td className="court-cell">
                       <span style={{ fontSize:'1.1rem' }}>{court.icon}</span>{' '}
@@ -1101,8 +1099,8 @@ export default function AvailabilityPage() {
 
             <div className="av-field">
               <label className="av-label">
-                {COURTS.find(c => c.id === blockTarget.court_id)?.icon}{' '}
-                {COURTS.find(c => c.id === blockTarget.court_id)?.label}
+                {courts.find(c => c.id === blockTarget.court_id)?.icon}{' '}
+                {courts.find(c => c.id === blockTarget.court_id)?.label}
                 {' — '}
                 {PERIODS.find(p => p.num === blockTarget.period_number)?.label}
                 {' — '}
@@ -1159,8 +1157,8 @@ export default function AvailabilityPage() {
               padding:'.75rem', fontSize:'.88rem', color:'var(--color-warning)',
             }}>
               <strong>
-                {COURTS.find(c => c.id === unblockTarget.court_id)?.icon}{' '}
-                {COURTS.find(c => c.id === unblockTarget.court_id)?.label}
+                {courts.find(c => c.id === unblockTarget.court_id)?.icon}{' '}
+                {courts.find(c => c.id === unblockTarget.court_id)?.label}
               </strong>
               {' — '}
               {PERIODS.find(p => p.num === unblockTarget.period_number)?.label}
@@ -1199,8 +1197,8 @@ export default function AvailabilityPage() {
           <div className="av-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
             <div className="av-modal-title">اختر الإجراء</div>
             <div style={{ color:'var(--text-secondary)', fontSize:'.88rem', marginBottom:'1rem' }}>
-              {COURTS.find(c => c.id === slotChoiceTarget.court_id)?.icon}{' '}
-              {COURTS.find(c => c.id === slotChoiceTarget.court_id)?.label}
+              {courts.find(c => c.id === slotChoiceTarget.court_id)?.icon}{' '}
+              {courts.find(c => c.id === slotChoiceTarget.court_id)?.label}
               {' — '}
               {PERIODS.find(p => p.num === slotChoiceTarget.period_number)?.label}
               {' — '}
@@ -1251,9 +1249,9 @@ export default function AvailabilityPage() {
               fontSize:'.82rem', color:'var(--text-secondary)', marginBottom:'.75rem',
               display:'flex', alignItems:'center', gap:'.4rem', flexWrap:'wrap',
             }}>
-              <span>{COURTS.find(c => c.id === quickBookTarget.court_id)?.icon}</span>
+              <span>{courts.find(c => c.id === quickBookTarget.court_id)?.icon}</span>
               <span style={{ fontWeight:600, color:'var(--text-primary)' }}>
-                {COURTS.find(c => c.id === quickBookTarget.court_id)?.label}
+                {courts.find(c => c.id === quickBookTarget.court_id)?.label}
               </span>
               <span style={{ opacity:.5 }}>•</span>
               <span>{PERIODS.find(p => p.num === quickBookTarget.period_number)?.label}</span>
@@ -1432,8 +1430,8 @@ export default function AvailabilityPage() {
                   background:'var(--bg-elevated)', borderRadius:8, padding:'.65rem .9rem',
                   fontSize:'.85rem', color:'var(--text-secondary)', marginBottom:'1rem',
                 }}>
-                  {COURTS.find(c => c.id === bookingDetail.court_id)?.icon}{' '}
-                  {COURTS.find(c => c.id === bookingDetail.court_id)?.label}
+                  {courts.find(c => c.id === bookingDetail.court_id)?.icon}{' '}
+                  {courts.find(c => c.id === bookingDetail.court_id)?.label}
                   {' — '}
                   {PERIODS.find(p => p.num === bookingDetail.period_number)?.label}
                   {' — '}
@@ -1564,7 +1562,7 @@ export default function AvailabilityPage() {
             <label style={{ display:'block', fontSize:'var(--text-xs)', fontWeight:'var(--font-bold)', marginBottom:'0.3rem', color:'var(--text-secondary)' }}>الملعب</label>
             <select className="input" value={vcForm.court_id}
               onChange={e => setVcForm(f => ({ ...f, court_id: e.target.value }))}>
-              {COURTS.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
+              {courts.map(c => <option key={c.id} value={c.id}>{c.icon} {c.label}</option>)}
             </select>
           </div>
           <div>
@@ -1613,7 +1611,7 @@ export default function AvailabilityPage() {
                   const today = toISO(new Date())
                   const isActive = vc.start_date <= today && vc.end_date >= today
                   const isExpired = vc.end_date < today
-                  const court = COURTS.find(c => c.id === vc.court_id)
+                  const court = courts.find(c => c.id === vc.court_id)
                   return (
                     <tr key={vc.id} style={{
                       borderBottom:'1px solid var(--border-subtle)',

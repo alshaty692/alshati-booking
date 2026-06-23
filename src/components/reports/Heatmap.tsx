@@ -12,12 +12,7 @@ const DAY_LABELS:   Record<number, string> = {
   3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة', 6: 'السبت',
 }
 
-const COURT_OPTIONS = [
-  { id: 'all',        label: 'كل الملاعب',     icon: '🏟️' },
-  { id: 'football',   label: 'كرة القدم',      icon: '⚽' },
-  { id: 'volleyball', label: 'الكرة الطائرة',  icon: '🏐' },
-  { id: 'multi',      label: 'الملعب المتعدد', icon: '🏟️' },
-]
+
 
 // الألوان الحرارية ثابتة بالتصميم — مقروءة في كلا الوضعين
 const HEAT_SCALE = [
@@ -38,9 +33,10 @@ function getCellStyle(pct: number) {
 
 interface HeatmapProps {
   data: ReportHeatmap
+  courtOptions: { id: string; label: string; icon: string }[]
 }
 
-export default function Heatmap({ data }: HeatmapProps) {
+export default function Heatmap({ data, courtOptions }: HeatmapProps) {
   const [selected, setSelected] = useState<'all' | 'football' | 'volleyball' | 'multi'>('all')
 
   const grid: HeatGrid = data[selected] ?? data.all
@@ -56,7 +52,7 @@ export default function Heatmap({ data }: HeatmapProps) {
           value={selected}
           onChange={e => setSelected(e.target.value as typeof selected)}
         >
-          {COURT_OPTIONS.map(c => (
+          {courtOptions.map(c => (
             <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
           ))}
         </select>

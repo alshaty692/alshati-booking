@@ -119,14 +119,14 @@ export function generateCode(prefix: string = 'C', length: number = 6): string {
   return code
 }
 
-// اسم الملعب بالعربي
-export function getCourtName(courtId: string): string {
-  const names: Record<string, string> = {
-    football:   'كرة القدم',
-    volleyball: 'الكرة الطائرة',
-    multi:      'الملعب المتعدد',
-  }
-  return names[courtId] ?? courtId
+// اسم الملعب بالعربي — يقبل خريطة ديناميكية من الإعدادات
+const DEFAULT_COURT_NAMES: Record<string, string> = {
+  football:   'كرة القدم',
+  volleyball: 'الكرة الطائرة',
+  multi:      'الملعب المتعدد',
+}
+export function getCourtName(courtId: string, courtMap?: Record<string, string>): string {
+  return (courtMap ?? DEFAULT_COURT_NAMES)[courtId] ?? courtId
 }
 
 // اسم الفترة بالعربي

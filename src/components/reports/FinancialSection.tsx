@@ -2,7 +2,7 @@
 // ============================================================
 // FinancialSection — القسم المالي مع أزرار التصدير
 // ============================================================
-import { formatAmount, getCourtName } from '@/lib/utils'
+import { formatAmount } from '@/lib/utils'
 import type { ReportFinancial, ReportKpis, BookingRow } from '@/types/reports'
 
 const STATUS_AR: Record<string, string> = {
@@ -45,6 +45,7 @@ interface Props {
   to:         string
   centerName: string
   waterPrice: number
+  getCourtName: (id: string) => string
   onExportPDF:    () => void
   onExportExcel:  () => void
   onWhatsApp:     () => void
@@ -52,7 +53,7 @@ interface Props {
 
 export default function FinancialSection({
   financial, kpis, details, from, to, centerName, waterPrice,
-  onExportPDF, onExportExcel, onWhatsApp,
+  getCourtName, onExportPDF, onExportExcel, onWhatsApp,
 }: Props) {
   const maxRevenue = Math.max(1, ...financial.by_court.map(c => c.revenue))
   const confirmedDetails = details.filter(b => b.status === 'confirmed')

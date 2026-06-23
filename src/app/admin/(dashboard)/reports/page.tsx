@@ -16,7 +16,8 @@ import OperationsSection from '@/components/reports/OperationsSection'
 import ExportAllBar from '@/components/reports/ExportAllBar'
 
 import type { FilterState, ReportData } from '@/types/reports'
-import { formatAmount, getCourtName, getPeriodName } from '@/lib/utils'
+import { formatAmount, getPeriodName } from '@/lib/utils'
+import { useCourtNames } from '@/hooks/useCourtNames'
 
 // ── نوع التقرير ──
 type ReportType = 'all' | 'financial' | 'bookings' | 'customers' | 'codes'
@@ -244,6 +245,8 @@ export default function ReportsPage() {
   const [error,       setError]       = useState<string | null>(null)
   const [settings,    setSettings]    = useState<Record<string, string>>({})
   const [reportType,  setReportType]  = useState<ReportType>('all')
+  const { courts, getCourtName } = useCourtNames('/api/admin/settings')
+  const courtOptions = [{ id: 'all', label: 'كل الملاعب', icon: '🏟️' }, ...courts]
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(d => setSettings(d.settings ?? {})).catch(() => {})
@@ -690,7 +693,7 @@ export default function ReportsPage() {
       </div>
 
       {/* ─── الفلتر ─── */}
-      <FilterBar filter={filter} loading={loading} onChange={setFilter} />
+      <FilterBar filter={filter} loading={loading} courts={courtOptions} onChange={setFilter} />
 
       {/* ─── حالات التحميل ─── */}
       {loading && !data && <LoadingState />}
@@ -705,11 +708,12 @@ export default function ReportsPage() {
           {/* الشامل */}
           {(reportType === 'all') && (
             <>
-              <Heatmap data={data.heatmap} />
+              <Heatmap data={data.heatmap} courtOptions={courtOptions} />
               <FinancialSection
                 financial={data.financial} kpis={data.kpis} details={data.bookings_report.details}
                 from={filter.from} to={filter.to} centerName={centerName}
                 waterPrice={data.meta.water_price_per_carton}
+                getCourtName={getCourtName}
                 onExportPDF={exportFinancialPDF} onExportExcel={exportFinancialExcel} onWhatsApp={shareFinancialWhatsApp}
               />
               <BookingsSection
@@ -724,7 +728,7 @@ export default function ReportsPage() {
                 codes={data.codes}
                 onExportPDF={exportCodesPDF} onExportExcel={exportCodesExcel} onWhatsApp={shareCodesWhatsApp}
               />
-              <OperationsSection operations={data.operations} kpis={data.kpis} />
+              <OperationsSection operations={data.operations} kpis={data.kpis} getCourtName={getCourtName} />
               <ExportAllBar onExportAllPDF={exportAllPDF} onExportAllExcel={exportAllExcel} loading={loading} />
             </>
           )}
@@ -735,6 +739,7 @@ export default function ReportsPage() {
               financial={data.financial} kpis={data.kpis} details={data.bookings_report.details}
               from={filter.from} to={filter.to} centerName={centerName}
               waterPrice={data.meta.water_price_per_carton}
+              getCourtName={getCourtName}
               onExportPDF={exportFinancialPDF} onExportExcel={exportFinancialExcel} onWhatsApp={shareFinancialWhatsApp}
             />
           )}
@@ -742,7 +747,7 @@ export default function ReportsPage() {
           {/* حجوزات */}
           {reportType === 'bookings' && (
             <>
-              <Heatmap data={data.heatmap} />
+              <Heatmap data={data.heatmap} courtOptions={courtOptions} />
               <BookingsSection
                 bookings={data.bookings_report} kpis={data.kpis}
                 onExportPDF={exportBookingsPDF} onExportExcel={exportBookingsExcel} onWhatsApp={shareBookingsWhatsApp}

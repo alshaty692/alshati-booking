@@ -5,6 +5,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { fetchCourtNames } from '@/hooks/useCourtNames'
 
 /* ── أنواع ────────────────────────────────────────────────── */
 interface SlotInput {
@@ -32,10 +33,7 @@ function generateBatchId(): string {
   return id
 }
 
-/* ── تسمية الملعب ────────────────────────────────────────── */
-const COURT_NAMES: Record<string, string> = {
-  football: 'كرة القدم', volleyball: 'الكرة الطائرة', multi: 'الملعب المتعدد',
-}
+/* ── تسمية الفترات ────────────────────────────────────────────────── */
 const PERIOD_NAMES: Record<number, string> = { 1: '5-7م', 2: '7-9م', 3: '9-11م' }
 
 /* ================================================================
@@ -88,6 +86,9 @@ export async function POST(request: NextRequest) {
     const isConfirmed = finalStatus === 'confirmed'
 
     const admin = createAdminClient()
+
+    /* ── جلب أسماء الملاعب من الإعدادات (مصدر وحيد) ── */
+    const COURT_NAMES = await fetchCourtNames(admin)
 
     /* ── جلب إعدادات المياه مرة واحدة ── */
     const { data: waterSettings } = await admin

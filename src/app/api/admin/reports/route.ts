@@ -17,11 +17,7 @@ import type {
 // ──────────────────────────────────────────────────────────────
 // مساعدات
 // ──────────────────────────────────────────────────────────────
-const COURT_NAMES: Record<string, string> = {
-  football:   'كرة القدم',
-  volleyball: 'الكرة الطائرة',
-  multi:      'الملعب المتعدد',
-}
+// أسماء الملاعب تُجلب ديناميكياً من settings في GET handler
 
 function emptyHeatGrid(): HeatGrid {
   const g: HeatGrid = {}
@@ -81,6 +77,13 @@ export async function GET(request: NextRequest) {
     const settings: Record<string, string> = {}
     ;(settingsRows ?? []).forEach(s => { settings[s.key] = s.value })
     const waterPrice = parseFloat(settings['water_price_per_carton'] ?? '20') || 20
+
+    // أسماء الملاعب من الإعدادات (مصدر وحيد للحقيقة)
+    const COURT_NAMES: Record<string, string> = {
+      football:   settings['venue_1_name'] || 'كرة القدم',
+      volleyball: settings['venue_2_name'] || 'الكرة الطائرة',
+      multi:      settings['venue_3_name'] || 'الملعب المتعدد',
+    }
 
     // 4. جلب الحجوزات في الفترة مع الفلاتر
     let query = admin
