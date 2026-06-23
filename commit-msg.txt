@@ -1,1 +1,1 @@
-fix pdf font preload Tajawal bold before html2canvas  
+fix pdf header h1 font-weight 400 to fix broken Arabic bold  

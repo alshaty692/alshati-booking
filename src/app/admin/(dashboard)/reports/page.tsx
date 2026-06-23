@@ -117,7 +117,7 @@ const PDF_CSS = `
   * { box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal','IBM Plex Sans Arabic',Arial,sans-serif;direction:rtl; }
   .pdf-report { width:760px;padding:20px;background:#fff;color:#1B2A3B; }
   .pdf-header { background:#1B2A3B;color:#fff;padding:18px 22px;border-radius:10px;text-align:center;margin-bottom:18px; }
-  .pdf-header h1 { color:#C8FF3E;font-size:20px;font-weight:800;margin-bottom:4px;font-family:'Tajawal',sans-serif; }
+  .pdf-header h1 { color:#C8FF3E;font-size:20px;font-weight:400;margin-bottom:4px;font-family:'Tajawal',sans-serif; }
   .pdf-header p  { font-size:11px;color:#94a3b8;font-family:'Tajawal',sans-serif; }
   .pdf-section { margin-bottom:20px; }
   .pdf-section-title { font-size:15px;font-weight:800;color:#2D5C4E;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #C8FF3E; }
