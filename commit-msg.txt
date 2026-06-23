@@ -1,1 +1,1 @@
-fix reports: dark mode plus separate PDF per section plus report type tabs
+fix pdf font preload Tajawal bold before html2canvas  
