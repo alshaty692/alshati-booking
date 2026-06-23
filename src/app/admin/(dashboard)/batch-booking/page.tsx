@@ -425,10 +425,10 @@ export default function BatchBookingPage() {
           <button
             onClick={()=>{ if(!selected.length){showToast('err','اختر فترة على الأقل');return} setStep('details') }}
             style={{
-              background: selected.length ? 'var(--accent)' : 'transparent',
-              color: selected.length ? '#000' : 'var(--text-muted)',
+              background: selected.length ? 'var(--color-lime)' : 'transparent',
+              color: selected.length ? 'var(--text-on-lime)' : 'var(--text-muted)',
               border: selected.length
-                ? '2px solid var(--accent)'
+                ? '2px solid var(--color-lime)'
                 : '2px solid var(--border-subtle)',
               borderRadius:'0.65rem', padding:'0.7rem 1.75rem',
               cursor: selected.length ? 'pointer' : 'not-allowed',
@@ -478,7 +478,7 @@ export default function BatchBookingPage() {
                   onKeyDown={e=>e.key==='Enter'&&searchCustomer()} placeholder="05XXXXXXXX"
                   style={{flex:1,padding:'0.5rem 0.65rem',background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',borderRadius:'0.45rem',color:'var(--text-main)',fontSize:'0.87rem',direction:'ltr'}}/>
                 <button onClick={searchCustomer} disabled={searching} style={{
-                  background:'var(--accent)',color:'#000',border:'none',
+                  background:'var(--color-lime)',color:'var(--text-on-lime)',border:'none',
                   borderRadius:'0.45rem',padding:'0 0.65rem',cursor:'pointer',display:'flex',alignItems:'center',
                 }}>
                   {searching ? <Loader2 size={14} style={{animation:'spin 1s linear infinite'}}/> : <Search size={14}/>}
@@ -510,9 +510,9 @@ export default function BatchBookingPage() {
                 {(['confirmed','pending'] as const).map(v=>(
                   <button key={v} onClick={()=>setStatus(v)} style={{
                     flex:1,padding:'0.45rem',
-                    background:status===v?'var(--accent)':'var(--bg-elevated)',
-                    color:status===v?'#000':'var(--text-muted)',
-                    border:`1px solid ${status===v?'var(--accent)':'var(--border-subtle)'}`,
+                    background:status===v?'var(--color-lime)':'var(--bg-elevated)',
+                    color:status===v?'var(--text-on-lime)':'var(--text-muted)',
+                    border:`1px solid ${status===v?'var(--color-lime)':'var(--border-subtle)'}`,
                     borderRadius:'0.4rem',cursor:'pointer',fontSize:'0.77rem',fontWeight:status===v?700:400,
                   }}>
                     {v==='confirmed'?'مؤكد (مدفوع)':'بانتظار الإيصال'}
@@ -544,7 +544,7 @@ export default function BatchBookingPage() {
                   <div key={idx} style={{
                     background:'var(--bg-elevated)',border:'1px solid var(--border-subtle)',
                     borderRadius:'0.55rem',padding:'0.6rem 0.7rem',
-                    borderRight:`3px solid ${court?.color??'var(--accent)'}`,
+                    borderRight:`3px solid ${court?.color??'var(--color-lime)'}`,
                   }}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'0.4rem'}}>
                       <span style={{fontSize:'0.79rem',fontWeight:600,color:'var(--text-main)'}}>
@@ -591,7 +591,7 @@ export default function BatchBookingPage() {
             color:'var(--text-main)',fontWeight:600,fontSize:'0.87rem',
           }}>← تعديل الفترات</button>
           <button onClick={handleSubmit} disabled={saving} style={{
-            background:'var(--accent)',color:'#000',border:'2px solid var(--accent)',
+            background:'var(--color-lime)',color:'var(--text-on-lime)',border:'2px solid var(--color-lime)',
             borderRadius:'0.55rem',padding:'0.62rem 1.6rem',
             cursor:saving?'not-allowed':'pointer',fontWeight:700,fontSize:'0.9rem',
             display:'flex',alignItems:'center',gap:'0.4rem',opacity:saving?0.7:1,
@@ -620,7 +620,7 @@ export default function BatchBookingPage() {
             {result.failed===0?'تمت إنشاء الباقة بنجاح':result.created>0?'أُنشئت الباقة جزئياً':'فشل إنشاء الباقة'}
           </h2>
           <p style={{margin:0,color:'var(--text-muted)',fontSize:'0.82rem'}}>
-            رقم الباقة: <span style={{color:'var(--accent)',fontWeight:700,fontFamily:'monospace'}}>{result.batch_id}</span>
+            رقم الباقة: <span style={{color:'var(--color-lime)',fontWeight:700,fontFamily:'monospace'}}>{result.batch_id}</span>
           </p>
           <div style={{display:'flex',justifyContent:'center',gap:'2rem',marginTop:'0.9rem'}}>
             <div><div style={{fontSize:'1.5rem',fontWeight:800,color:'#7bba00'}}>{result.created}</div><div style={{fontSize:'0.7rem',color:'var(--text-muted)'}}>نجحت</div></div>
@@ -657,7 +657,7 @@ export default function BatchBookingPage() {
             color:'var(--text-main)',fontWeight:600,fontSize:'0.87rem',
           }}>عرض الحجوزات</button>
           <button onClick={()=>{setStep('grid');setSelected([]);setResult(null);setPhone('');setName('');setCustomer(null);setNote('')}} style={{
-            background:'var(--accent)',color:'#000',border:'2px solid var(--accent)',
+            background:'var(--color-lime)',color:'var(--text-on-lime)',border:'2px solid var(--color-lime)',
             borderRadius:'0.55rem',padding:'0.62rem 1.2rem',cursor:'pointer',fontWeight:700,fontSize:'0.87rem',
           }}>إنشاء باقة جديدة</button>
         </div>
@@ -670,8 +670,8 @@ export default function BatchBookingPage() {
       {toast && (
         <div style={{
           position:'fixed',top:'1rem',right:'1rem',zIndex:9999,
-          background:toast.type==='ok'?'var(--accent)':'var(--danger)',
-          color:toast.type==='ok'?'#000':'#fff',
+          background:toast.type==='ok'?'var(--color-lime)':'var(--color-danger)',
+          color:toast.type==='ok'?'var(--text-on-lime)':'#fff',
           padding:'0.6rem 1rem',borderRadius:'0.5rem',
           fontWeight:600,fontSize:'0.87rem',
           boxShadow:'0 4px 18px rgba(0,0,0,0.25)',
@@ -700,10 +700,10 @@ function StepBar({step}:{step:number}) {
         <div key={i} style={{display:'flex',alignItems:'center',gap:'0.4rem',flex:i<2?1:undefined}}>
           <div style={{
             width:24,height:24,borderRadius:'50%',flexShrink:0,
-            background:i<step?'rgba(163,230,53,0.2)':i===step?'var(--accent)':'var(--bg-card)',
+            background:i<step?'var(--color-lime-muted)':i===step?'var(--color-lime)':'var(--bg-card)',
             border:i<step?'1px solid rgba(163,230,53,0.4)':i===step?'none':'1px solid var(--border-subtle)',
             display:'flex',alignItems:'center',justifyContent:'center',
-            color:i<step?'#7bba00':i===step?'#000':'var(--text-muted)',
+            color:i<step?'var(--color-lime-dim)':i===step?'var(--text-on-lime)':'var(--text-muted)',
             fontSize:'0.7rem',fontWeight:700,
           }}>
             {i<step?<Check size={11}/>:i+1}

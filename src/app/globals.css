@@ -127,6 +127,13 @@
   --bg-sidebar:     #080C0A;
   --border-sidebar: rgba(200, 255, 62, 0.08);
   --bg-card:        var(--bg-surface);
+
+  /* aliases إضافية للتوافق */
+  --text-main:      var(--text-primary);
+  --text-body:      var(--text-secondary);
+  --accent:         var(--color-lime);
+  --danger:         var(--color-danger);
+  --bg-main:        var(--bg-base);
 }
 
 /* ============================================================
@@ -188,6 +195,13 @@
   --bg-sidebar:     #0F1410;
   --border-sidebar: rgba(200, 255, 62, 0.08);
   --bg-card:        #FFFFFF;
+
+  /* aliases إضافية للتوافق */
+  --text-main:      var(--text-primary);
+  --text-body:      var(--text-secondary);
+  --accent:         var(--color-lime);
+  --danger:         var(--color-danger);
+  --bg-main:        var(--bg-base);
 }
 
 /* ============================================================
