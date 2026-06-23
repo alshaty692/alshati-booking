@@ -132,15 +132,37 @@ async function buildSectionPDF(html: string, filename: string) {
 
   const el = container.querySelector('.pdf-report') as HTMLElement
   if (!el) { document.body.removeChild(container); return }
-  const canvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, windowWidth:800 })
+  const pageCanvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, windowWidth:800 })
   document.body.removeChild(container)
-  const imgW = 210, pageH = 297
-  const imgH = (canvas.height * imgW) / canvas.width
-  const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' })
-  let left = imgH, pos = 0
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, pos, imgW, imgH)
-  left -= pageH
-  while (left > 0) { pos -= pageH; pdf.addPage(); pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, pos, imgW, imgH); left -= pageH }
+
+  // ── هوامش الـ PDF — تُطبَّق على مستوى jsPDF (مستقلة عن الـ HTML المُلتقط) ──
+  const PAGE_W   = 210          // A4 عرض بالـ mm
+  const PAGE_H   = 297          // A4 ارتفاع بالـ mm
+  const MARGIN   = 10           // هامش من كل الجهات (mm)
+  const CONT_W   = PAGE_W - MARGIN * 2   // 190mm — عرض منطقة المحتوى
+  const CONT_H   = PAGE_H - MARGIN * 2   // 277mm — ارتفاع المحتوى المرئي في كل صفحة
+
+  // ارتفاع الصورة الكاملة بعد تحجيمها لعرض المحتوى
+  const imgH = (pageCanvas.height * CONT_W) / pageCanvas.width
+
+  const imgDataUrl = pageCanvas.toDataURL('image/jpeg', 0.92)
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  // الصفحة الأولى: الصورة تبدأ من (MARGIN, MARGIN)
+  pdf.addImage(imgDataUrl, 'JPEG', MARGIN, MARGIN, CONT_W, imgH)
+
+  // الصفحات التالية: نزحّ الصورة بـ CONT_H لكل صفحة — يضمن MARGIN في الأعلى والأسفل
+  let remaining = imgH - CONT_H
+  let pageNum   = 1
+  while (remaining > 0) {
+    pdf.addPage()
+    // نحرّك الصورة إلى الأعلى بمقدار (pageNum × CONT_H) مع إبقاء MARGIN من الأعلى
+    const yShift = MARGIN - pageNum * CONT_H
+    pdf.addImage(imgDataUrl, 'JPEG', MARGIN, yShift, CONT_W, imgH)
+    remaining -= CONT_H
+    pageNum++
+  }
+
   pdf.save(filename)
 }
 
@@ -149,7 +171,7 @@ async function buildSectionPDF(html: string, filename: string) {
 const PDF_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block');
   * { box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal','IBM Plex Sans Arabic',Arial,sans-serif;direction:rtl; }
-  .pdf-report { width:760px;padding:20px;background:#fff;color:#1B2A3B; }
+  .pdf-report { width:760px;padding:28px;background:#fff;color:#1B2A3B; }
   .pdf-header { background:#1B2A3B;color:#fff;padding:18px 22px;border-radius:10px;text-align:center;margin-bottom:18px; }
   .pdf-header h1 { color:#C8FF3E;font-size:20px;font-weight:400;margin-bottom:4px;font-family:'Tajawal',sans-serif; }
   .pdf-header p  { font-size:11px;color:#94a3b8;font-family:'Tajawal',sans-serif; }

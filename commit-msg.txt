@@ -1,1 +1,1 @@
-fix pdf title use canvas fillText to bypass html2canvas Arabic shaping  
+fix pdf add 10mm margins on all sides and correct multi-page shifts  
