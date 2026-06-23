@@ -133,34 +133,64 @@ async function buildSectionPDF(html: string, filename: string) {
   const el = container.querySelector('.pdf-report') as HTMLElement
   if (!el) { document.body.removeChild(container); return }
   const pageCanvas = await html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false, windowWidth:800 })
+
+  // ── احسب مواضع أسفل كل <tr> قبل حذف الـ container ──
+  // هذا يحدد نقاط التقسيم الآمنة (لا نقطع وسط صف)
+  const PAGE_W  = 210
+  const PAGE_H  = 297
+  const MARGIN  = 10
+  const CONT_W  = PAGE_W - MARGIN * 2   // 190mm
+  const CONT_H  = PAGE_H - MARGIN * 2   // 277mm
+
+  const elRect    = el.getBoundingClientRect()
+  const cssToMm   = CONT_W / el.offsetWidth   // CSS pixels → mm
+  // أسفل كل صف جدول (وكل section رئيسية) بالـ mm من أعلى .pdf-report
+  const rowBoundaries: number[] = []
+  el.querySelectorAll('tr, .pdf-section, .footer').forEach(node => {
+    const rect = (node as HTMLElement).getBoundingClientRect()
+    const bottomMm = (rect.bottom - elRect.top) * cssToMm
+    if (bottomMm > 0) rowBoundaries.push(bottomMm)
+  })
+  rowBoundaries.sort((a, b) => a - b)
+
   document.body.removeChild(container)
 
-  // ── هوامش الـ PDF — تُطبَّق على مستوى jsPDF (مستقلة عن الـ HTML المُلتقط) ──
-  const PAGE_W   = 210          // A4 عرض بالـ mm
-  const PAGE_H   = 297          // A4 ارتفاع بالـ mm
-  const MARGIN   = 10           // هامش من كل الجهات (mm)
-  const CONT_W   = PAGE_W - MARGIN * 2   // 190mm — عرض منطقة المحتوى
-  const CONT_H   = PAGE_H - MARGIN * 2   // 277mm — ارتفاع المحتوى المرئي في كل صفحة
-
-  // ارتفاع الصورة الكاملة بعد تحجيمها لعرض المحتوى
+  // ── الارتفاع الكلي للصورة بعد تحجيمها لعرض المحتوى ──
   const imgH = (pageCanvas.height * CONT_W) / pageCanvas.width
 
+  // ── احسب نقاط التقسيم الذكية — تنتهي دائماً عند حد صف كامل ──
+  function buildPageBreaks(totalH: number, pageH: number, boundaries: number[]): number[] {
+    const breaks: number[] = []
+    let cursor = 0
+    while (cursor + pageH < totalH - 1) {
+      const maxEnd = cursor + pageH
+      // آخر حد صف يقع داخل هذه الصفحة
+      const candidates = boundaries.filter(b => b > cursor && b <= maxEnd)
+      const breakAt = candidates.length > 0
+        ? candidates[candidates.length - 1]   // آخر حد صف يسع الصفحة
+        : maxEnd                               // لا صفوف → اقطع بالحد الثابت
+      breaks.push(breakAt)
+      cursor = breakAt
+    }
+    return breaks
+  }
+
+  const pageBreaks = buildPageBreaks(imgH, CONT_H, rowBoundaries)
+
+  // ── ابن صفحات الـ PDF باستخدام نقاط التقسيم الذكية ──
   const imgDataUrl = pageCanvas.toDataURL('image/jpeg', 0.92)
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-  // الصفحة الأولى: الصورة تبدأ من (MARGIN, MARGIN)
-  pdf.addImage(imgDataUrl, 'JPEG', MARGIN, MARGIN, CONT_W, imgH)
+  let prevBreak = 0
+  const allBreaks = [...pageBreaks, imgH]   // أضف نهاية الصورة كنقطة أخيرة
 
-  // الصفحات التالية: نزحّ الصورة بـ CONT_H لكل صفحة — يضمن MARGIN في الأعلى والأسفل
-  let remaining = imgH - CONT_H
-  let pageNum   = 1
-  while (remaining > 0) {
-    pdf.addPage()
-    // نحرّك الصورة إلى الأعلى بمقدار (pageNum × CONT_H) مع إبقاء MARGIN من الأعلى
-    const yShift = MARGIN - pageNum * CONT_H
+  for (let i = 0; i < allBreaks.length; i++) {
+    if (i > 0) pdf.addPage()
+    // الصورة تبدأ من MARGIN في الأعلى — ونزحّها لأعلى بمقدار prevBreak
+    // حتى يبدأ المقطع الصحيح عند y = MARGIN في هذه الصفحة
+    const yShift = MARGIN - prevBreak
     pdf.addImage(imgDataUrl, 'JPEG', MARGIN, yShift, CONT_W, imgH)
-    remaining -= CONT_H
-    pageNum++
+    prevBreak = allBreaks[i]
   }
 
   pdf.save(filename)
