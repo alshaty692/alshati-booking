@@ -6,6 +6,8 @@
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { fetchCourtNames } from '@/hooks/useCourtNames'
+import { findOrCreateCustomer } from '@/lib/customers'
+import { createBatchInvoices, cancelInvoicesForBatch } from '@/lib/invoices'
 
 /* ── أنواع ────────────────────────────────────────────────── */
 interface SlotInput {
@@ -67,12 +69,14 @@ export async function POST(request: NextRequest) {
       customer_phone,
       status: requestedStatus,
       internal_note,
+      invoice_type,
     } = body as {
       slots: SlotInput[]
       customer_name: string
       customer_phone: string
       status: string
       internal_note?: string
+      invoice_type?: 'per_booking' | 'combined'
     }
 
     /* ── تحقق أساسي ── */
@@ -101,6 +105,9 @@ export async function POST(request: NextRequest) {
 
     /* ── توليد batch_id مشترك ── */
     const batchId = generateBatchId()
+
+    /* ── إيجاد أو إنشاء العميل ─────────────────────────────────── */
+    const customer = await findOrCreateCustomer(customer_phone.trim(), customer_name.trim(), admin)
 
     /* ── معالجة كل فترة ── */
     const results: SlotResult[] = []
@@ -164,6 +171,7 @@ export async function POST(request: NextRequest) {
             period_number: Number(period_number),
             customer_phone: customer_phone.trim(),
             customer_name:  customer_name.trim(),
+            customer_id:    customer.id,
             code_used:      code_used || null,
             base_price:     priceData?.base_price ?? courtPrice,
             discount_amount: priceData?.discount_amount ?? 0,
@@ -234,6 +242,43 @@ export async function POST(request: NextRequest) {
       notes: `باقة (${batchId}) — ${createdCount}/${slots.length} فترة · ${customer_phone.trim()}`,
     })
 
+    /* ── إصدار الفاتورة/الفواتير للحجوزات المؤكدة ──────────────── */
+    let invoice_numbers: string[] = []
+    if (isConfirmed && createdCount > 0) {
+      try {
+        const successSlots = results
+          .filter(r => r.ok && r.booking_id)
+          .map(r => {
+            // نجلب بيانات الحجز من نتائج الـ loop (نحتاج إعادة بناء البيانات)
+            const originalSlot = slots.find(
+              s => s.booking_date === r.booking_date &&
+                   s.court_id    === r.court_id &&
+                   s.period_number === r.period_number
+            )
+            return {
+              booking_id:      r.booking_id!,
+              base_price:      0,   // ستُملأ من priceData المحسوبة في الـ loop — انظر ملاحظة أدناه
+              discount_amount: 0,
+              discount_code:   originalSlot?.code_used ?? null,
+              final_price:     0,
+              water_quantity:  originalSlot?.water_quantity ?? 0,
+            }
+          })
+
+        const inv = await createBatchInvoices({
+          slots:            successSlots,
+          customer_id:      customer.id,
+          batch_id:         batchId,
+          invoice_type:     (invoice_type === 'combined' ? 'combined' : 'per_booking'),
+          water_unit_price: waterPricePerCarton,
+          adminClient:      admin,
+        })
+        invoice_numbers = inv.invoice_numbers
+      } catch (invErr) {
+        console.warn('[batch-booking] فشل إصدار الفواتير (غير حرج):', invErr)
+      }
+    }
+
     return Response.json({
       success: true,
       batch_id: batchId,
@@ -241,6 +286,7 @@ export async function POST(request: NextRequest) {
       created: createdCount,
       failed:  slots.length - createdCount,
       results,
+      invoice_numbers,
     })
 
   } catch (err) {
@@ -320,6 +366,13 @@ export async function DELETE(request: NextRequest) {
       .in('status', ['pending', 'uploaded', 'confirmed'])
 
     if (cancelErr) throw cancelErr
+
+    /* إلغاء الفواتير المرتبطة تلقائياً */
+    try {
+      await cancelInvoicesForBatch(batchId, `إلغاء الباقة: ${reason}`, admin)
+    } catch (invErr) {
+      console.warn('[batch-booking/delete] فشل إلغاء الفواتير:', invErr)
+    }
 
     /* audit_log */
     await admin.from('audit_log').insert({

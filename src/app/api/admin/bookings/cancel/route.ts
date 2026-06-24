@@ -4,6 +4,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { cancelInvoicesForBooking } from '@/lib/invoices'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,6 +66,17 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('[admin/bookings/cancel] updateError:', updateError)
       throw updateError
+    }
+
+    // إلغاء الفاتورة المرتبطة تلقائياً
+    try {
+      await cancelInvoicesForBooking(
+        booking_id,
+        cancellation_reason ? `إلغاء إداري: ${cancellation_reason}` : 'إلغاء إداري',
+        admin
+      )
+    } catch (invErr) {
+      console.warn('[admin/bookings/cancel] فشل إلغاء الفاتورة (غير حرج):', invErr)
     }
 
     // audit log

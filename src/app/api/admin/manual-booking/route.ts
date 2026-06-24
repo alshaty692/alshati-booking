@@ -4,6 +4,8 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { findOrCreateCustomer } from '@/lib/customers'
+import { createInvoice } from '@/lib/invoices'
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,6 +124,9 @@ export async function POST(request: NextRequest) {
       : (priceData?.final_price ?? 0)
     const effectiveFinalPrice = courtPrice + waterTotal
 
+    // ── إيجاد أو إنشاء العميل ───────────────────────────────
+    const customer = await findOrCreateCustomer(customer_phone, customer_name, admin)
+
     // ── إنشاء سجل حجز جديد نظيف ────────────────────────────
     const { data: booking, error: insertError } = await admin
       .from('bookings')
@@ -131,6 +136,7 @@ export async function POST(request: NextRequest) {
         period_number: Number(period_number),
         customer_phone,
         customer_name,
+        customer_id:     customer.id,
         code_used:       code_used || null,
         base_price:      priceData?.base_price ?? courtPrice,
         discount_amount: priceData?.discount_amount ?? 0,
@@ -188,7 +194,27 @@ export async function POST(request: NextRequest) {
       notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
     })
 
-    return Response.json({ success: true, booking_id: booking!.id })
+    // ── إصدار الفاتورة لو الحجز مؤكد ───────────────────────
+    let invoice_number: string | undefined
+    if (isConfirmed) {
+      try {
+        const inv = await createInvoice({
+          booking_id:      booking!.id,
+          customer_id:     customer.id,
+          base_price:      priceData?.base_price ?? courtPrice,
+          discount_amount: priceData?.discount_amount ?? 0,
+          discount_code:   code_used || null,
+          final_price:     courtPrice,   // بدون المياه (المياه حقل منفصل في الفاتورة)
+          water_quantity:  waterQty,
+          water_unit_price: waterPricePerCarton,
+        }, admin)
+        invoice_number = inv.invoice_number
+      } catch (invErr) {
+        console.warn('[manual-booking] فشل إصدار الفاتورة (غير حرج):', invErr)
+      }
+    }
+
+    return Response.json({ success: true, booking_id: booking!.id, invoice_number })
   } catch (err) {
     console.error('[manual-booking]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })
