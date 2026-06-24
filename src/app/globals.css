@@ -840,6 +840,7 @@ textarea.input {
   padding: var(--space-8) var(--space-8);
   min-width: 0;
   max-width: 1400px;
+  overflow-x: hidden;        /* يمنع أي محتوى داخلي من إنشاء horizontal scroll على الجوال */
   background: var(--bg-base);
   min-height: 100vh;
   transition: margin-right 0.22s cubic-bezier(.4,0,.2,1), background-color 0.25s ease;
