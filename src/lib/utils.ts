@@ -8,10 +8,10 @@ export function cn(...inputs: ClassValue[]) {
   return inputs.filter(Boolean).join(' ')
 }
 
-// تنسيق التاريخ بالعربي
+// تنسيق التاريخ بالعربي (ميلادي دائماً — calendar: 'gregory' يمنع تحويل iOS السعودي للهجري)
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('ar-SA', {
+  return date.toLocaleDateString('ar-SA-u-ca-gregory', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -19,10 +19,10 @@ export function formatDate(dateStr: string): string {
   })
 }
 
-// تنسيق التاريخ المختصر
+// تنسيق التاريخ المختصر (ميلادي)
 export function formatDateShort(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('ar-SA', {
+  return date.toLocaleDateString('ar-SA-u-ca-gregory', {
     month: 'short',
     day: 'numeric',
   })

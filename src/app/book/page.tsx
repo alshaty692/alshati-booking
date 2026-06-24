@@ -448,9 +448,9 @@ export default function BookPage() {
                       }}
                       disabled={!hasAvail}
                     >
-                      <span className="date-pill-day">{d.toLocaleDateString('ar-SA',{weekday:'long'})}</span>
-                      <span className="date-pill-num">{d.getDate()}</span>
-                      <span className="date-pill-month">{d.toLocaleDateString('ar-SA',{month:'long'})}</span>
+                      <span className="date-pill-day">{d.toLocaleDateString('ar-SA-u-ca-gregory',{weekday:'long'})}</span>
+                      <span className="date-pill-num">{d.toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric'})}</span>
+                      <span className="date-pill-month">{d.toLocaleDateString('ar-SA-u-ca-gregory',{month:'long'})}</span>
                       {!hasAvail && <span className="date-pill-full">مكتمل</span>}
                     </button>
                   )

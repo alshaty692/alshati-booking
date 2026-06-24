@@ -139,8 +139,75 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
-      // خطأ UNIQUE = الفترة محجوزة
+      // خطأ UNIQUE = تعارض
       if (error.code === '23505') {
+        // فحص: هل التعارض مع حجز ملغى/منتهي؟
+        const INACTIVE = ['cancelled', 'rejected', 'expired']
+        const { data: existing } = await supabase
+          .from('bookings')
+          .select('id, status')
+          .eq('court_id', court_id)
+          .eq('booking_date', booking_date)
+          .eq('period_number', period_number)
+          .in('status', INACTIVE)
+          .maybeSingle()
+
+        if (existing) {
+          // احذف الحجز الملغى واحجز من جديد
+          const { error: delErr } = await supabase
+            .from('bookings')
+            .delete()
+            .eq('id', existing.id)
+
+          if (delErr) throw delErr
+
+          // أعد الإدراج
+          const { data: retryBooking, error: retryErr } = await supabase
+            .from('bookings')
+            .insert({
+              booking_date,
+              court_id,
+              period_number,
+              customer_phone: phone,
+              customer_name,
+              code_used: code_used || null,
+              base_price: priceData.base_price,
+              discount_amount: priceData.discount_amount,
+              final_price: finalPrice,
+              water_quantity: waterQty,
+              status: 'pending',
+              is_manual: false,
+            })
+            .select()
+            .single()
+
+          if (retryErr) {
+            // تعارض حقيقي هذه المرة
+            if (retryErr.code === '23505') {
+              return Response.json(
+                { error: 'عذراً، هذه الفترة محجوزة. يرجى اختيار فترة أخرى' },
+                { status: 409 }
+              )
+            }
+            throw retryErr
+          }
+
+          // نجح — أكمل باقي المنطق مع retryBooking
+          if (code_used) {
+            await supabase.rpc('increment_code_usage', { p_code: code_used })
+          }
+          await supabase.from('slot_holds').delete().eq('phone', phone)
+          await supabase.from('audit_log').insert({
+            table_name: 'bookings',
+            record_id: retryBooking.id,
+            action: 'insert',
+            new_data: retryBooking,
+            notes: `حجز جديد بعد إزالة ملغى من ${phone}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
+          })
+          return Response.json({ success: true, booking_id: retryBooking.id })
+        }
+
+        // تعارض مع حجز نشط فعلاً
         return Response.json(
           { error: 'عذراً، هذه الفترة محجوزة. يرجى اختيار فترة أخرى' },
           { status: 409 }
