@@ -1130,6 +1130,24 @@ textarea.input {
 }
 .mb-hamburger:hover { background: var(--bg-elevated); color: var(--color-lime); }
 
+/* زر الثيم داخل الهيدر على الجوال — inline (لا fixed) */
+.mb-theme-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-sidebar);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  position: static;   /* يمنع تأثير position:fixed من theme-toggle-fixed */
+}
+.mb-theme-btn:hover { background: var(--bg-elevated); color: var(--color-lime); }
+
 /* ── Mobile Drawer (mb-drawer) ── */
 .mb-drawer {
   position: fixed;

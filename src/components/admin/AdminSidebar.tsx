@@ -156,7 +156,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
       <header className="mb-header">
         <span className="mb-header-logo">حي الشاطئ</span>
         <div className="mb-header-actions">
-          <ThemeToggle />
+          <ThemeToggle className="mb-theme-btn" iconSize={16} />
           <button
             className="mb-hamburger"
             aria-label="القائمة"
@@ -166,6 +166,7 @@ export default function AdminSidebar({ role, userName, userEmail }: Props) {
           </button>
         </div>
       </header>
+
 
       {/* ══ Mobile Overlay ══ */}
       {open && (
