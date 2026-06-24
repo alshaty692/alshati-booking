@@ -1073,9 +1073,171 @@ textarea.input {
 .mobile-drawer  { display: none !important; }
 .drawer-overlay { display: none !important; }
 
+/* ── Sidebar Desktop (sb-*) ── */
+.sb {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--border-sidebar);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  transition: width 0.25s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Mobile Header (mb-header) — مخفي على الديسكتوب ── */
+.mb-header {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-sidebar);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  z-index: 300;       /* فوق admin-main و sb */
+  flex-shrink: 0;
+}
+.mb-header-logo {
+  font-size: var(--text-base);
+  font-weight: var(--font-black);
+  color: var(--color-lime-dim);
+}
+.mb-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mb-hamburger {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-sidebar);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.mb-hamburger:hover { background: var(--bg-elevated); color: var(--color-lime); }
+
+/* ── Mobile Drawer (mb-drawer) ── */
+.mb-drawer {
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 280px;
+  height: 100dvh;
+  background: var(--bg-sidebar);
+  border-left: 1px solid var(--border-sidebar);
+  z-index: 9999;
+  transition: right 0.28s cubic-bezier(.4,0,.2,1);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-shadow: none;
+}
+.mb-drawer-open {
+  right: 0;
+  box-shadow: -8px 0 40px rgba(0,0,0,.4);
+}
+.mb-drawer-head {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-sidebar);
+  flex-shrink: 0;
+}
+.mb-drawer-logo { font-size: var(--text-base); font-weight: var(--font-black); color: var(--color-lime-dim); }
+.mb-drawer-close {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-sidebar);
+  background: transparent;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.mb-drawer-close:hover { background: var(--bg-elevated); color: var(--color-lime); }
+.mb-drawer-nav { flex: 1; padding: var(--space-2) 0; overflow-y: auto; }
+.mb-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-right: 3px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: 'Tajawal', sans-serif;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  text-align: right;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.mb-nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.mb-nav-item-active { background: var(--color-lime-muted); color: var(--color-lime); border-right-color: var(--color-lime); }
+.mb-nav-item-active:hover { background: var(--color-lime-muted); color: var(--color-lime); }
+.mb-drawer-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-sidebar);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.mb-user-name  { font-size: var(--text-sm); font-weight: var(--font-bold); color: var(--color-lime-dim); }
+.mb-user-email { font-size: var(--text-xs); color: var(--text-muted); direction: ltr; }
+.mb-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  background: var(--color-danger-bg);
+  border: 1px solid rgba(224,85,85,.25);
+  color: var(--color-danger);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.mb-logout-btn:hover { background: rgba(224,85,85,.2); }
+
+/* ── Mobile Overlay ── */
+.mb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(3px);
+  z-index: 9998;
+}
+
 /* ── هيدر الجوال ── */
 @media (max-width: 768px) {
+  /* Desktop sidebar: مخفي على الجوال */
+  .sb     { display: none !important; }
   .sidebar { display: none !important; }
+
+  /* Mobile header: ظاهر على الجوال */
+  .mb-header { display: flex !important; }
 
   .admin-main {
     margin-right: 0 !important;
