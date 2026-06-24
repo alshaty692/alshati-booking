@@ -836,11 +836,13 @@ textarea.input {
 /* المحتوى الرئيسي */
 .admin-main {
   flex: 1;
+  width: 0;                  /* مع flex:1 → يأخذ المساحة المتبقية بدون تجاوز الـ viewport */
+  min-width: 0;              /* يمنع flex item من التمدد بحجم محتواه */
+  box-sizing: border-box;
   margin-right: 0;           /* الجوال: بدون margin — تُضاف على الديسكتوب بالـ media query أدناه */
   padding: var(--space-8) var(--space-8);
-  min-width: 0;
   max-width: 1400px;
-  overflow-x: hidden;        /* يمنع أي محتوى داخلي من إنشاء horizontal scroll على الجوال */
+  overflow-x: hidden;        /* يقطع أي محتوى داخلي يتجاوز العرض */
   background: var(--bg-base);
   min-height: 100vh;
   transition: margin-right 0.22s cubic-bezier(.4,0,.2,1), background-color 0.25s ease;
@@ -1077,8 +1079,8 @@ textarea.input {
 
   .admin-main {
     margin-right: 0 !important;
-    padding: var(--space-4);
-    padding-top: calc(56px + var(--space-4));
+    padding: var(--space-4) !important;
+    padding-top: calc(56px + var(--space-4)) !important;
   }
 
   .stepper .step-label { display: none; }

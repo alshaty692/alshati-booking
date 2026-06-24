@@ -248,6 +248,8 @@ export default async function AdminDashboard() {
           display: flex;
           align-items: center;
           gap: var(--space-3);
+          min-width: 0;         /* يمنع الكرت من تمديد الجريد أكثر من عرض الشاشة */
+          overflow: hidden;
           transition: transform 0.2s, box-shadow 0.2s;
         }
         .stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
@@ -302,9 +304,17 @@ export default async function AdminDashboard() {
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
         }
-        .stat-body {}
-        .stat-value { font-size: var(--text-2xl); font-weight: var(--font-black); line-height: 1; margin-bottom: var(--space-1); }
-        .stat-label { font-size: var(--text-xs); font-weight: var(--font-medium); }
+        .stat-body { flex: 1; min-width: 0; overflow: hidden; }
+        .stat-value {
+          font-size: var(--text-2xl);
+          font-weight: var(--font-black);
+          line-height: 1;
+          margin-bottom: var(--space-1);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .stat-label { font-size: var(--text-xs); font-weight: var(--font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* ── الشبكة الرئيسية ── */
         .dh-grid {
