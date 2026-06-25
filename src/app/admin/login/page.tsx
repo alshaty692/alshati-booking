@@ -1,11 +1,15 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { LogIn, ShieldCheck, Mail, Lock, AlertCircle, ShieldOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
-export default function AdminLoginPage() {
+// ─────────────────────────────────────────────────────────────────────
+// المكوّن الداخلي — يستخدم useSearchParams لذا يحتاج Suspense wrapper
+// Next.js يشترط هذا الفصل لتجنب build error
+// ─────────────────────────────────────────────────────────────────────
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isUnauthorized = searchParams.get('error') === 'unauthorized'
@@ -21,6 +25,7 @@ export default function AdminLoginPage() {
       supabase.auth.signOut()
     }
   }, [isUnauthorized])
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -39,101 +44,121 @@ export default function AdminLoginPage() {
   }
 
   return (
+    <>
+      {/* رأس الكرت */}
+      <div className="al-login-header">
+        <div className="al-login-icon-wrap">
+          <ShieldCheck size={28} strokeWidth={1.5} />
+        </div>
+        <h1 className="al-login-title">لوحة تحكم الإدارة</h1>
+        <p className="al-login-subtitle">مركز حي الشاطئ</p>
+      </div>
+
+      {/* النموذج */}
+      <form onSubmit={handleLogin} id="admin-login-form" className="al-login-form">
+
+        {/* البريد */}
+        <div className="al-field">
+          <label htmlFor="admin-email" className="al-field-label">
+            البريد الإلكتروني
+          </label>
+          <div className="al-field-wrap">
+            <Mail size={16} strokeWidth={1.75} className="al-field-icon" />
+            <input
+              id="admin-email"
+              type="email"
+              className="input al-field-input"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoFocus
+              placeholder="admin@example.com"
+              dir="ltr"
+            />
+          </div>
+        </div>
+
+        {/* كلمة المرور */}
+        <div className="al-field">
+          <label htmlFor="admin-password" className="al-field-label">
+            كلمة المرور
+          </label>
+          <div className="al-field-wrap">
+            <Lock size={16} strokeWidth={1.75} className="al-field-icon" />
+            <input
+              id="admin-password"
+              type="password"
+              className="input al-field-input"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
+        </div>
+
+        {/* بانر غير مخوّل — يظهر فقط عند ?error=unauthorized */}
+        {isUnauthorized && (
+          <div className="al-unauthorized" role="alert">
+            <ShieldOff size={16} strokeWidth={2} className="al-error-icon" />
+            <span>حسابك غير مخوّل للوصول إلى لوحة الإدارة. تواصل مع المدير الرئيسي.</span>
+          </div>
+        )}
+
+        {/* رسالة الخطأ — خطأ تسجيل دخول */}
+        {error && (
+          <div className="al-error" role="alert">
+            <AlertCircle size={15} strokeWidth={2} className="al-error-icon" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* زر الدخول — CTA الوحيد على الصفحة */}
+        <button
+          id="btn-admin-login"
+          type="submit"
+          className="btn btn-primary btn-full btn-lg al-submit-btn"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <span className="spinner" />
+              <span>جاري الدخول...</span>
+            </>
+          ) : (
+            <>
+              <LogIn size={18} strokeWidth={2} />
+              <span>دخول</span>
+            </>
+          )}
+        </button>
+      </form>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// الصفحة الرئيسية — تغلّف LoginForm بـ Suspense (مطلوب من Next.js)
+// ─────────────────────────────────────────────────────────────────────
+export default function AdminLoginPage() {
+  return (
     <div className="al-login-page">
       {/* زر التبديل — ثابت */}
       <ThemeToggle />
 
       {/* الكرت المركزي */}
       <div className="al-login-card animate-fade-in">
-
-        {/* رأس الكرت */}
-        <div className="al-login-header">
-          <div className="al-login-icon-wrap">
-            <ShieldCheck size={28} strokeWidth={1.5} />
+        <Suspense fallback={
+          <div className="al-login-header">
+            <div className="al-login-icon-wrap">
+              <ShieldCheck size={28} strokeWidth={1.5} />
+            </div>
+            <h1 className="al-login-title">لوحة تحكم الإدارة</h1>
+            <p className="al-login-subtitle">مركز حي الشاطئ</p>
           </div>
-          <h1 className="al-login-title">لوحة تحكم الإدارة</h1>
-          <p className="al-login-subtitle">مركز حي الشاطئ</p>
-        </div>
-
-        {/* النموذج */}
-        <form onSubmit={handleLogin} id="admin-login-form" className="al-login-form">
-
-          {/* البريد */}
-          <div className="al-field">
-            <label htmlFor="admin-email" className="al-field-label">
-              البريد الإلكتروني
-            </label>
-            <div className="al-field-wrap">
-              <Mail size={16} strokeWidth={1.75} className="al-field-icon" />
-              <input
-                id="admin-email"
-                type="email"
-                className="input al-field-input"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoFocus
-                placeholder="admin@example.com"
-                dir="ltr"
-              />
-            </div>
-          </div>
-
-          {/* كلمة المرور */}
-          <div className="al-field">
-            <label htmlFor="admin-password" className="al-field-label">
-              كلمة المرور
-            </label>
-            <div className="al-field-wrap">
-              <Lock size={16} strokeWidth={1.75} className="al-field-icon" />
-              <input
-                id="admin-password"
-                type="password"
-                className="input al-field-input"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-              />
-            </div>
-          </div>
-
-          {/* بانر غير مخوّل — يظهر فقط عند ?error=unauthorized */}
-          {isUnauthorized && (
-            <div className="al-unauthorized" role="alert">
-              <ShieldOff size={16} strokeWidth={2} className="al-error-icon" />
-              <span>حسابك غير مخوّل للوصول إلى لوحة الإدارة. تواصل مع المدير الرئيسي.</span>
-            </div>
-          )}
-
-          {/* رسالة الخطأ — خطأ تسجيل دخول */}
-          {error && (
-            <div className="al-error" role="alert">
-              <AlertCircle size={15} strokeWidth={2} className="al-error-icon" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* زر الدخول — CTA الوحيد على الصفحة */}
-          <button
-            id="btn-admin-login"
-            type="submit"
-            className="btn btn-primary btn-full btn-lg al-submit-btn"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner" />
-                <span>جاري الدخول...</span>
-              </>
-            ) : (
-              <>
-                <LogIn size={18} strokeWidth={2} />
-                <span>دخول</span>
-              </>
-            )}
-          </button>
-        </form>
+        }>
+          <LoginForm />
+        </Suspense>
       </div>
 
       <style>{`
