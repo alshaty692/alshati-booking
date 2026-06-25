@@ -3,9 +3,21 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { isRateLimited, getClientIp } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // SEC-06: Rate Limiting — 15 محاولة كل دقيقة لكل IP
+    // يمنع brute-force على أكواد الخصم (تخمين الأكواد)
+    const ip      = getClientIp(request)
+    const limited = await isRateLimited(`code:${ip}`, 15, 60 * 1000)
+    if (limited) {
+      return Response.json(
+        { error: 'تم تجاوز الحد المسموح لمحاولات التحقق. حاول مجدداً بعد دقيقة.' },
+        { status: 429 }
+      )
+    }
+
     const { court_id, code } = await request.json()
 
     if (!court_id) {

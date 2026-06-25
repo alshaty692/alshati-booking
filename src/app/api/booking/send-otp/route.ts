@@ -3,7 +3,7 @@
 // TODO: Phase 2 — استبدال بـ SMS (Twilio/Unifonic)
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { isRateLimited } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,6 +11,15 @@ export async function POST(request: NextRequest) {
 
     if (!phone || !/^05\d{8}$/.test(phone)) {
       return Response.json({ error: 'رقم الجوال غير صحيح' }, { status: 400 })
+    }
+
+    // SEC-06: Rate Limiting — 3 محاولات كل 10 دقائق لنفس الجوال
+    const limited = await isRateLimited(`otp:${phone}`, 3, 10 * 60 * 1000)
+    if (limited) {
+      return Response.json(
+        { error: 'تم تجاوز الحد المسموح. حاول مجدداً بعد 10 دقائق.' },
+        { status: 429 }
+      )
     }
 
     // في وضع التطوير: OTP ثابت 4444

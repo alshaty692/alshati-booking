@@ -3,6 +3,7 @@
 // يُشغَّل يومياً بواسطة Vercel Cron (vercel.json)
 // ============================================================
 import { createAdminClient } from '@/lib/supabase/server'
+import { cleanupRateLimitAttempts } from '@/lib/rate-limit'
 import { NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -55,9 +56,13 @@ export async function GET(request: NextRequest) {
     .delete()
     .lt('expires_at', new Date().toISOString())
 
+  // تنظيف سجلات Rate Limiting القديمة (أقدم من 24 ساعة)
+  const rateLimitCleaned = await cleanupRateLimitAttempts()
+
   return Response.json({
     success: true,
     expired_count: expired?.length ?? 0,
+    rate_limit_cleaned: rateLimitCleaned,
     timestamp: new Date().toISOString(),
   })
 }
