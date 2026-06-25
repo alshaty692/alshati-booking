@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin/login')
 
-  // جلب دور المستخدم — نستخدم Admin Client لتجاوز RLS
+  // جلب دور المستخدم من جدول admin_users — نستخدم Admin Client لتجاوز RLS
   const adminSupabase = createAdminClient()
   const { data: adminUser } = await adminSupabase
     .from('admin_users')
@@ -18,13 +18,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq('id', user.id)
     .single()
 
-  // لو لم يُضَف بعد → يعني أول دخول، نضيفه كـ admin
+  // ⛔ SEC-FIX: لا يُنشأ أي صف تلقائياً — فقط المستخدمون المضافون يدوياً في admin_users مسموح لهم
+  // لو المستخدم غير موجود في الجدول → رفض الوصول فوراً
   if (!adminUser) {
-    await adminSupabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
+    redirect('/admin/login?error=unauthorized')
   }
 
-  const role = adminUser?.role ?? 'admin'
-  const name = adminUser?.full_name ?? user.email ?? 'المدير'
+  const role = adminUser.role
+  const name = adminUser.full_name ?? user.email ?? 'المدير'
 
   return (
     <AdminShell role={role} userName={name} userEmail={user.email ?? ''}>

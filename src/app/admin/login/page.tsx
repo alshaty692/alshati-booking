@@ -1,17 +1,26 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { LogIn, ShieldCheck, Mail, Lock, AlertCircle, ShieldOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
 export default function AdminLoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isUnauthorized = searchParams.get('error') === 'unauthorized'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // لو المستخدم وصل بـ ?error=unauthorized — يُسجَّل خروجه فوراً حتى لا يتكرر الـ redirect
+  useEffect(() => {
+    if (isUnauthorized) {
+      const supabase = createClient()
+      supabase.auth.signOut()
+    }
+  }, [isUnauthorized])
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -89,7 +98,15 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          {/* رسالة الخطأ */}
+          {/* بانر غير مخوّل — يظهر فقط عند ?error=unauthorized */}
+          {isUnauthorized && (
+            <div className="al-unauthorized" role="alert">
+              <ShieldOff size={16} strokeWidth={2} className="al-error-icon" />
+              <span>حسابك غير مخوّل للوصول إلى لوحة الإدارة. تواصل مع المدير الرئيسي.</span>
+            </div>
+          )}
+
+          {/* رسالة الخطأ — خطأ تسجيل دخول */}
           {error && (
             <div className="al-error" role="alert">
               <AlertCircle size={15} strokeWidth={2} className="al-error-icon" />
@@ -240,6 +257,22 @@ export default function AdminLoginPage() {
 
         .al-field-input {
           padding-right: calc(var(--space-3) + 16px + var(--space-2));
+        }
+
+        /* ── رسالة غير مخوّل ── */
+        .al-unauthorized {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          background: var(--color-warning-bg);
+          color: var(--color-warning);
+          border: 1px solid rgba(245, 166, 35, 0.25);
+          border-right: 3px solid var(--color-warning);
+          padding: var(--space-3);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-medium);
+          line-height: 1.5;
         }
 
         /* ── رسالة الخطأ ── */
