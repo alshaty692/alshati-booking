@@ -1,17 +1,19 @@
 // ============================================================
-// API Route — تصدير Excel للحجوزات
+// API Route — تصدير Excel للحجوزات (admin/editor فقط)
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/auth'
 import * as XLSX from 'xlsx'
-import { getCourtName, getPeriodName, formatAmount } from '@/lib/utils'
+import { getCourtName, getPeriodName } from '@/lib/utils'
 
 export async function GET(request: NextRequest) {
+  // تحذير: request غير مستخدم لكن Next.js يتطلبه كمعامل
+  void request
   try {
-    // التحقق من صلاحية الإدارة
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return new Response('غير مصرّح', { status: 401 })
+    // 🔴 حرج — يصدّر كل بيانات الحجوزات
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     // جلب كل الحجوزات
     const admin = createAdminClient()

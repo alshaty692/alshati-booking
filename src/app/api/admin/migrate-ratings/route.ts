@@ -1,16 +1,15 @@
 // ============================================================
 // Setup Route — ينشئ جدول booking_ratings تلقائياً
-// يُشغَّل مرة واحدة ثم يُحذف
+// يُشغَّل مرة واحدة ثم يُحذف (admin فقط — ليس editor)
 // ============================================================
-import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/auth'
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
-    // حماية: admin فقط
-    const auth = await createClient()
-    const { data: { user } } = await auth.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرح' }, { status: 401 })
+    // migration حساسة — admin فقط (ليس editor)
+    const auth = await requireAdminRole(['admin'])
+    if (!auth.ok) return auth.response
 
     const admin = createAdminClient()
 

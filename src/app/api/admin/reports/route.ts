@@ -6,7 +6,8 @@
 // الواجهة تعرض فقط — لا تُعيد حساب أي رقم
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/auth'
 import type {
   ReportData, ReportMeta, ReportKpis, ReportFinancial,
   ReportBookings, ReportCustomers, ReportCodes,
@@ -52,10 +53,9 @@ function buildHeatGrid(rows: BookingRow[], weeksCount: number): HeatGrid {
 // ──────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    // 1. التحقق من الصلاحية
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
+    // 1. التحقق من الصلاحية — admin/editor فقط
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     // 2. قراءة الفلاتر من الـ URL
     const { searchParams } = new URL(request.url)

@@ -1,15 +1,17 @@
-// GET  /api/admin/settings — جلب كل الإعدادات (مع Auth)
-// PATCH /api/admin/settings — تحديث إعداد أو مجموعة إعدادات
+// GET  /api/admin/settings — جلب كل الإعدادات (admin/editor فقط)
+// PATCH /api/admin/settings — تحديث إعداد أو مجموعة إعدادات (admin/editor فقط)
 
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
+import { requireAdminRole } from '@/lib/auth'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
+    // نستخدم Admin Client لجلب كل الإعدادات بما فيها الحساسة
+    const supabase = createAdminClient()
     const { data } = await supabase.from('settings').select('key, value')
     const settings: Record<string, string> = {}
     data?.forEach(r => { if (r.key && r.value !== null) settings[r.key] = r.value })
@@ -21,9 +23,9 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    // 🔴 حرج — تعديل الإعدادات يشمل الأسعار والبنك وغيرها
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const body = await req.json()
 
@@ -32,7 +34,6 @@ export async function PATCH(req: NextRequest) {
       ? body.updates
       : [{ key: body.key, value: body.value }]
 
-    // استخدام Admin Client لتجاوز RLS عند الكتابة
     const adminSupabase = createAdminClient()
     for (const pair of pairs) {
       await adminSupabase

@@ -1,14 +1,14 @@
 // GET /api/admin/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
-// Returns { slots, blocked, settings }
+// Returns { slots, blocked, settings } — admin/editor فقط
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
+import { requireAdminRole } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(req.url)
     const from = searchParams.get('from')
@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
     if (!from || !to) {
       return Response.json({ error: 'Missing from/to params' }, { status: 400 })
     }
+
+    // نستخدم Admin Client لتجاوز RLS
+    const supabase = createAdminClient()
 
     // 1) الفترات المتاحة من view
     const { data: slots, error: slotsError } = await supabase
@@ -50,7 +53,7 @@ export async function GET(req: NextRequest) {
         blocked: blockedError?.message ?? null,
       }
     })
-  } catch (e) {
+  } catch {
     return Response.json({ error: 'Server error' }, { status: 500 })
   }
 }

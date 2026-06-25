@@ -1,16 +1,14 @@
-// POST /api/admin/codes — إنشاء كود جديد
+// POST /api/admin/codes — إنشاء كود جديد (admin/editor فقط)
 
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
+import { requireAdminRole } from '@/lib/auth'
 
 export async function POST(req: NextRequest) {
   try {
-    // التحقق من صلاحية المستخدم
-    const authClient = await createClient()
-    const { data: { user } } = await authClient.auth.getUser()
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    // 🔴 حرج — إنشاء كود خصم
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const supabase = createAdminClient()
     const body = await req.json()

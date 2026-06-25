@@ -1,15 +1,16 @@
 // ============================================================
 // GET /api/admin/customers/search?phone=05XXXXXXXX
-// بحث عن عميل برقم الجوال (للاستخدام الإداري)
+// بحث عن عميل برقم الجوال (admin/editor فقط)
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
+    // 🔴 حرج — يعرض بيانات العميل الشخصية
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const phone = request.nextUrl.searchParams.get('phone')?.trim()
     if (!phone) return Response.json({ found: false })

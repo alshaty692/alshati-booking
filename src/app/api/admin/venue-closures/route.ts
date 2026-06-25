@@ -1,17 +1,17 @@
 // ============================================================
-// API Route — إدارة إيقافات الملاعب
+// API Route — إدارة إيقافات الملاعب (admin/editor فقط)
 // GET: جلب الإيقافات النشطة
 // POST: إضافة إيقاف جديد
 // DELETE: حذف إيقاف
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/auth'
 
 export async function GET() {
   try {
-    const authClient = await createClient()
-    const { data: { user } } = await authClient.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const supabase = createAdminClient()
     const { data: closures, error } = await supabase
@@ -29,9 +29,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const authClient = await createClient()
-    const { data: { user } } = await authClient.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const { court_id, start_date, end_date, reason } = await request.json()
 
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest) {
         start_date,
         end_date,
         reason: reason || 'صيانة',
-        created_by: user.id,
+        created_by: auth.session.userId,
       })
       .select()
       .single()
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
       table_name: 'venue_closures',
       record_id: data.id,
       action: 'insert',
-      performed_by: user.id,
+      performed_by: auth.session.userId,
       notes: `إيقاف ملعب ${court_id} من ${start_date} إلى ${end_date}: ${reason}`,
     })
 
@@ -76,9 +75,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const authClient = await createClient()
-    const { data: { user } } = await authClient.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requireAdminRole()
+    if (!auth.ok) return auth.response
 
     const { id } = await request.json()
     if (!id) return Response.json({ error: 'Missing id' }, { status: 400 })
@@ -90,7 +88,7 @@ export async function DELETE(request: NextRequest) {
       table_name: 'venue_closures',
       record_id: id,
       action: 'delete',
-      performed_by: user.id,
+      performed_by: auth.session.userId,
       notes: 'حذف إيقاف ملعب',
     })
 
