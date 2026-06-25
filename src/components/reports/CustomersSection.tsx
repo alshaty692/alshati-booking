@@ -158,7 +158,7 @@ export default function CustomersSection({ customers, from, to, onExportPDF, onE
                     </td>
                     <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       {c.first_booking_at
-                        ? new Date(c.first_booking_at).toLocaleDateString('ar-SA')
+                        ? new Date(c.first_booking_at).toLocaleDateString('ar-SA-u-ca-gregory')
                         : '—'}
                     </td>
                   </tr>

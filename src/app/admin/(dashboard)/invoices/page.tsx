@@ -39,10 +39,12 @@ const COURT_LABELS: Record<string, string> = {
 const PERIOD_LABELS: Record<number, string> = { 1: '5–7م', 2: '7–9م', 3: '9–11م' }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => {
-  const d = new Date(2025, i, 1)
+  // BUG-02: استخدام السنة الحالية بدلاً من القيمة الثابتة 2025
+  const d = new Date(new Date().getFullYear(), i, 1)
   return {
     value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-    label: d.toLocaleDateString('ar-SA', { month: 'long', year: 'numeric' }),
+    // BUG-03: u-ca-gregory يضمن عرض الأشهر ميلادية على iOS
+    label: d.toLocaleDateString('ar-SA-u-ca-gregory', { month: 'long', year: 'numeric' }),
   }
 }).reverse()
 
@@ -102,7 +104,7 @@ function InvoiceModal({
           {bk && (
             <>
               <div className="inv-row"><span>الملعب</span><strong>{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div>
-              <div className="inv-row"><span>التاريخ</span><strong>{new Date(bk.booking_date).toLocaleDateString('ar-SA', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</strong></div>
+              <div className="inv-row"><span>التاريخ</span><strong>{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</strong></div>
               <div className="inv-row"><span>الفترة</span><strong>{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div>
             </>
           )}
@@ -144,9 +146,9 @@ function InvoiceModal({
 
         {/* التواريخ */}
         <section className="inv-section">
-          <div className="inv-row"><span>تاريخ الإصدار</span><strong>{new Date(invoice.issued_at).toLocaleString('ar-SA')}</strong></div>
+          <div className="inv-row"><span>تاريخ الإصدار</span><strong>{new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}</strong></div>
           {invoice.cancelled_at && (
-            <div className="inv-row"><span>تاريخ الإلغاء</span><strong>{new Date(invoice.cancelled_at).toLocaleString('ar-SA')}</strong></div>
+            <div className="inv-row"><span>تاريخ الإلغاء</span><strong>{new Date(invoice.cancelled_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}</strong></div>
           )}
         </section>
 
@@ -386,7 +388,7 @@ export default function InvoicesPage() {
                         <>
                           <div>{COURT_LABELS[bk.court_id] ?? bk.court_id}</div>
                           <div style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>
-                            {new Date(bk.booking_date).toLocaleDateString('ar-SA')} · {PERIOD_LABELS[bk.period_number]}
+                            {new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory')} · {PERIOD_LABELS[bk.period_number]}
                           </div>
                         </>
                       ) : (
@@ -396,7 +398,7 @@ export default function InvoicesPage() {
                     <td className="inv-amount">{fmt(inv.total_amount)} ر</td>
                     <td><span className={`inv-badge ${inv.status}`}>{inv.status === 'issued' ? '✅ مُصدرة' : '❌ ملغاة'}</span></td>
                     <td style={{ fontSize: '.8rem', color: 'var(--text-muted)' }}>
-                      {new Date(inv.issued_at).toLocaleDateString('ar-SA')}
+                      {new Date(inv.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}
                     </td>
                   </tr>
                 )

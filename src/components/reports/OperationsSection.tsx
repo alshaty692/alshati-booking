@@ -57,7 +57,7 @@ export default function OperationsSection({ operations, kpis, getCourtName }: Pr
             <span>أكثر يوم ازدحاماً</span>
             <strong style={{ color: '#1B2A3B' }}>
               {operations.top_day
-                ? `${new Date(operations.top_day.date + 'T00:00:00').toLocaleDateString('ar-SA', { weekday: 'long' })} (${operations.top_day.count} حجز)`
+                ? `${new Date(operations.top_day.date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long' })} (${operations.top_day.count} حجز)`
                 : '—'}
             </strong>
           </div>
