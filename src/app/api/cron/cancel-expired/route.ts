@@ -1,12 +1,29 @@
+// ============================================================
+// API Route — إلغاء تلقائي للحجوزات المنتهية (Vercel Cron)
+// يُشغَّل يومياً بواسطة Vercel Cron (vercel.json)
+// ============================================================
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
 export async function GET(request: NextRequest) {
-  // التحقق من مفتاح الكرون
+  // ── SEC-04: التحقق من CRON_SECRET ──────────────────────────
+  const secret = process.env.CRON_SECRET
+
+  // حماية مزدوجة: لو CRON_SECRET غير معرّف في البيئة، يُرفض فوراً
+  // يمنع قبول "Bearer undefined" بالخطأ
+  if (!secret) {
+    console.error('[cron/cancel-expired] CRON_SECRET غير معرّف في متغيرات البيئة')
+    return Response.json(
+      { error: 'Server misconfiguration — CRON_SECRET not set' },
+      { status: 500 }
+    )
+  }
+
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${secret}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // ────────────────────────────────────────────────────────────
 
   const supabase = createAdminClient()
 
