@@ -59,13 +59,30 @@ export function localDateStr(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-// الحصول على أيام الأسبوع القادمة
+// الحصول على أيام الأسبوع القادمة — مرتكزة على توقيت الرياض (Asia/Riyadh)
+// المشكلة السابقة: new Date() + getDate() تعتمد على توقيت متصفح المستخدم
+// — مستخدم في أوروبا (-2 ساعة) يرى "الغد" بدل "اليوم" بعد منتصف الليل بالرياض
+// الحل: استخراج التاريخ الحالي بالرياض صراحةً ثم الحساب من عليه
 export function getNextDays(count: number = 7): string[] {
+  // أخذ "اليوم" بتوقيت الرياض كـ YYYY-MM-DD
+  const riyadhNow = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Riyadh',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
+  // riyadhNow → "2026-06-25" (en-CA يُعطي ISO تلقائياً)
+
+  // بناء قائمة التواريخ بإضافة أيام عبر UTC لتجنب مشاكل الـ DST
+  const [y, mo, d] = riyadhNow.split('-').map(Number)
+  const base = Date.UTC(y, mo - 1, d) // منتصف الليل UTC للتاريخ الرياضي
+
   const days: string[] = []
   for (let i = 0; i < count; i++) {
-    const date = new Date()
-    date.setDate(date.getDate() + i)
-    days.push(localDateStr(date))
+    const ts   = base + i * 86_400_000
+    const date = new Date(ts)
+    const yy   = date.getUTCFullYear()
+    const mm   = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const dd   = String(date.getUTCDate()).padStart(2, '0')
+    days.push(`${yy}-${mm}-${dd}`)
   }
   return days
 }
