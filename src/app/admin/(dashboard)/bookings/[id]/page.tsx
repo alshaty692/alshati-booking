@@ -146,12 +146,10 @@ export default async function BookingDetailPage({ params }: Props) {
     .from('booking_ratings').select('rating, comment, created_at')
     .eq('booking_id', id).maybeSingle()
 
-  let { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
-  if (!adminUser && user) {
-    await supabase.from('admin_users').insert({ id: user.id, role: 'admin', full_name: user.email })
-    adminUser = { role: 'admin' }
-  }
-  const role = adminUser?.role ?? 'admin'
+  const { data: adminUser } = await supabase.from('admin_users').select('role').eq('id', user?.id ?? '').single()
+  // SEC-01 fix: لو المستخدم غير موجود في admin_users → رفض الوصول (لا إنشاء صف جديد)
+  if (!adminUser) redirect('/admin/login?error=unauthorized')
+  const role = adminUser.role
   const canEdit = ['admin', 'editor'].includes(role)
 
   const waterCost = booking.water_quantity > 0
