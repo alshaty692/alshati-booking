@@ -1,11 +1,17 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
+import { connection } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import AdminShell from '@/components/admin/AdminShell'
 
 export const metadata: Metadata = { title: { default: 'الإدارة', template: '%s | إدارة مركز حي الشاطئ' } }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // ── إلغاء Partial Prerendering لكل صفحات لوحة التحكم ────────────────
+  // connection() هو البديل الرسمي لـ dynamic='force-dynamic' في Next.js 16
+  // يجبر كل صفحة تحت هذا اللياوت على الرندرة الكاملة وقت الطلب
+  // بدون أي static shell من Vercel CDN، ضروري لبيانات حيّة دائماً حديثة
+  await connection()
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin/login')
