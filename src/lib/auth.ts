@@ -30,13 +30,16 @@ const CACHE_TTL_MS  = 5 * 60 * 1000    // 5 دقائق
 const CACHE_MAX_AGE = 5 * 60           // ثواني (لـ cookie maxAge)
 
 // ── HMAC Signing ──────────────────────────────────────────
-// نستخدم HMAC-SHA256 للتوقيع بدل التشفير الكامل:
-// - يمنع تزوير الـ cookie من المتصفح
-// - لا يخفي المحتوى (الدور + userId + expiry) لكن لا حاجة لإخفائه
-// - المفتاح من متغير البيئة، يسقط تلقائياً لو لم يُعيَّن
+// يتطلب COOKIE_SIGN_SECRET في متغيرات البيئة.
+// لو غير معرّفة → نتجاهل الـ cache كلياً (fail-open) بدل اللجوء لمفتاح عام
+// هذا يمنع سيناريو: تسرُّب NEXT_PUBLIC_SUPABASE_ANON_KEY → تزوير cookie الدور
+
+function getSignSecret(): string | null {
+  return process.env.COOKIE_SIGN_SECRET ?? null
+}
 
 async function sign(payload: string): Promise<string> {
-  const secret = process.env.COOKIE_SIGN_SECRET ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'fallback-unsigned'
+  const secret = getSignSecret()!
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw', encoder.encode(secret),
@@ -60,6 +63,8 @@ interface RoleCache {
 }
 
 async function readRoleCache(userId: string): Promise<AdminRole | null> {
+  // بدون سر التوقيع → تجاهل الـ cache (fail-open)
+  if (!getSignSecret()) return null
   try {
     const cookieStore = await cookies()
     const raw = cookieStore.get(CACHE_COOKIE)?.value
@@ -82,6 +87,13 @@ async function readRoleCache(userId: string): Promise<AdminRole | null> {
 }
 
 async function writeRoleCache(userId: string, role: AdminRole): Promise<void> {
+  // بدون سر التوقيع → تخطّي الكتابة (cache معطّل)
+  if (!getSignSecret()) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[auth] COOKIE_SIGN_SECRET غير معرّفة — cache الدور معطّل')
+    }
+    return
+  }
   try {
     const cache: RoleCache = { userId, role, expiry: Date.now() + CACHE_TTL_MS }
     const data64 = Buffer.from(JSON.stringify(cache)).toString('base64url')
