@@ -1,4 +1,23 @@
 import type { Metadata } from 'next'
+import { Tajawal, IBM_Plex_Sans_Arabic } from 'next/font/google'
+
+// ── تحميل الخطوط عبر next/font (self-hosted على Vercel CDN) ─────────
+// يُلغي الطلب الخارجي لـ fonts.googleapis.com ويحذف render-blocking
+const tajawal = Tajawal({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '700', '800', '900'],
+  variable: '--font-tajawal',
+  display: 'swap',
+  preload: true,
+})
+
+const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
+  subsets: ['arabic', 'latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-ibm',
+  display: 'swap',
+  preload: false, // الخط الثانوي — لا داعي لـ preload
+})
 
 // سكريبت الثيم — يُحقن بشكل inline قبل أي CSS أو React hydration
 // يمنع فلاش الثيم الخاطئ عند التحميل الأول
@@ -41,17 +60,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html
+      lang="ar"
+      dir="rtl"
+      suppressHydrationWarning
+      className={`${tajawal.variable} ${ibmPlexSansArabic.variable}`}
+    >
       <head>
         <ThemeInitScript />
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body>
         {children}

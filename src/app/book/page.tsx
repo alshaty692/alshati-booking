@@ -224,7 +224,7 @@ export default function BookPage() {
       }
     }).finally(() => setLoadingSlots(false))
 
-    fetch('/api/admin/venue-closures').then(r => r.ok ? r.json() : { closures: [] })
+    fetch('/api/booking/venue-closures').then(r => r.ok ? r.json() : { closures: [] })
       .then(d => setVenueClosures(d.closures ?? []))
       .catch(() => {})
   }, [])
