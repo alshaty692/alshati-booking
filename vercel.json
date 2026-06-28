@@ -8,17 +8,5 @@
       "path": "/api/booking/slots",
       "schedule": "0 * * * *"
     }
-  ],
-  "functions": {
-    "src/app/api/booking/slots/route.ts": {
-      "maxDuration": 30
-    },
-    "src/app/api/booking/venue-closures/route.ts": {
-      "maxDuration": 30
-    },
-    "src/app/api/settings/route.ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
-
