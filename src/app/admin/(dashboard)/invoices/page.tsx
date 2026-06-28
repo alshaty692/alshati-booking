@@ -13,6 +13,7 @@ interface Invoice {
   id:                  string
   invoice_number:      string
   status:              'issued' | 'cancelled'
+  payment_status:      'unpaid' | 'partial' | 'paid'
   issued_at:           string
   cancelled_at:        string | null
   total_amount:        number
@@ -62,10 +63,51 @@ function InvoiceModal({
   const [cancelReason, setCancelReason] = useState('')
   const [showCancelForm, setShowCancelForm] = useState(false)
 
+  // ── حالة الدفعات ──────────────────────────────────────────
+  const [payments, setPayments] = useState<{
+    id: string; amount: number; payment_method: string;
+    payment_method_label: string; payment_date: string;
+    reference_number: string | null; notes: string | null;
+  }[]>([])
+  const [balance, setBalance] = useState<{
+    total_amount: number; approved_cn_total: number;
+    net_amount: number; paid_amount: number;
+    balance_due: number; payment_status: string;
+  } | null>(null)
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [newPayment, setNewPayment] = useState({ amount: '', method: 'bank_transfer', reference: '', notes: '' })
+  const [savingPayment, setSavingPayment] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+
+  // ── حالة إشعارات الائتمان ─────────────────────────────────
+  const [creditNotes, setCreditNotes] = useState<{
+    id: string; credit_note_number: string; amount: number;
+    reason: string; type: string; status: string;
+    created_at: string;
+  }[]>([])
+  const [showCNForm, setShowCNForm] = useState(false)
+  const [newCN, setNewCN] = useState({ amount: '', reason: '', type: 'price_adjustment', items: '' })
+  const [savingCN, setSavingCN] = useState(false)
+  const [cnError, setCNError] = useState('')
+
   const cust = invoice.customers
   const bk   = invoice.bookings
 
   const fmt = (n: number) => n.toLocaleString('ar-SA', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+
+  // جلب الدفعات وإشعارات الائتمان
+  useEffect(() => {
+    if (invoice.status !== 'issued') return
+    setPaymentsLoading(true)
+    Promise.all([
+      fetch(`/api/admin/payments?invoice_id=${invoice.id}`).then(r => r.json()),
+      fetch(`/api/admin/credit-notes?invoice_id=${invoice.id}`).then(r => r.json()),
+    ]).then(([pData, cnData]) => {
+      setPayments(pData.payments ?? [])
+      setBalance(pData.balance ?? null)
+      setCreditNotes(cnData.credit_notes ?? [])
+    }).finally(() => setPaymentsLoading(false))
+  }, [invoice.id, invoice.status])
 
   async function handleCancel() {
     setCancelling(true)
@@ -74,16 +116,105 @@ function InvoiceModal({
     onClose()
   }
 
+  async function handleRecordPayment(e: React.FormEvent) {
+    e.preventDefault()
+    setPaymentError('')
+    setSavingPayment(true)
+    try {
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoice_id:      invoice.id,
+          amount:          Number(newPayment.amount),
+          payment_method:  newPayment.method,
+          reference_number: newPayment.reference || undefined,
+          notes:           newPayment.notes || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPaymentError(data.error); return }
+      // تحديث البيانات
+      setPayments(prev => [...prev, { id: data.payment_id, amount: Number(newPayment.amount), payment_method: newPayment.method, payment_method_label: newPayment.method, payment_date: new Date().toISOString().split('T')[0], reference_number: newPayment.reference || null, notes: newPayment.notes || null }])
+      setBalance(data.balance)
+      setNewPayment({ amount: '', method: 'bank_transfer', reference: '', notes: '' })
+    } catch { setPaymentError('حدث خطأ') }
+    finally { setSavingPayment(false) }
+  }
+
+  async function handleDeletePayment(paymentId: string) {
+    if (!confirm('حذف هذه الدفعة؟')) return
+    const res = await fetch(`/api/admin/payments/${paymentId}`, { method: 'DELETE' })
+    if (res.ok) {
+      setPayments(prev => prev.filter(p => p.id !== paymentId))
+      // إعادة تحميل الرصيد
+      fetch(`/api/admin/payments?invoice_id=${invoice.id}`).then(r => r.json()).then(d => setBalance(d.balance))
+    }
+  }
+
+  async function handleCreateCN(e: React.FormEvent) {
+    e.preventDefault()
+    setCNError('')
+    setSavingCN(true)
+    try {
+      const res = await fetch('/api/admin/credit-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id: invoice.id, amount: Number(newCN.amount), reason: newCN.reason, type: newCN.type, items: newCN.items || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCNError(data.error); return }
+      setCreditNotes(prev => [{ id: data.id, credit_note_number: data.credit_note_number, amount: Number(newCN.amount), reason: newCN.reason, type: newCN.type, status: 'draft', created_at: new Date().toISOString() }, ...prev])
+      setNewCN({ amount: '', reason: '', type: 'price_adjustment', items: '' })
+      setShowCNForm(false)
+    } catch { setCNError('حدث خطأ') }
+    finally { setSavingCN(false) }
+  }
+
+  async function handleApproveCN(cnId: string) {
+    if (!confirm('اعتماد هذا الإشعار؟ لا يمكن التراجع عنه.')) return
+    const res = await fetch(`/api/admin/credit-notes/${cnId}/approve`, { method: 'PATCH' })
+    if (res.ok) {
+      setCreditNotes(prev => prev.map(cn => cn.id === cnId ? { ...cn, status: 'approved' } : cn))
+      fetch(`/api/admin/payments?invoice_id=${invoice.id}`).then(r => r.json()).then(d => setBalance(d.balance))
+    }
+  }
+
+  async function handleCancelCN(cnId: string) {
+    const reason = prompt('سبب الإلغاء (اختياري):')
+    if (reason === null) return // ضغط Cancel في prompt
+    const res = await fetch(`/api/admin/credit-notes/${cnId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancel_reason: reason }),
+    })
+    if (res.ok) {
+      setCreditNotes(prev => prev.map(cn => cn.id === cnId ? { ...cn, status: 'cancelled' } : cn))
+    }
+  }
+
+  const CN_TYPE_LABELS: Record<string, string> = {
+    price_adjustment: 'تعديل سعر',
+    partial_refund:   'استرداد جزئي',
+    error_correction: 'تصحيح خطأ',
+  }
+
   return (
     <div className="inv-overlay" onClick={onClose}>
       <div className="inv-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="inv-modal-header">
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span className="inv-number">{invoice.invoice_number}</span>
             <span className={`inv-badge ${invoice.status}`}>
               {invoice.status === 'issued' ? '✅ مُصدرة' : '❌ ملغاة'}
             </span>
+            {invoice.status === 'issued' && balance && (
+              <span className={`inv-badge inv-pay-${balance.payment_status}`}>
+                {balance.payment_status === 'paid' ? '💰 مدفوعة' :
+                 balance.payment_status === 'partial' ? '🔶 جزئي' : '⏳ غير مدفوعة'}
+              </span>
+            )}
           </div>
           <button className="inv-close-btn" onClick={onClose}><X size={18} /></button>
         </div>
@@ -144,6 +275,161 @@ function InvoiceModal({
           </div>
         </section>
 
+        {/* ── ملخص الرصيد المالي ── */}
+        {invoice.status === 'issued' && balance && (
+          <section className="inv-section">
+            <h3 className="inv-section-title">الرصيد المالي</h3>
+            <div className="inv-balance-bar">
+              <div className="inv-balance-item">
+                <span className="inv-balance-label">المُفوتَر</span>
+                <span className="inv-balance-val">{fmt(balance.total_amount)} ر</span>
+              </div>
+              {balance.approved_cn_total > 0 && (
+                <div className="inv-balance-item inv-balance-cn">
+                  <span className="inv-balance-label">إشعارات ائتمان</span>
+                  <span className="inv-balance-val">−{fmt(balance.approved_cn_total)} ر</span>
+                </div>
+              )}
+              <div className="inv-balance-item">
+                <span className="inv-balance-label">الصافي المطلوب</span>
+                <span className="inv-balance-val inv-balance-net">{fmt(balance.net_amount)} ر</span>
+              </div>
+              <div className="inv-balance-item inv-balance-paid">
+                <span className="inv-balance-label">المدفوع</span>
+                <span className="inv-balance-val">{fmt(balance.paid_amount)} ر</span>
+              </div>
+              <div className={`inv-balance-item inv-balance-due ${balance.balance_due > 0 ? 'inv-balance-overdue' : 'inv-balance-clear'}`}>
+                <span className="inv-balance-label">المتبقي</span>
+                <span className="inv-balance-val inv-balance-due-val">{fmt(balance.balance_due)} ر</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── قسم الدفعات ── */}
+        {invoice.status === 'issued' && (
+          <section className="inv-section">
+            <h3 className="inv-section-title">الدفعات ({payments.length})</h3>
+            {paymentsLoading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>جاري التحميل...</div>
+            ) : (
+              <>
+                {payments.length > 0 && (
+                  <div className="inv-payments-list">
+                    {payments.map(p => (
+                      <div key={p.id} className="inv-payment-row">
+                        <div className="inv-payment-info">
+                          <span className="inv-payment-amount">{fmt(p.amount)} ر</span>
+                          <span className="inv-payment-meta">{p.payment_method_label} · {p.payment_date}</span>
+                          {p.reference_number && <span className="inv-payment-ref"># {p.reference_number}</span>}
+                        </div>
+                        <button className="inv-payment-del" onClick={() => handleDeletePayment(p.id)} title="حذف الدفعة">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* نموذج دفعة جديدة */}
+                {balance && balance.balance_due > 0 && (
+                  <form className="inv-pay-form" onSubmit={handleRecordPayment}>
+                    <div className="inv-pay-form-title">+ تسجيل دفعة</div>
+                    <div className="inv-pay-form-row">
+                      <input
+                        type="number" placeholder={`المبلغ (متبقي: ${fmt(balance.balance_due)} ر)`}
+                        value={newPayment.amount} min="0.01" step="0.01"
+                        max={balance.balance_due}
+                        onChange={e => setNewPayment(p => ({ ...p, amount: e.target.value }))}
+                        className="inv-pay-input" required
+                      />
+                      <select value={newPayment.method} onChange={e => setNewPayment(p => ({ ...p, method: e.target.value }))} className="inv-pay-select">
+                        <option value="bank_transfer">تحويل بنكي</option>
+                        <option value="cash">نقداً</option>
+                        <option value="other">أخرى</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text" placeholder="رقم المرجع / التحويل (اختياري)"
+                      value={newPayment.reference}
+                      onChange={e => setNewPayment(p => ({ ...p, reference: e.target.value }))}
+                      className="inv-pay-input"
+                    />
+                    {paymentError && <div className="inv-pay-error">{paymentError}</div>}
+                    <button type="submit" className="inv-pay-submit" disabled={savingPayment}>
+                      {savingPayment ? 'جاري الحفظ...' : 'حفظ الدفعة'}
+                    </button>
+                  </form>
+                )}
+                {balance && balance.balance_due <= 0 && (
+                  <div style={{ color: '#22c55e', fontSize: '.85rem', padding: '.35rem 0' }}>✅ مدفوعة بالكامل</div>
+                )}
+              </>
+            )}
+          </section>
+        )}
+
+        {/* ── قسم إشعارات الائتمان ── */}
+        {invoice.status === 'issued' && (
+          <section className="inv-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.5rem' }}>
+              <h3 className="inv-section-title" style={{ margin: 0 }}>إشعارات الائتمان ({creditNotes.filter(cn => cn.status !== 'cancelled').length})</h3>
+              {!showCNForm && (
+                <button className="inv-cn-add-btn" onClick={() => setShowCNForm(true)}>+ إنشاء إشعار</button>
+              )}
+            </div>
+
+            {creditNotes.length > 0 && (
+              <div className="inv-cn-list">
+                {creditNotes.map(cn => (
+                  <div key={cn.id} className={`inv-cn-row inv-cn-${cn.status}`}>
+                    <div className="inv-cn-main">
+                      <span className="inv-cn-number">{cn.credit_note_number}</span>
+                      <span className="inv-cn-amount">−{fmt(cn.amount)} ر</span>
+                      <span className={`inv-cn-status inv-cn-s-${cn.status}`}>
+                        {cn.status === 'draft' ? 'مسودة' : cn.status === 'approved' ? '✅ معتمد' : '❌ ملغى'}
+                      </span>
+                    </div>
+                    <div className="inv-cn-reason">{cn.reason} · {CN_TYPE_LABELS[cn.type] ?? cn.type}</div>
+                    <div className="inv-cn-actions">
+                      {cn.status === 'draft' && (
+                        <>
+                          <button className="inv-cn-approve" onClick={() => handleApproveCN(cn.id)}>اعتماد</button>
+                          <button className="inv-cn-cancel-btn" onClick={() => handleCancelCN(cn.id)}>إلغاء</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showCNForm && (
+              <form className="inv-cn-form" onSubmit={handleCreateCN}>
+                <div className="inv-pay-form-title">إشعار ائتمان جديد</div>
+                <div className="inv-pay-form-row">
+                  <input type="number" placeholder="المبلغ" value={newCN.amount} min="0.01" step="0.01"
+                    onChange={e => setNewCN(c => ({ ...c, amount: e.target.value }))} className="inv-pay-input" required />
+                  <select value={newCN.type} onChange={e => setNewCN(c => ({ ...c, type: e.target.value }))} className="inv-pay-select">
+                    <option value="price_adjustment">تعديل سعر</option>
+                    <option value="partial_refund">استرداد جزئي</option>
+                    <option value="error_correction">تصحيح خطأ</option>
+                  </select>
+                </div>
+                <input type="text" placeholder="السبب (مطلوب)" value={newCN.reason}
+                  onChange={e => setNewCN(c => ({ ...c, reason: e.target.value }))} className="inv-pay-input" required />
+                <input type="text" placeholder="البنود المتأثرة (اختياري)" value={newCN.items}
+                  onChange={e => setNewCN(c => ({ ...c, items: e.target.value }))} className="inv-pay-input" />
+                {cnError && <div className="inv-pay-error">{cnError}</div>}
+                <div style={{ display: 'flex', gap: '.5rem' }}>
+                  <button type="submit" className="inv-pay-submit" disabled={savingCN}>
+                    {savingCN ? 'جاري الحفظ...' : 'إنشاء كمسودة'}
+                  </button>
+                  <button type="button" className="inv-cancel-back" onClick={() => setShowCNForm(false)}>إلغاء</button>
+                </div>
+              </form>
+            )}
+          </section>
+        )}
+
         {/* التواريخ */}
         <section className="inv-section">
           <div className="inv-row"><span>تاريخ الإصدار</span><strong>{new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}</strong></div>
@@ -192,17 +478,19 @@ export default function InvoicesPage() {
   const [selected,  setSelected]  = useState<Invoice | null>(null)
 
   // فلاتر
-  const [statusFilter, setStatusFilter] = useState('')
-  const [monthFilter,  setMonthFilter]  = useState('')
-  const [search,       setSearch]       = useState('')
-  const [searchInput,  setSearchInput]  = useState('')
+  const [statusFilter,  setStatusFilter]  = useState('')
+  const [paymentFilter, setPaymentFilter] = useState('')
+  const [monthFilter,   setMonthFilter]   = useState('')
+  const [search,        setSearch]        = useState('')
+  const [searchInput,   setSearchInput]   = useState('')
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams()
-    if (statusFilter) params.set('status', statusFilter)
-    if (monthFilter)  params.set('month',  monthFilter)
-    if (search)       params.set('search', search)
+    if (statusFilter)  params.set('status',         statusFilter)
+    if (paymentFilter) params.set('payment_status', paymentFilter)
+    if (monthFilter)   params.set('month',          monthFilter)
+    if (search)        params.set('search',         search)
     params.set('page', String(page))
 
     const res  = await fetch(`/api/admin/invoices?${params}`)
@@ -211,7 +499,7 @@ export default function InvoicesPage() {
     setTotal(data.total ?? 0)
     setPages(data.pages ?? 1)
     setLoading(false)
-  }, [statusFilter, monthFilter, search, page])
+  }, [statusFilter, paymentFilter, monthFilter, search, page])
 
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
@@ -262,6 +550,57 @@ export default function InvoicesPage() {
         .inv-badge.cancelled { background:#fee2e2; color:#991b1b; }
         .dark .inv-badge.issued    { background:#064e3b; color:#6ee7b7; }
         .dark .inv-badge.cancelled { background:#7f1d1d; color:#fca5a5; }
+        .inv-badge.inv-pay-paid    { background:#d1fae5; color:#065f46; }
+        .inv-badge.inv-pay-partial { background:#fef3c7; color:#92400e; }
+        .inv-badge.inv-pay-unpaid  { background:#f3f4f6; color:#6b7280; }
+        .dark .inv-badge.inv-pay-paid    { background:#064e3b; color:#6ee7b7; }
+        .dark .inv-badge.inv-pay-partial { background:#451a03; color:#fcd34d; }
+        .dark .inv-badge.inv-pay-unpaid  { background:#1f2937; color:#9ca3af; }
+        /* Balance */
+        .inv-balance-bar { display:flex; flex-direction:column; gap:.3rem; }
+        .inv-balance-item { display:flex; justify-content:space-between; font-size:.875rem; padding:.25rem 0; }
+        .inv-balance-label { color:var(--text-muted); }
+        .inv-balance-net { font-weight:700; }
+        .inv-balance-cn .inv-balance-val { color:#f59e0b; }
+        .inv-balance-paid .inv-balance-val { color:#22c55e; }
+        .inv-balance-overdue .inv-balance-due-val { color:#ef4444; font-weight:700; }
+        .inv-balance-clear .inv-balance-due-val { color:#22c55e; font-weight:700; }
+        /* Payments */
+        .inv-payments-list { display:flex; flex-direction:column; gap:.3rem; margin-bottom:.75rem; }
+        .inv-payment-row { display:flex; justify-content:space-between; align-items:center; gap:.5rem; background:var(--bg-elevated,var(--muted)); border-radius:.5rem; padding:.4rem .6rem; }
+        .inv-payment-info { display:flex; flex-direction:column; gap:.1rem; flex:1; }
+        .inv-payment-amount { font-weight:700; font-size:.9rem; }
+        .inv-payment-meta { font-size:.75rem; color:var(--text-muted); }
+        .inv-payment-ref { font-size:.72rem; color:var(--text-muted); font-family:monospace; }
+        .inv-payment-del { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:.9rem; padding:.2rem .4rem; border-radius:.3rem; }
+        .inv-payment-del:hover { color:#ef4444; background:#fef2f2; }
+        .inv-pay-form { display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; background:var(--muted); border-radius:.5rem; padding:.75rem; }
+        .inv-pay-form-title { font-size:.8rem; font-weight:600; color:var(--text-muted); }
+        .inv-pay-form-row { display:flex; gap:.5rem; }
+        .inv-pay-input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text); }
+        .inv-pay-select { background:var(--card); border:1px solid var(--border); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text); }
+        .inv-pay-submit { background:var(--primary,#7bba00); color:#fff; border:none; border-radius:.4rem; padding:.5rem; cursor:pointer; font-size:.875rem; }
+        .inv-pay-submit:disabled { opacity:.6; cursor:not-allowed; }
+        .inv-pay-error { color:#ef4444; font-size:.8rem; }
+        /* Credit Notes */
+        .inv-cn-add-btn { background:transparent; border:1px dashed var(--border); border-radius:.4rem; padding:.25rem .6rem; font-size:.78rem; cursor:pointer; color:var(--text-muted); }
+        .inv-cn-add-btn:hover { border-color:var(--primary); color:var(--primary); }
+        .inv-cn-list { display:flex; flex-direction:column; gap:.4rem; margin-bottom:.75rem; }
+        .inv-cn-row { background:var(--muted); border-radius:.5rem; padding:.5rem .7rem; border-right:3px solid transparent; }
+        .inv-cn-approved { border-right-color:#22c55e; }
+        .inv-cn-draft { border-right-color:#f59e0b; }
+        .inv-cn-cancelled { opacity:.5; }
+        .inv-cn-main { display:flex; align-items:center; gap:.5rem; margin-bottom:.2rem; }
+        .inv-cn-number { font-size:.8rem; font-family:monospace; font-weight:700; }
+        .inv-cn-amount { font-weight:700; color:#ef4444; font-size:.9rem; flex:1; }
+        .inv-cn-s-draft { color:#f59e0b; font-size:.75rem; }
+        .inv-cn-s-approved { color:#22c55e; font-size:.75rem; }
+        .inv-cn-s-cancelled { color:var(--text-muted); font-size:.75rem; }
+        .inv-cn-reason { font-size:.78rem; color:var(--text-muted); margin-bottom:.3rem; }
+        .inv-cn-actions { display:flex; gap:.4rem; }
+        .inv-cn-approve { background:#22c55e; color:#fff; border:none; border-radius:.3rem; padding:.2rem .5rem; font-size:.75rem; cursor:pointer; }
+        .inv-cn-cancel-btn { background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:.3rem; padding:.2rem .5rem; font-size:.75rem; cursor:pointer; }
+        .inv-cn-form { background:var(--muted); border-radius:.5rem; padding:.75rem; display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; }
         .inv-number { font-weight:700; font-size:.875rem; }
         .inv-customer-code { font-size:.75rem; color:var(--text-muted); }
         .inv-amount { font-weight:700; text-align:left; direction:ltr; }
@@ -331,6 +670,13 @@ export default function InvoicesPage() {
           <option value="cancelled">❌ ملغاة</option>
         </select>
 
+        <select className="inv-select" value={paymentFilter} onChange={e => { setPaymentFilter(e.target.value); setPage(1) }}>
+          <option value="">الدفع: الكل</option>
+          <option value="unpaid">⏳ غير مدفوعة</option>
+          <option value="partial">🔶 جزئي</option>
+          <option value="paid">💰 مدفوعة</option>
+        </select>
+
         <select className="inv-select" value={monthFilter} onChange={e => { setMonthFilter(e.target.value); setPage(1) }}>
           <option value="">كل الأشهر</option>
           {MONTHS.map(m => (
@@ -366,6 +712,7 @@ export default function InvoicesPage() {
                 <th>الحجز</th>
                 <th>المبلغ</th>
                 <th>الحالة</th>
+                <th>الدفع</th>
                 <th>تاريخ الإصدار</th>
               </tr>
             </thead>
@@ -397,6 +744,16 @@ export default function InvoicesPage() {
                     </td>
                     <td className="inv-amount">{fmt(inv.total_amount)} ر</td>
                     <td><span className={`inv-badge ${inv.status}`}>{inv.status === 'issued' ? '✅ مُصدرة' : '❌ ملغاة'}</span></td>
+                    <td>
+                      {inv.status === 'issued' ? (
+                        <span className={`inv-badge inv-pay-${inv.payment_status}`}>
+                          {inv.payment_status === 'paid'    ? '💰 مدفوعة' :
+                           inv.payment_status === 'partial' ? '🔶 جزئي'   : '⏳ معلّقة'}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '.78rem' }}>—</span>
+                      )}
+                    </td>
                     <td style={{ fontSize: '.8rem', color: 'var(--text-muted)' }}>
                       {new Date(inv.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}
                     </td>

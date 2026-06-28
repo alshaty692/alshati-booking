@@ -46,14 +46,18 @@ export interface ReportMeta {
 }
 
 export interface ReportKpis {
-  total_revenue:      number   // SUM(final_price) confirmed
-  total_discount:     number   // SUM(discount_amount) confirmed
-  total_base:         number   // SUM(base_price) confirmed
-  water_revenue:      number   // SUM(water_quantity) * price
-  confirmed_count:    number
-  total_count:        number
-  avg_booking_value:  number
-  cancellation_rate:  number   // نسبة مئوية 0-100
+  total_revenue:          number   // SUM(final_price) confirmed — المُفوتَر
+  total_discount:         number   // SUM(discount_amount) confirmed
+  total_base:             number   // SUM(base_price) confirmed
+  water_revenue:          number   // SUM(water_quantity) * price
+  confirmed_count:        number
+  total_count:            number
+  avg_booking_value:      number
+  cancellation_rate:      number   // نسبة مئوية 0-100
+  // حقول التحصيل الفعلي — من جداول payments + invoices
+  total_collected:        number   // SUM(payments.amount) في الفترة — المحصّل فعلياً
+  total_balance_due:      number   // مجموع المتبقي من فواتير غير مكتملة السداد
+  partial_invoices_count: number   // عدد الفواتير بحالة partial
 }
 
 export interface CourtFinancial {

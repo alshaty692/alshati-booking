@@ -64,25 +64,27 @@ export async function POST(request: NextRequest) {
         return Response.json({ error: 'هذه الفترة محجوزة بالفعل' }, { status: 409 })
       }
 
-      // حجز غير نشط → احذفه أولاً (آمن: audit_log لا يعتمد على FK حقيقي)
-      // نُسجّل في audit_log أن الصف القديم حُذف قبل الحجز الجديد
+      // حجز غير نشط → حذف ناعم (نُخفيه بدل مسحه نهائياً — يحافظ على FK مع invoices)
       await admin.from('audit_log').insert({
         table_name: 'bookings',
         record_id: existingBooking.id,
-        action: 'delete',
+        action: 'soft_delete',
         performed_by: user.id,
-        notes: `حذف حجز ملغى قديم (${existingBooking.status}) استعداداً لحجز يدوي جديد على نفس الفترة`,
+        notes: `حذف ناعم لحجز ${existingBooking.status} قديم استعداداً لحجز يدوي جديد على نفس الفترة`,
       }).then(() => {}) // تجاهل خطأ audit بدون إيقاف التدفق
 
-      const { error: deleteErr } = await admin
+      const { error: softDeleteErr } = await admin
         .from('bookings')
-        .delete()
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: user.id,
+        })
         .eq('id', existingBooking.id)
-        .eq('status', existingBooking.status) // قيد أمان إضافي: لا يُحذف إلا بنفس الحالة المتوقعة
+        .eq('status', existingBooking.status) // قيد أمان: لا يُعدَّل إلا بنفس الحالة المتوقعة
 
-      if (deleteErr) {
-        console.error('[manual-booking] deleteErr:', deleteErr)
-        throw deleteErr
+      if (softDeleteErr) {
+        console.error('[manual-booking] softDeleteErr:', softDeleteErr)
+        throw softDeleteErr
       }
     }
 

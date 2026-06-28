@@ -143,14 +143,63 @@ export async function GET(request: NextRequest) {
       : 0
 
     const kpis: ReportKpis = {
-      total_revenue:     totalRevenue,
-      total_discount:    totalDiscount,
-      total_base:        totalBase,
-      water_revenue:     waterRevenue,
-      confirmed_count:   confirmed.length,
-      total_count:       allBookings.length,
-      avg_booking_value: avgBookingVal,
-      cancellation_rate: cancellationRate,
+      total_revenue:          totalRevenue,
+      total_discount:         totalDiscount,
+      total_base:             totalBase,
+      water_revenue:          waterRevenue,
+      confirmed_count:        confirmed.length,
+      total_count:            allBookings.length,
+      avg_booking_value:      avgBookingVal,
+      cancellation_rate:      cancellationRate,
+      // حقول التحصيل — تُملأ بعد استعلام DB (placeholder حتى تُحسب لاحقاً)
+      total_collected:        0,
+      total_balance_due:      0,
+      partial_invoices_count: 0,
+    }
+
+    // ── تحصيل حقيقي: استعلام payments + invoices ──
+    // نجمع الدفعات المسجّلة في نفس فترة البحث
+    try {
+      const { data: paymentsInPeriod } = await admin
+        .from('payments')
+        .select('amount')
+        .gte('payment_date', from)
+        .lte('payment_date', to)
+
+      kpis.total_collected = (paymentsInPeriod ?? []).reduce((s, p) => s + Number(p.amount), 0)
+
+      // فواتير غير مكتملة السداد (ليست paid)
+      const { data: unpaidInvoices } = await admin
+        .from('invoices')
+        .select('id, total_amount, payment_status')
+        .eq('status', 'issued')
+        .neq('payment_status', 'paid')
+
+      const unpaid = unpaidInvoices ?? []
+      kpis.partial_invoices_count = unpaid.filter(inv => inv.payment_status === 'partial').length
+
+      // لحساب balance_due لكل فاتورة: نجلب إجمالي الدفعات لكل فاتورة
+      if (unpaid.length > 0) {
+        const invoiceIds = unpaid.map(inv => inv.id)
+        const { data: paymentsForUnpaid } = await admin
+          .from('payments')
+          .select('invoice_id, amount')
+          .in('invoice_id', invoiceIds)
+
+        // تجميع الدفعات بالفاتورة
+        const paidPerInvoice: Record<string, number> = {}
+        ;(paymentsForUnpaid ?? []).forEach(p => {
+          paidPerInvoice[p.invoice_id] = (paidPerInvoice[p.invoice_id] ?? 0) + Number(p.amount)
+        })
+
+        // جمع المتبقي لكل فاتورة
+        kpis.total_balance_due = unpaid.reduce((sum, inv) => {
+          const paid = paidPerInvoice[inv.id] ?? 0
+          return sum + Math.max(0, Number(inv.total_amount) - paid)
+        }, 0)
+      }
+    } catch (_e) {
+      // جدول payments قد لا يكون موجوداً بعد — نحتفظ بالقيم الافتراضية 0
     }
 
     // ──────────────────────────────────────────────────────────

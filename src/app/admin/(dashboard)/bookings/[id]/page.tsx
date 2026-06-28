@@ -7,7 +7,7 @@ import { STATUS_LABELS } from '@/types'
 import Link from 'next/link'
 import {
   ClipboardList, FileText, CheckCircle2, XCircle, Trash2,
-  StickyNote, Star, Droplets, PenLine, Globe, Save, AlertTriangle, Package,
+  StickyNote, Star, Droplets, PenLine, Globe, Save, AlertTriangle, Package, ShieldAlert,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import BatchCancelButton from '@/components/admin/BatchCancelButton'
@@ -107,6 +107,25 @@ async function cancelBookingAdmin(formData: FormData) {
   })
   revalidatePath('/admin/bookings')
   revalidatePath('/admin')
+  redirect('/admin/bookings')
+}
+
+async function softDeleteBooking(formData: FormData) {
+  'use server'
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return
+  const supabase = createAdminClient()
+  const id = formData.get('booking_id') as string
+  await supabase.from('bookings').update({
+    deleted_at: new Date().toISOString(),
+    deleted_by: user.id,
+  }).eq('id', id)
+  await supabase.from('audit_log').insert({
+    table_name: 'bookings', record_id: id, action: 'soft_delete',
+    performed_by: user.id, notes: 'حذف ناعم إداري للحجز',
+  })
+  revalidatePath('/admin/bookings')
   redirect('/admin/bookings')
 }
 
@@ -377,6 +396,32 @@ export default async function BookingDetailPage({ params }: Props) {
             </div>
           )}
 
+          {/* ── حذف ناعم — يظهر فقط للحجوزات الملغاة / المرفوضة / المنتهية ── */}
+          {canEdit && ['cancelled', 'rejected', 'expired'].includes(booking.status) && !booking.deleted_at && (
+            <div className="card bd-soft-delete-card">
+              <CardHead icon={<ShieldAlert size={16} strokeWidth={1.75} />} title="حذف الحجز نهائياً" />
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
+                يُخفي الحجز من جميع القوائم نهائياً. السجل يبقى موجوداً في قاعدة البيانات للمراجعة.
+              </p>
+              <form action={softDeleteBooking}>
+                <input type="hidden" name="booking_id" value={booking.id} />
+                <button
+                  id={`btn-soft-delete-${booking.id}`}
+                  type="submit"
+                  className="btn btn-danger btn-full"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
+                >
+                  <Trash2 size={15} strokeWidth={2} />
+                  حذف الحجز نهائياً
+                </button>
+                <p className="bd-warning-note" style={{ marginTop: 'var(--space-2)' }}>
+                  <AlertTriangle size={12} strokeWidth={2} />
+                  الحجز لن يظهر في القوائم بعد الحذف
+                </p>
+              </form>
+            </div>
+          )}
+
           {/* ملاحظة داخلية */}
           {canEdit && (
             <div className="card">
@@ -462,6 +507,12 @@ export default async function BookingDetailPage({ params }: Props) {
           border-color: rgba(224,85,85,.25);
         }
         .bd-cancel-card .bd-card-head > svg { color: var(--color-danger); }
+
+        .bd-soft-delete-card {
+          border-color: rgba(224,85,85,.15);
+          background: rgba(224,85,85,.04);
+        }
+        .bd-soft-delete-card .bd-card-head > svg { color: var(--color-danger); }
 
         .bd-refund-label {
           display: flex; align-items: center; gap: var(--space-2);

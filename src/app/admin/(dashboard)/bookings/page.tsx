@@ -40,6 +40,7 @@ export default async function BookingsPage({ searchParams }: Props) {
   let query = supabase
     .from('bookings')
     .select('id,booking_date,court_id,period_number,customer_name,customer_phone,code_used,final_price,status,is_manual,created_at,receipt_url,batch_id')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(200)
 

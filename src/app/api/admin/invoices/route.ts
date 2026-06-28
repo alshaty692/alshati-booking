@@ -32,10 +32,12 @@ export async function GET(request: NextRequest) {
         id,
         invoice_number,
         status,
+        payment_status,
         issued_at,
         cancelled_at,
         total_amount,
         court_amount,
+        base_price,
         discount_amount,
         discount_code,
         discount_percentage,
@@ -62,6 +64,9 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (status) query = query.eq('status', status)
+
+    const paymentStatus = params.get('payment_status') // 'unpaid'|'partial'|'paid'
+    if (paymentStatus) query = query.eq('payment_status', paymentStatus)
 
     if (month) {
       const [year, mon] = month.split('-')

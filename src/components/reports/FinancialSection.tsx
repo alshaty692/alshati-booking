@@ -118,12 +118,12 @@ export default function FinancialSection({
               )
             })}
 
-          {/* ملخص مالي */}
+          {/* ملخص مالي — المُفوتَر */}
           <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
             {[
-              { label: 'المبلغ الأصلي',  value: formatAmount(kpis.total_base) },
-              { label: 'الخصومات',       value: `- ${formatAmount(kpis.total_discount)}` },
-              { label: 'الإيرادات الصافية', value: formatAmount(kpis.total_revenue) },
+              { label: 'المبلغ الأصلي',     value: formatAmount(kpis.total_base) },
+              { label: 'الخصومات',           value: `- ${formatAmount(kpis.total_discount)}` },
+              { label: 'الإيرادات المُفوتَرة', value: formatAmount(kpis.total_revenue) },
             ].map((r, i) => (
               <div key={i} className="rpt-detail-row">
                 <span style={{ fontSize: '0.85rem' }}>{r.label}</span>
@@ -131,6 +131,68 @@ export default function FinancialSection({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── بطاقة التحصيل الفعلي (كاملة العرض) ── */}
+        <div className="rpt-card" style={{ gridColumn: '1 / -1', border: '1px solid var(--color-success)', background: 'linear-gradient(135deg, var(--bg-card) 0%, color-mix(in srgb, var(--color-success) 6%, var(--bg-card)) 100%)' }}>
+          <h3 className="rpt-card-title" style={{ color: 'var(--color-success)' }}>💳 التحصيل الفعلي مقابل المُفوتَر</h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+            {/* المُفوتَر */}
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '0.75rem', padding: '1rem', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>المُفوتَر (إجمالي)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(kpis.total_revenue)}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>ما صدرت به الفواتير</div>
+            </div>
+
+            {/* المحصَّل */}
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '0.75rem', padding: '1rem', border: '2px solid var(--color-success)' }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--color-success)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>المحصَّل فعلياً</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-success)' }}>{formatAmount(kpis.total_collected)}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>مدفوعات مسجّلة بالفترة</div>
+            </div>
+
+            {/* المتبقي */}
+            <div style={{ background: 'var(--bg-elevated)', borderRadius: '0.75rem', padding: '1rem', border: `1px solid ${kpis.total_balance_due > 0 ? 'var(--color-warning)' : 'var(--border-subtle)'}` }}>
+              <div style={{ fontSize: '0.72rem', color: kpis.total_balance_due > 0 ? 'var(--color-warning)' : 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.05em' }}>المتبقي (الديون)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: kpis.total_balance_due > 0 ? 'var(--color-warning)' : 'var(--text-muted)' }}>{formatAmount(kpis.total_balance_due)}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                {kpis.partial_invoices_count > 0
+                  ? `${kpis.partial_invoices_count} فاتورة جزئية السداد`
+                  : 'لا توجد ديون معلّقة ✅'}
+              </div>
+            </div>
+          </div>
+
+          {/* شريط نسبة التحصيل */}
+          {kpis.total_revenue > 0 && (() => {
+            const pct = Math.min(100, Math.round(kpis.total_collected / kpis.total_revenue * 100))
+            return (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.82rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>نسبة التحصيل</span>
+                  <span style={{ fontWeight: 800, color: pct >= 80 ? 'var(--color-success)' : pct >= 50 ? 'var(--color-warning)' : 'var(--color-danger)' }}>{pct}%</span>
+                </div>
+                <div style={{ height: 12, background: 'var(--bg-elevated)', borderRadius: 99, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    borderRadius: 99,
+                    transition: 'width 0.8s ease',
+                    background: pct >= 80
+                      ? 'linear-gradient(90deg, #16a34a, #4ade80)'
+                      : pct >= 50
+                      ? 'linear-gradient(90deg, #d97706, #fbbf24)'
+                      : 'linear-gradient(90deg, #dc2626, #f87171)',
+                  }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  <span>0</span>
+                  <span>{formatAmount(kpis.total_revenue)}</span>
+                </div>
+              </div>
+            )
+          })()}
         </div>
 
         {/* جدول الحجوزات المؤكدة */}

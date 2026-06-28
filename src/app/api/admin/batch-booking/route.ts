@@ -131,14 +131,16 @@ export async function POST(request: NextRequest) {
             results.push({ booking_date, court_id, period_number, ok: false, error: 'محجوزة بالفعل' })
             continue
           }
-          /* حجز ملغى → احذفه أولاً */
+          /* حجز ملغى → حذف ناعم (نُخفيه بدل مسحه — يحافظ على FK مع invoices) */
           await admin.from('audit_log').insert({
             table_name: 'bookings', record_id: existing.id,
-            action: 'delete', performed_by: auth.session.userId,
-            notes: `حذف حجز ملغى قديم استعداداً لحجز متعدد (${batchId})`,
+            action: 'soft_delete', performed_by: auth.session.userId,
+            notes: `حذف ناعم لحجز ${existing.status} قديم استعداداً لحجز متعدد (${batchId})`,
           }).then(() => {})
-          const { error: delErr } = await admin.from('bookings').delete()
-            .eq('id', existing.id).eq('status', existing.status)
+          const { error: delErr } = await admin.from('bookings').update({
+            deleted_at: new Date().toISOString(),
+            deleted_by: auth.session.userId,
+          }).eq('id', existing.id).eq('status', existing.status)
           if (delErr) throw new Error(delErr.message)
         }
 
