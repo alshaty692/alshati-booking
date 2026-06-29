@@ -2,8 +2,8 @@
 // ============================================================
 // /admin/invoices — صفحة قائمة الفواتير
 // ============================================================
-import { useState, useEffect, useCallback } from 'react'
-import { Receipt, Search, X, ChevronRight, ChevronLeft, FileText } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Receipt, Search, X, ChevronRight, ChevronLeft, FileText, Download } from 'lucide-react'
 
 /* ── أنواع ──────────────────────────────────────────────────── */
 interface Customer { id: string; name: string; phone: string; customer_code: string }
@@ -199,10 +199,36 @@ function InvoiceModal({
     error_correction: 'تصحيح خطأ',
   }
 
+  // ── تصدير PDF ────────────────────────────────────────────────
+  const printRef = useRef<HTMLDivElement>(null)
+
+  async function handleExportPDF() {
+    const el = printRef.current
+    if (!el) return
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const canvas = await html2canvas(el, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff',
+      })
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const imgH  = (canvas.height * pageW) / canvas.width
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, imgH)
+      pdf.save(`${invoice.invoice_number}.pdf`)
+    } catch (e) {
+      console.error('[PDF]', e)
+    }
+  }
+
   return (
     <div className="inv-overlay" onClick={onClose}>
       <div className="inv-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
+
+        {/* ── Header ── */}
         <div className="inv-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span className="inv-number">{invoice.invoice_number}</span>
@@ -216,37 +242,144 @@ function InvoiceModal({
               </span>
             )}
           </div>
-          <button className="inv-close-btn" onClick={onClose}><X size={18} /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              id={`btn-pdf-${invoice.id}`}
+              className="inv-pdf-btn"
+              onClick={handleExportPDF}
+              title="تصدير PDF"
+            >
+              <Download size={14} /> PDF
+            </button>
+            <button className="inv-close-btn" onClick={onClose}><X size={18} /></button>
+          </div>
         </div>
+
+        {/* ── منطقة الطباعة (مخفية في PDF) ── */}
+        <div ref={printRef} style={{ background: '#fff', color: '#111', padding: '1.5rem', direction: 'rtl', fontFamily: 'Tajawal, Arial, sans-serif' }}>
+          {/* رأس الفاتورة للـ PDF */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '2px solid #7bba00' }}>
+            <div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#7bba00' }}>فاتورة</div>
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#111', marginTop: '0.2rem' }}>{invoice.invoice_number}</div>
+              <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.2rem' }}>تاريخ الإصدار: {new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111' }}>الشاطئ للحجوزات</div>
+            </div>
+          </div>
+
+          {/* بيانات العميل */}
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8f8f8', borderRadius: '0.5rem' }}>
+            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#888', fontWeight: 700, marginBottom: '0.4rem', letterSpacing: '0.05em' }}>بيانات العميل</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1rem' }}>
+              <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الاسم: </span><strong>{cust?.name ?? '—'}</strong></div>
+              <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الكود: </span><strong>{cust?.customer_code ?? '—'}</strong></div>
+              <div style={{ fontSize: '0.85rem', direction: 'ltr', textAlign: 'right' }}><span style={{ color: '#666' }}>الجوال: </span><strong>{cust?.phone ?? '—'}</strong></div>
+            </div>
+          </div>
+
+          {/* تفاصيل الحجز */}
+          {(bk || invoice.batch_id) && (
+            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8f8f8', borderRadius: '0.5rem' }}>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#888', fontWeight: 700, marginBottom: '0.4rem', letterSpacing: '0.05em' }}>
+                {invoice.batch_id ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
+              </div>
+              {bk && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1rem' }}>
+                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الملعب: </span><strong>{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div>
+                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الفترة: </span><strong>{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div>
+                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>التاريخ: </span><strong>{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong></div>
+                </div>
+              )}
+              {invoice.batch_id && !bk && <div style={{ fontSize: '0.85rem', color: '#666' }}>فاتورة مجمّعة للباقة</div>}
+            </div>
+          )}
+
+          {/* بنود الفاتورة */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ background: '#f0f0f0' }}>
+                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontWeight: 700 }}>البند</th>
+                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 700, direction: 'ltr' }}>المبلغ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '0.4rem 0.6rem' }}>سعر الملعب{invoice.batch_id ? ' (مجموع)' : ''}</td>
+                <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.base_price)} ر</td>
+              </tr>
+              {invoice.discount_amount > 0 && (
+                <tr style={{ borderBottom: '1px solid #eee', color: '#d97706' }}>
+                  <td style={{ padding: '0.4rem 0.6rem' }}>خصم{invoice.discount_code ? ` (${invoice.discount_code})` : ''}{invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}</td>
+                  <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>−{fmt(invoice.discount_amount)} ر</td>
+                </tr>
+              )}
+              {invoice.water_quantity > 0 && (
+                <tr style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '0.4rem 0.6rem' }}>مياه ({invoice.water_quantity} كرتون × {fmt(invoice.water_unit_price)} ر)</td>
+                  <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.water_total)} ر</td>
+                </tr>
+              )}
+              <tr style={{ background: '#f0f0f0', fontWeight: 700, fontSize: '1rem' }}>
+                <td style={{ padding: '0.5rem 0.6rem' }}>الإجمالي</td>
+                <td style={{ padding: '0.5rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.total_amount)} ر</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── أقسام الـ Modal التفاعلية ── */}
 
         {/* بيانات العميل */}
         <section className="inv-section">
-          <h3 className="inv-section-title">بيانات العميل</h3>
-          <div className="inv-row"><span>الاسم</span><strong>{cust?.name ?? '—'}</strong></div>
-          <div className="inv-row"><span>الكود</span><strong className="inv-code">{cust?.customer_code ?? '—'}</strong></div>
-          <div className="inv-row"><span>الجوال</span><strong dir="ltr">{cust?.phone ?? '—'}</strong></div>
+          <h3 className="inv-section-title">👤 بيانات العميل</h3>
+          <div className="inv-grid-2">
+            <div className="inv-field">
+              <span className="inv-field-label">الاسم</span>
+              <strong className="inv-field-val">{cust?.name ?? '—'}</strong>
+            </div>
+            <div className="inv-field">
+              <span className="inv-field-label">الكود</span>
+              <strong className="inv-code">{cust?.customer_code ?? '—'}</strong>
+            </div>
+            <div className="inv-field" style={{ direction: 'ltr' }}>
+              <span className="inv-field-label" style={{ direction: 'rtl' }}>الجوال</span>
+              <strong className="inv-field-val">{cust?.phone ?? '—'}</strong>
+            </div>
+          </div>
         </section>
 
         {/* تفاصيل الحجز */}
-        <section className="inv-section">
-          <h3 className="inv-section-title">
-            {invoice.batch_id ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
-          </h3>
-          {bk && (
-            <>
-              <div className="inv-row"><span>الملعب</span><strong>{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div>
-              <div className="inv-row"><span>التاريخ</span><strong>{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</strong></div>
-              <div className="inv-row"><span>الفترة</span><strong>{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div>
-            </>
-          )}
-          {invoice.batch_id && !bk && (
-            <div className="inv-row"><span>نوع</span><strong>فاتورة مجمّعة للباقة</strong></div>
-          )}
-        </section>
+        {(bk || invoice.batch_id) && (
+          <section className="inv-section">
+            <h3 className="inv-section-title">
+              🏟️ {invoice.batch_id ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
+            </h3>
+            {bk ? (
+              <div className="inv-grid-2">
+                <div className="inv-field">
+                  <span className="inv-field-label">الملعب</span>
+                  <strong className="inv-field-val">{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong>
+                </div>
+                <div className="inv-field">
+                  <span className="inv-field-label">الفترة</span>
+                  <strong className="inv-field-val">{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong>
+                </div>
+                <div className="inv-field" style={{ gridColumn: '1 / -1' }}>
+                  <span className="inv-field-label">التاريخ</span>
+                  <strong className="inv-field-val">{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '.85rem', color: 'var(--text-muted)' }}>فاتورة مجمّعة للباقة</div>
+            )}
+          </section>
+        )}
 
         {/* بنود الفاتورة */}
         <section className="inv-section">
-          <h3 className="inv-section-title">بنود الفاتورة</h3>
+          <h3 className="inv-section-title">🧾 بنود الفاتورة</h3>
           <div className="inv-line-items">
             <div className="inv-item">
               <span>سعر الملعب{invoice.batch_id ? ' (مجموع)' : ''}</span>
@@ -254,17 +387,13 @@ function InvoiceModal({
             </div>
             {invoice.discount_amount > 0 && (
               <div className="inv-item inv-discount">
-                <span>
-                  خصم
-                  {invoice.discount_code ? ` (${invoice.discount_code})` : ''}
-                  {invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}
-                </span>
+                <span>خصم{invoice.discount_code ? ` (${invoice.discount_code})` : ''}{invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}</span>
                 <span>−{fmt(invoice.discount_amount)} ر</span>
               </div>
             )}
             {invoice.water_quantity > 0 && (
               <div className="inv-item">
-                <span>مياه ({invoice.water_quantity} كرتون × {fmt(invoice.water_unit_price)} ر)</span>
+                <span>مياه ({invoice.water_quantity} × {fmt(invoice.water_unit_price)} ر)</span>
                 <span>{fmt(invoice.water_total)} ر</span>
               </div>
             )}
@@ -275,41 +404,37 @@ function InvoiceModal({
           </div>
         </section>
 
-        {/* ── ملخص الرصيد المالي ── */}
+        {/* الرصيد المالي */}
         {invoice.status === 'issued' && balance && (
           <section className="inv-section">
-            <h3 className="inv-section-title">الرصيد المالي</h3>
-            <div className="inv-balance-bar">
-              <div className="inv-balance-item">
-                <span className="inv-balance-label">المُفوتَر</span>
-                <span className="inv-balance-val">{fmt(balance.total_amount)} ر</span>
+            <h3 className="inv-section-title">💳 الرصيد المالي</h3>
+            <div className="inv-balance-cards">
+              <div className="inv-bc">
+                <div className="inv-bc-label">المُفوتَر</div>
+                <div className="inv-bc-val">{fmt(balance.total_amount)}<span>ر</span></div>
               </div>
               {balance.approved_cn_total > 0 && (
-                <div className="inv-balance-item inv-balance-cn">
-                  <span className="inv-balance-label">إشعارات ائتمان</span>
-                  <span className="inv-balance-val">−{fmt(balance.approved_cn_total)} ر</span>
+                <div className="inv-bc inv-bc-cn">
+                  <div className="inv-bc-label">إشعارات ائتمان</div>
+                  <div className="inv-bc-val">−{fmt(balance.approved_cn_total)}<span>ر</span></div>
                 </div>
               )}
-              <div className="inv-balance-item">
-                <span className="inv-balance-label">الصافي المطلوب</span>
-                <span className="inv-balance-val inv-balance-net">{fmt(balance.net_amount)} ر</span>
+              <div className="inv-bc inv-bc-paid">
+                <div className="inv-bc-label">المدفوع</div>
+                <div className="inv-bc-val">{fmt(balance.paid_amount)}<span>ر</span></div>
               </div>
-              <div className="inv-balance-item inv-balance-paid">
-                <span className="inv-balance-label">المدفوع</span>
-                <span className="inv-balance-val">{fmt(balance.paid_amount)} ر</span>
-              </div>
-              <div className={`inv-balance-item inv-balance-due ${balance.balance_due > 0 ? 'inv-balance-overdue' : 'inv-balance-clear'}`}>
-                <span className="inv-balance-label">المتبقي</span>
-                <span className="inv-balance-val inv-balance-due-val">{fmt(balance.balance_due)} ر</span>
+              <div className={`inv-bc ${balance.balance_due > 0 ? 'inv-bc-due' : 'inv-bc-clear'}`}>
+                <div className="inv-bc-label">المتبقي</div>
+                <div className="inv-bc-val inv-bc-due-val">{fmt(balance.balance_due)}<span>ر</span></div>
               </div>
             </div>
           </section>
         )}
 
-        {/* ── قسم الدفعات ── */}
+        {/* قسم الدفعات */}
         {invoice.status === 'issued' && (
           <section className="inv-section">
-            <h3 className="inv-section-title">الدفعات ({payments.length})</h3>
+            <h3 className="inv-section-title">💵 الدفعات ({payments.length})</h3>
             {paymentsLoading ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '.85rem', padding: '.5rem 0' }}>جاري التحميل...</div>
             ) : (
@@ -328,31 +453,22 @@ function InvoiceModal({
                     ))}
                   </div>
                 )}
-
-                {/* نموذج دفعة جديدة */}
                 {balance && balance.balance_due > 0 && (
                   <form className="inv-pay-form" onSubmit={handleRecordPayment}>
                     <div className="inv-pay-form-title">+ تسجيل دفعة</div>
                     <div className="inv-pay-form-row">
-                      <input
-                        type="number" placeholder={`المبلغ (متبقي: ${fmt(balance.balance_due)} ر)`}
-                        value={newPayment.amount} min="0.01" step="0.01"
-                        max={balance.balance_due}
+                      <input type="number" placeholder={`المبلغ (متبقي: ${fmt(balance.balance_due)} ر)`}
+                        value={newPayment.amount} min="0.01" step="0.01" max={balance.balance_due}
                         onChange={e => setNewPayment(p => ({ ...p, amount: e.target.value }))}
-                        className="inv-pay-input" required
-                      />
+                        className="inv-pay-input" required />
                       <select value={newPayment.method} onChange={e => setNewPayment(p => ({ ...p, method: e.target.value }))} className="inv-pay-select">
                         <option value="bank_transfer">تحويل بنكي</option>
                         <option value="cash">نقداً</option>
                         <option value="other">أخرى</option>
                       </select>
                     </div>
-                    <input
-                      type="text" placeholder="رقم المرجع / التحويل (اختياري)"
-                      value={newPayment.reference}
-                      onChange={e => setNewPayment(p => ({ ...p, reference: e.target.value }))}
-                      className="inv-pay-input"
-                    />
+                    <input type="text" placeholder="رقم المرجع / التحويل (اختياري)"
+                      value={newPayment.reference} onChange={e => setNewPayment(p => ({ ...p, reference: e.target.value }))} className="inv-pay-input" />
                     {paymentError && <div className="inv-pay-error">{paymentError}</div>}
                     <button type="submit" className="inv-pay-submit" disabled={savingPayment}>
                       {savingPayment ? 'جاري الحفظ...' : 'حفظ الدفعة'}
@@ -367,16 +483,15 @@ function InvoiceModal({
           </section>
         )}
 
-        {/* ── قسم إشعارات الائتمان ── */}
+        {/* قسم إشعارات الائتمان */}
         {invoice.status === 'issued' && (
           <section className="inv-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.5rem' }}>
-              <h3 className="inv-section-title" style={{ margin: 0 }}>إشعارات الائتمان ({creditNotes.filter(cn => cn.status !== 'cancelled').length})</h3>
+              <h3 className="inv-section-title" style={{ margin: 0 }}>📋 إشعارات الائتمان ({creditNotes.filter(cn => cn.status !== 'cancelled').length})</h3>
               {!showCNForm && (
                 <button className="inv-cn-add-btn" onClick={() => setShowCNForm(true)}>+ إنشاء إشعار</button>
               )}
             </div>
-
             {creditNotes.length > 0 && (
               <div className="inv-cn-list">
                 {creditNotes.map(cn => (
@@ -401,7 +516,6 @@ function InvoiceModal({
                 ))}
               </div>
             )}
-
             {showCNForm && (
               <form className="inv-cn-form" onSubmit={handleCreateCN}>
                 <div className="inv-pay-form-title">إشعار ائتمان جديد</div>
@@ -430,11 +544,15 @@ function InvoiceModal({
           </section>
         )}
 
-        {/* التواريخ */}
-        <section className="inv-section">
-          <div className="inv-row"><span>تاريخ الإصدار</span><strong>{new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}</strong></div>
+        {/* تاريخ الإصدار */}
+        <section className="inv-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '.8rem', color: 'var(--text-muted)' }}>
+            📅 تاريخ الإصدار: <strong>{new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'short', day: 'numeric' })}</strong>
+          </div>
           {invoice.cancelled_at && (
-            <div className="inv-row"><span>تاريخ الإلغاء</span><strong>{new Date(invoice.cancelled_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'short', day:'numeric' })}</strong></div>
+            <div style={{ fontSize: '.8rem', color: 'var(--color-danger)' }}>
+              ❌ تاريخ الإلغاء: <strong>{new Date(invoice.cancelled_at).toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'short', day: 'numeric' })}</strong>
+            </div>
           )}
         </section>
 
@@ -447,12 +565,8 @@ function InvoiceModal({
               </button>
             ) : (
               <div className="inv-cancel-form">
-                <input
-                  className="inv-cancel-input"
-                  placeholder="سبب الإلغاء (اختياري)"
-                  value={cancelReason}
-                  onChange={e => setCancelReason(e.target.value)}
-                />
+                <input className="inv-cancel-input" placeholder="سبب الإلغاء (اختياري)"
+                  value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
                 <div className="inv-cancel-btns">
                   <button className="inv-cancel-confirm" onClick={handleCancel} disabled={cancelling}>
                     {cancelling ? 'جاري الإلغاء...' : 'تأكيد الإلغاء'}
@@ -609,15 +723,34 @@ export default function InvoicesPage() {
         .inv-pg-btn:disabled { opacity:.4; cursor:default; }
         .inv-pg-info { font-size:.875rem; color:var(--text-muted); }
         .inv-empty { text-align:center; padding:3rem; color:var(--text-muted); }
+        /* PDF btn */
+        .inv-pdf-btn { display:inline-flex; align-items:center; gap:.35rem; background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:.5rem; padding:.3rem .7rem; font-size:.78rem; font-weight:600; cursor:pointer; color:var(--text-secondary); transition:all .15s; }
+        .inv-pdf-btn:hover { border-color:var(--color-lime); color:var(--color-lime); }
+        /* Grid layout for fields */
+        .inv-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:.3rem .75rem; }
+        .inv-field { display:flex; flex-direction:column; gap:.15rem; padding:.35rem 0; }
+        .inv-field-label { font-size:.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+        .inv-field-val { font-size:.9rem; font-weight:600; color:var(--text-primary); }
+        /* Balance cards */
+        .inv-balance-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(100px,1fr)); gap:.5rem; }
+        .inv-bc { background:var(--bg-elevated); border-radius:.6rem; padding:.5rem .65rem; border:1px solid var(--border-subtle); }
+        .inv-bc-label { font-size:.65rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:.2rem; }
+        .inv-bc-val { font-size:1.05rem; font-weight:800; color:var(--text-primary); }
+        .inv-bc-val span { font-size:.7rem; margin-right:.1rem; }
+        .inv-bc-cn .inv-bc-val { color:#f59e0b; }
+        .inv-bc-paid .inv-bc-val { color:#22c55e; }
+        .inv-bc-due { border-color:#ef4444; }
+        .inv-bc-due .inv-bc-due-val { color:#ef4444; }
+        .inv-bc-clear .inv-bc-due-val { color:#22c55e; }
         /* Modal */
         .inv-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem; }
-        .inv-modal { background:var(--card); border-radius:1rem; width:100%; max-width:480px; max-height:90vh; overflow-y:auto; }
+        .inv-modal { background:var(--card); border-radius:1rem; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; }
         .inv-modal-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.25rem .75rem; border-bottom:1px solid var(--border); }
         .inv-number { font-size:1rem; font-weight:700; }
         .inv-close-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); display:flex; align-items:center; }
-        .inv-section { padding:.75rem 1.25rem; border-bottom:1px solid var(--border); }
+        .inv-section { padding:.85rem 1.25rem; border-bottom:1px solid var(--border); }
         .inv-section:last-child { border-bottom:none; }
-        .inv-section-title { font-size:.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:.5rem; font-weight:600; letter-spacing:.05em; }
+        .inv-section-title { font-size:.7rem; text-transform:uppercase; color:var(--color-lime-dim); margin:0 0 .6rem; font-weight:700; letter-spacing:.06em; }
         .inv-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.3rem 0; font-size:.875rem; }
         .inv-row span { color:var(--text-muted); }
         .inv-code { background:var(--muted); padding:.15rem .5rem; border-radius:.375rem; font-size:.8rem; font-weight:700; }
