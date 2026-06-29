@@ -38,18 +38,92 @@ async function confirmBooking(formData: FormData) {
   if (!user) return
   const supabase = createAdminClient()
   const id = formData.get('booking_id') as string
-  const { data: bookingData } = await supabase.from('bookings').select('water_quantity').eq('id', id).single()
-  await supabase.from('bookings').update({
-    status: 'confirmed', confirmed_by: user.id, confirmed_at: new Date().toISOString(),
-  }).eq('id', id)
-  if (bookingData?.water_quantity && bookingData.water_quantity > 0) {
+
+  // جلب بيانات الحجز الكاملة قبل التحديث
+  const { data: bookingData, error: fetchErr } = await supabase
+    .from('bookings')
+    .select('water_quantity, customer_phone, customer_name, customer_id, base_price, discount_amount, discount_code, final_price, batch_id')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr || !bookingData) {
+    console.error('[confirmBooking] فشل جلب بيانات الحجز:', fetchErr?.message)
+    return
+  }
+
+  // تحديث حالة الحجز
+  const { error: updateErr } = await supabase
+    .from('bookings')
+    .update({ status: 'confirmed', confirmed_by: user.id, confirmed_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (updateErr) {
+    console.error('[confirmBooking] فشل تحديث الحجز:', updateErr.message)
+    return
+  }
+
+  // تعديل مخزون المياه
+  if (bookingData.water_quantity > 0) {
     await adjustWaterStock(supabase, bookingData.water_quantity, 'decrement')
   }
+
+  // ── إصدار الفاتورة ───────────────────────────────────────────
+  // الحجوزات الفردية فقط — الباقات لها مسار فاتورة خاص
+  if (!bookingData.batch_id) {
+    try {
+      // جلب customer_id من جدول customers عبر رقم الجوال
+      let customerId: string | null = bookingData.customer_id ?? null
+
+      if (!customerId) {
+        const { data: custRow } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('phone', bookingData.customer_phone)
+          .maybeSingle()
+        customerId = custRow?.id ?? null
+      }
+
+      if (customerId) {
+        // سعر المياه من الإعدادات
+        const { data: waterSetting } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'water_price_per_carton')
+          .single()
+        const waterUnitPrice = Number(waterSetting?.value ?? '20') || 20
+
+        // المبلغ الأصلي للملعب (بدون المياه)
+        const courtPrice = bookingData.final_price
+          - (bookingData.water_quantity * waterUnitPrice)
+
+        const { createInvoice } = await import('@/lib/invoices')
+        await createInvoice({
+          booking_id:      id,
+          customer_id:     customerId,
+          base_price:      bookingData.base_price,
+          discount_amount: bookingData.discount_amount,
+          discount_code:   bookingData.discount_code ?? null,
+          final_price:     courtPrice,
+          water_quantity:  bookingData.water_quantity,
+          water_unit_price: waterUnitPrice,
+        }, supabase)
+      } else {
+        console.warn('[confirmBooking] لم يُعثر على customer_id — الفاتورة لم تُصدر:', id)
+      }
+    } catch (invErr) {
+      // فشل الفاتورة لا يوقف التأكيد — يُسجَّل فقط
+      console.error('[confirmBooking] فشل إصدار الفاتورة:', invErr)
+    }
+  }
+
   await supabase.from('audit_log').insert({
     table_name: 'bookings', record_id: id, action: 'update',
     performed_by: user.id, notes: 'اعتمد الإدارة الحجز',
   })
+
+  revalidatePath(`/admin/bookings/${id}`)
   revalidatePath('/admin/bookings')
+  revalidatePath('/admin/invoices')
   redirect('/admin/bookings')
 }
 
