@@ -3,6 +3,7 @@
 // /admin/invoices — صفحة قائمة الفواتير
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Receipt, Search, X, ChevronRight, ChevronLeft, FileText, Download } from 'lucide-react'
 
 /* ── أنواع ──────────────────────────────────────────────────── */
@@ -359,7 +360,7 @@ function InvoiceModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="inv-overlay" onClick={onClose}>
       <div className="inv-modal" onClick={e => e.stopPropagation()}>
 
@@ -639,7 +640,8 @@ function InvoiceModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
