@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/cancel-expired",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/booking/slots",
-      "schedule": "0 * * * *"
     }
   ]
 }
