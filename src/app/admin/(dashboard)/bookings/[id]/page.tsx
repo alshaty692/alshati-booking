@@ -42,7 +42,7 @@ async function confirmBooking(formData: FormData) {
   // جلب بيانات الحجز الكاملة قبل التحديث
   const { data: bookingData, error: fetchErr } = await supabase
     .from('bookings')
-    .select('water_quantity, customer_phone, customer_name, customer_id, base_price, discount_amount, discount_code, final_price, batch_id')
+    .select('water_quantity, customer_phone, customer_name, customer_id, base_price, discount_amount, code_used, final_price, batch_id')
     .eq('id', id)
     .single()
 
@@ -102,7 +102,7 @@ async function confirmBooking(formData: FormData) {
           customer_id:     customerId,
           base_price:      bookingData.base_price,
           discount_amount: bookingData.discount_amount,
-          discount_code:   bookingData.discount_code ?? null,
+          discount_code:   bookingData.code_used ?? null,
           final_price:     courtPrice,
           water_quantity:  bookingData.water_quantity,
           water_unit_price: waterUnitPrice,
