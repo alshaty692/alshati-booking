@@ -5,9 +5,19 @@
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getClosureState } from '@/lib/closure'
 
 export async function POST(request: NextRequest) {
   try {
+    // ── فحص الإغلاق الكامل أولاً ────────────────────────────
+    const closure = await getClosureState()
+    if (closure.isFullyClosedNow) {
+      return Response.json(
+        { error: `المنشأة مغلقة حالياً: ${closure.message}` },
+        { status: 403 }
+      )
+    }
+
     const cookieStore = await cookies()
     const phone = cookieStore.get('booking_phone')?.value
 
@@ -24,6 +34,14 @@ export async function POST(request: NextRequest) {
     // تحقق أساسي
     if (!booking_date || !court_id || !period_number || !customer_name) {
       return Response.json({ error: 'يرجى إكمال بيانات الحجز' }, { status: 400 })
+    }
+
+    // ── فحص الإغلاق المجدول (تاريخ الحجز ضمن فترة الإغلاق) ──
+    if (closure.scheduledStartISO && booking_date >= closure.scheduledStartISO) {
+      return Response.json(
+        { error: `المنشأة مغلقة في هذا التاريخ: ${closure.message}` },
+        { status: 400 }
+      )
     }
 
     const supabase = createAdminClient()

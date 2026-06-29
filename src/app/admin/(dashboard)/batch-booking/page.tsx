@@ -108,7 +108,18 @@ export default function BatchBookingPage() {
   useEffect(() => { fetchMonth(monthDate) }, [monthDate, fetchMonth])
 
   /* حالة الخلية */
+  function isFullClosedDate(date: string): boolean {
+    if (!avail?.settings) return false
+    const s = avail.settings
+    if (s['closure_full_active'] !== 'true') return false
+    const start = s['closure_full_start']?.trim()
+    if (!start) return true  // إغلاق فوري
+    const today = new Date().toISOString().slice(0, 10)
+    if (start <= today) return true  // بدأ الإغلاق
+    return date >= start  // تاريخ ضمن فترة الإغلاق المجدول
+  }
   function slotState(date:string, cid:string, p:number): SlotState {
+    if (isFullClosedDate(date)) return 'blocked'
     if (avail?.blocked.some(b => b.court_id===cid && b.date===date && b.period_number===p)) return 'blocked'
     const s = avail?.slots.find(s => s.court_id===cid && s.day_date===date && s.period_number===p)
     return (s && !s.is_available) ? 'booked' : 'available'

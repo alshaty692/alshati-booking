@@ -8,6 +8,7 @@ const PUBLIC_KEYS = [
   'facility_name', 'facility_phone', 'whatsapp_number', 'facility_location',
   'bank_name', 'bank_account_name', 'bank_iban', 'bank_account_number',
   'closure_active', 'closure_message', 'closure_return_date', 'closure_reason',
+  'closure_full_active', 'closure_full_start', 'closure_full_title', 'closure_full_message',
   'price_football_normal', 'price_volleyball_normal', 'price_multi_normal',
   'booking_window_days', 'max_pending_bookings', 'pending_expiry_hours',
   'water_price_per_carton', 'water_max_cartons', 'water_stock_available',

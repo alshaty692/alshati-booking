@@ -2,10 +2,12 @@
 // API Route — جلب الفترات المتاحة
 // يدمج: available_slots + blocked_slots + slot_holds
 // يطبّق نافذة الحجز (booking_window_days) من الإعدادات live
+// يعيد closure_info للإغلاق الكامل/المجدول
 // ============================================================
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
+import { getClosureState } from '@/lib/closure'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +16,9 @@ export async function GET(request: NextRequest) {
     const myPhone = cookieStore.get('booking_phone')?.value ?? ''
     const now = new Date().toISOString()
 
-    // ── الجولة 1 (متوازية): settings + slot_holds ─────────────
-    // slot_holds مستقل تماماً (يستخدم now() فقط، لا يحتاج date range)
-    // settings يحدد windowDays الذي يُشتق منه نطاق التواريخ
-    const [{ data: windowSetting }, { data: holds }] = await Promise.all([
+    // ── جلب حالة الإغلاق + الإعدادات + slot_holds (متوازي) ──
+    const [closure, { data: windowSetting }, { data: holds }] = await Promise.all([
+      getClosureState(),
       supabase
         .from('settings')
         .select('value')
@@ -29,15 +30,14 @@ export async function GET(request: NextRequest) {
         .gt('expires_at', now),
     ])
 
-    // ── حساب نطاق التواريخ (يعتمد على settings) ──────────────
+    // ── حساب نطاق التواريخ ────────────────────────────────────
     const windowDays = Math.max(1, Number(windowSetting?.value) || 7)
     const nowSA   = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
     const today   = `${nowSA.getFullYear()}-${String(nowSA.getMonth()+1).padStart(2,'0')}-${String(nowSA.getDate()).padStart(2,'0')}`
     const maxD    = new Date(nowSA); maxD.setDate(maxD.getDate() + windowDays)
     const maxDate = `${maxD.getFullYear()}-${String(maxD.getMonth()+1).padStart(2,'0')}-${String(maxD.getDate()).padStart(2,'0')}`
 
-    // ── الجولة 2 (متوازية): available_slots + blocked_slots ───
-    // كلاهما يحتاج today/maxDate ← تنتظر انتهاء الجولة 1 فقط
+    // ── جلب الفترات + الفترات المحجوبة (متوازي) ──────────────
     const [{ data: slots, error }, { data: blocked }] = await Promise.all([
       supabase
         .from('available_slots')
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
-    // ── بناء Sets للبحث السريع O(1) ───────────────────────────
+    // ── بناء Sets للبحث السريع O(1) ──────────────────────────
     const blockedSet = new Set(
       (blocked ?? []).map(b => `${b.date}|${b.court_id}|${b.period_number}`)
     )
@@ -68,21 +68,36 @@ export async function GET(request: NextRequest) {
       ])
     )
 
-    // ── دمج: محجوبة أو محجوزة مؤقتاً → غير متاحة ─────────────
+    // ── دمج: محجوبة أو محجوزة مؤقتاً أو ضمن إغلاق مجدول ────
     const mergedSlots = (slots ?? []).map(slot => {
       const key = `${slot.day_date}|${slot.court_id}|${slot.period_number}`
-      const isBlocked     = blockedSet.has(key)
-      const holdPhone     = holdMap.get(key)
-      const isHeldByOther = holdPhone && holdPhone !== myPhone
+      const isBlocked          = blockedSet.has(key)
+      const holdPhone          = holdMap.get(key)
+      const isHeldByOther      = holdPhone && holdPhone !== myPhone
+      const isFullClosureBlock = closure.scheduledStartISO
+        ? slot.day_date >= closure.scheduledStartISO
+        : false
 
       return {
         ...slot,
-        is_available: slot.is_available && !isBlocked && !isHeldByOther,
+        is_available: slot.is_available && !isBlocked && !isHeldByOther && !isFullClosureBlock,
         is_held: !!isHeldByOther,
+        is_full_closure_blocked: isFullClosureBlock,
       }
     })
 
-    return Response.json({ slots: mergedSlots, window_days: windowDays })
+    return Response.json({
+      slots: mergedSlots,
+      window_days: windowDays,
+      closure_info: closure.isActive
+        ? {
+            isFullyClosedNow:    closure.isFullyClosedNow,
+            scheduledStartISO:   closure.scheduledStartISO,
+            title:               closure.title,
+            message:             closure.message,
+          }
+        : null,
+    })
   } catch (err) {
     console.error('[slots]', err)
     return Response.json({ error: 'فشل جلب المواعيد' }, { status: 500 })

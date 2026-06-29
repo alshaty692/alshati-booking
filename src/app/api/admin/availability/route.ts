@@ -39,7 +39,8 @@ export async function GET(req: NextRequest) {
     const { data: settingsData } = await supabase
       .from('settings')
       .select('key, value')
-      .in('key', ['closure_active', 'closure_reason', 'closure_return_date', 'closure_message'])
+      .in('key', ['closure_active', 'closure_reason', 'closure_return_date', 'closure_message',
+                   'closure_full_active', 'closure_full_start', 'closure_full_message'])
 
     const settings: Record<string, string> = {}
     settingsData?.forEach(r => { if (r.key) settings[r.key] = r.value ?? '' })

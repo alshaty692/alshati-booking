@@ -148,6 +148,11 @@ export default function BookPage() {
   const [holdExpiry,  setHoldExpiry]  = useState<string|null>(null)
   const [venueClosures, setVenueClosures] = useState<{court_id:string;start_date:string;end_date:string;reason:string}[]>([])
   const [slotTakenError, setSlotTakenError] = useState('')
+  const [fullClosureInfo, setFullClosureInfo] = useState<{
+    scheduledStartISO: string | null
+    title: string
+    message: string
+  } | null>(null)
 
   // ── حجز/تحرير مؤقت للفترة ──────────────────────────────────
   const holdSlot = useCallback(async (court_id: string, booking_date: string, period_number: number) => {
@@ -218,6 +223,10 @@ export default function BookPage() {
       if (s.closure_active === '1') {
         setClosure({ active:true, msg: s.closure_message ?? '', date: s.closure_return_date ?? '' })
       }
+      // إغلاق مجدول من slots API
+      if (slotsData.closure_info) {
+        setFullClosureInfo(slotsData.closure_info)
+      }
       if (customerData?.found && customerData.name) {
         setBooking(b => ({ ...b, customer_name: customerData.name }))
         setIsReturning(true)
@@ -232,6 +241,16 @@ export default function BookPage() {
   const uniqueDates   = [...new Set(slots.map(s => s.day_date))].sort()
   const slotsForDate  = slots.filter(s => s.day_date === booking.date)
   const basePrice     = (courtId: string) => courtPrices[courtId] ?? 0
+
+  // ── التحقق من إيقاف ملعب ────────────────────────────────────
+  const isCourtClosed = (courtId: string, date: string) =>
+    venueClosures.some(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)
+  const getClosureReason = (courtId: string, date: string) =>
+    venueClosures.find(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)?.reason ?? 'صيانة'
+
+  // التحقق من إغلاق كامل مجدول (تاريخ ضمن فترة الإغلاق)
+  const isFullClosureDate = (date: string) =>
+    Boolean(fullClosureInfo?.scheduledStartISO && date >= fullClosureInfo.scheduledStartISO)
 
   // ── اسم الملعب من الإعدادات ─────────────────────────────────
   const courtName = (courtId: string): string => {
@@ -253,13 +272,9 @@ export default function BookPage() {
   const waterMax   = waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0
   const waterTotal = booking.water_quantity * waterPrice
 
-  // ── التحقق من إيقاف ملعب ────────────────────────────────────
-  const isCourtClosed = (courtId: string, date: string) =>
-    venueClosures.some(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)
-  const getClosureReason = (courtId: string, date: string) =>
-    venueClosures.find(c => c.court_id === courtId && date >= c.start_date && date <= c.end_date)?.reason ?? 'صيانة'
 
   // ── تعيين السعر عند الوصول لخطوة بياناتك ──────────────────
+
   useEffect(() => {
     if (step === 1 && booking.court_id && !booking.price) {
       setBooking(b => ({
@@ -434,24 +449,28 @@ export default function BookPage() {
             <div className="dates-scroll-wrap" ref={datesRef}>
               <div className="dates-scroll">
                 {uniqueDates.map(date => {
-                  const hasAvail = slots.some(s => s.day_date === date && s.is_available)
-                  const d        = new Date(date + 'T00:00:00')
+                  const hasAvail   = slots.some(s => s.day_date === date && s.is_available)
+                  const fullClosed = isFullClosureDate(date)
+                  const d          = new Date(date + 'T00:00:00')
                   const isSelected = booking.date === date
+                  const isDisabled = !hasAvail || fullClosed
                   return (
                     <button
                       key={date}
                       id={`date-${date}`}
-                      className={`date-pill ${isSelected?'selected':''} ${!hasAvail?'disabled':''}`}
+                      className={`date-pill ${isSelected?'selected':''} ${isDisabled?'disabled':''} ${fullClosed?'full-closed':''}`}
                       onClick={() => {
-                        if (!hasAvail) return
+                        if (isDisabled) return
                         setBooking(b => ({ ...b, date, court_id:'', period_number:0 }))
                       }}
-                      disabled={!hasAvail}
+                      disabled={isDisabled}
+                      title={fullClosed ? (fullClosureInfo?.message ?? 'مغلق') : undefined}
                     >
                       <span className="date-pill-day">{d.toLocaleDateString('ar-SA-u-ca-gregory',{weekday:'long'})}</span>
                       <span className="date-pill-num">{d.toLocaleDateString('ar-SA-u-ca-gregory',{day:'numeric'})}</span>
                       <span className="date-pill-month">{d.toLocaleDateString('ar-SA-u-ca-gregory',{month:'long'})}</span>
-                      {!hasAvail && <span className="date-pill-full">مكتمل</span>}
+                      {fullClosed && <span className="date-pill-full" style={{background:'rgba(255,80,80,0.18)',color:'#ff5050'}}>🔒 مغلق</span>}
+                      {!fullClosed && !hasAvail && <span className="date-pill-full">مكتمل</span>}
                     </button>
                   )
                 })}

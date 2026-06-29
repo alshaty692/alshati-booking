@@ -6,9 +6,10 @@ import {
   Landmark, CreditCard, Hash,
   CircleDollarSign, Trophy, Layers, Tag,
   CalendarDays, Clock, Users,
-  Droplets, Package, Save, AlertTriangle,
+  Droplets, Package, Save, AlertTriangle, Lock,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
+import ClosureControl from '@/components/admin/ClosureControl'
 
 export const metadata: Metadata = { title: 'الإعدادات' }
 
@@ -35,6 +36,45 @@ async function saveSettings(formData: FormData): Promise<{ success: boolean; err
 
   revalidatePath('/admin/settings')
   revalidatePath('/book')
+  return { success: true }
+}
+
+async function saveClosureSettings(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  'use server'
+  const authClient = await createClient()
+  const { data: { user }, error: authError } = await authClient.auth.getUser()
+  if (authError || !user) return { success: false, error: 'غير مصرح' }
+
+  const supabase = createAdminClient()
+
+  const active  = formData.get('closure_full_active') as string
+  const start   = formData.get('closure_full_start')  as string
+  const title   = formData.get('closure_full_title')  as string
+  const message = formData.get('closure_full_message') as string
+
+  const { error: upsertError } = await supabase.from('settings').upsert([
+    { key: 'closure_full_active',  value: active  ?? 'false' },
+    { key: 'closure_full_start',   value: start   ?? '' },
+    { key: 'closure_full_title',   value: title   ?? 'المنشأة مغلقة مؤقتاً' },
+    { key: 'closure_full_message', value: message ?? '' },
+  ], { onConflict: 'key' })
+
+  if (upsertError) {
+    console.error('[saveClosureSettings]', upsertError)
+    return { success: false, error: upsertError.message }
+  }
+
+  // لو الإغلاق فوري → احذف كل slot_holds النشطة (مهم!)
+  const isImmediate = active === 'true' && (!start || start <= new Date().toISOString().slice(0,10))
+  if (isImmediate) {
+    await supabase.from('slot_holds').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    console.log('[saveClosureSettings] تم حذف كل slot_holds النشطة')
+  }
+
+  revalidatePath('/')
+  revalidatePath('/book')
+  revalidatePath('/my-bookings')
+  revalidatePath('/admin/settings')
   return { success: true }
 }
 
@@ -191,6 +231,16 @@ export default async function SettingsPage() {
         </button>
       </form>
 
+      {/* ── إغلاق المنشأة الكامل ── */}
+      <div className="s-section">
+        <ClosureControl
+          initialActive={s['closure_full_active'] === 'true'}
+          initialStart={s['closure_full_start'] ?? ''}
+          initialTitle={s['closure_full_title'] ?? 'المنشأة مغلقة مؤقتاً'}
+          initialMessage={s['closure_full_message'] ?? 'نعتذر عن الإغلاق المؤقت، سنعود قريباً بإذن الله.'}
+          saveAction={saveClosureSettings}
+        />
+      </div>
       <style>{`
         .s-page { max-width: 720px; }
 
