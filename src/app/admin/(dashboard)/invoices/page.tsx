@@ -2,7 +2,7 @@
 // ============================================================
 // /admin/invoices — صفحة قائمة الفواتير
 // ============================================================
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Receipt, Search, X, ChevronRight, ChevronLeft, FileText, Download } from 'lucide-react'
 
 /* ── أنواع ──────────────────────────────────────────────────── */
@@ -199,25 +199,119 @@ function InvoiceModal({
     error_correction: 'تصحيح خطأ',
   }
 
-  // ── تصدير PDF ────────────────────────────────────────────────
-  const printRef = useRef<HTMLDivElement>(null)
-
+  // ── تصدير PDF — نفس نهج التقارير (off-screen HTML string) ────
   async function handleExportPDF() {
-    const el = printRef.current
-    if (!el) return
     try {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ])
+
+      // تحميل خط Tajawal قبل الرسم
+      const FONT_URL = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block'
+      if (!document.querySelector(`link[href="${FONT_URL}"]`)) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'; link.href = FONT_URL
+        document.head.appendChild(link)
+      }
+      await document.fonts.ready
+      await Promise.allSettled([
+        document.fonts.load('700 20px Tajawal', 'فاتورة'),
+        document.fonts.load('400 14px Tajawal', 'فاتورة'),
+      ])
+
+      // بناء HTML الفاتورة
+      const discountRow = invoice.discount_amount > 0
+        ? `<tr style="color:#d97706;border-bottom:1px solid #eee"><td style="padding:.4rem .6rem">خصم${invoice.discount_code ? ` (${invoice.discount_code})` : ''}${invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}</td><td style="padding:.4rem .6rem;text-align:left;direction:ltr">−${fmt(invoice.discount_amount)} ر</td></tr>` : ''
+
+      const waterRow = invoice.water_quantity > 0
+        ? `<tr style="border-bottom:1px solid #eee"><td style="padding:.4rem .6rem">مياه (${invoice.water_quantity} كرتون × ${fmt(invoice.water_unit_price)} ر)</td><td style="padding:.4rem .6rem;text-align:left;direction:ltr">${fmt(invoice.water_total)} ر</td></tr>` : ''
+
+      const bookingSection = bk
+        ? `<div class="section"><div class="section-title">تفاصيل الحجز</div><div class="grid"><div class="field"><span class="label">الملعب</span><strong>${COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div><div class="field"><span class="label">الفترة</span><strong>${PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div><div class="field" style="grid-column:1/-1"><span class="label">التاريخ</span><strong>${new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</strong></div></div></div>`
+        : invoice.batch_id ? `<div class="section"><div class="section-title">باقة</div><p>فاتورة مجمّعة للباقة</p></div>` : ''
+
+      const approvedCNs = creditNotes.filter(cn => cn.status !== 'cancelled')
+      const cnSection = approvedCNs.length > 0
+        ? `<div class="section"><div class="section-title">إشعارات الائتمان</div>${approvedCNs.map(cn => `<div style="display:flex;justify-content:space-between;padding:.25rem 0;border-bottom:1px solid #eee;font-size:11px"><span>${cn.credit_note_number} — ${cn.reason}</span><span style="color:#ef4444">−${fmt(cn.amount)} ر (${cn.status === 'approved' ? 'معتمد' : 'مسودة'})</span></div>`).join('')}</div>` : ''
+
+      const balanceSection = balance
+        ? `<div class="section"><div class="section-title">الرصيد المالي</div><div class="balance-row"><span>المُفوتَر</span><span>${fmt(balance.total_amount)} ر</span></div>${balance.approved_cn_total > 0 ? `<div class="balance-row" style="color:#d97706"><span>إشعارات ائتمان</span><span>−${fmt(balance.approved_cn_total)} ر</span></div>` : ''}<div class="balance-row"><span>المدفوع</span><span style="color:#16a34a">${fmt(balance.paid_amount)} ر</span></div><div class="balance-row" style="font-weight:700"><span>المتبقي</span><span style="color:${balance.balance_due > 0 ? '#dc2626' : '#16a34a'}">${fmt(balance.balance_due)} ر</span></div></div>` : ''
+
+      const html = `
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block');
+          * { box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal',Arial,sans-serif;direction:rtl; }
+          .invoice-pdf { width:620px;padding:28px;background:#fff;color:#111; }
+          .header { display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #7bba00;margin-bottom:16px; }
+          .header-title { font-size:22px;font-weight:800;color:#7bba00; }
+          .header-num { font-size:13px;font-weight:700;margin-top:4px; }
+          .header-date { font-size:10px;color:#666;margin-top:2px; }
+          .section { margin-bottom:12px;padding:10px 12px;background:#f8f9fa;border-radius:6px; }
+          .section-title { font-size:9px;text-transform:uppercase;color:#5a8a00;font-weight:700;letter-spacing:.06em;margin-bottom:8px; }
+          .grid { display:grid;grid-template-columns:1fr 1fr;gap:5px 12px; }
+          .field { display:flex;flex-direction:column;gap:2px; }
+          .label { font-size:8px;color:#888;font-weight:600;text-transform:uppercase; }
+          .field strong { font-size:12px;font-weight:700; }
+          table { width:100%;border-collapse:collapse;margin-bottom:12px;font-size:11px; }
+          thead tr { background:#1a1a1a; }
+          th { padding:.4rem .6rem;text-align:right;font-weight:700;color:#c8ff3e; }
+          td { padding:.35rem .6rem;border-bottom:1px solid #eee; }
+          .total-row td { background:#f0f0f0;font-weight:700;font-size:13px; }
+          .balance-row { display:flex;justify-content:space-between;padding:.3rem 0;font-size:11px;border-bottom:1px solid #eee; }
+          .footer { text-align:center;color:#999;font-size:8px;margin-top:14px;padding-top:8px;border-top:1px solid #eee; }
+        </style>
+        <div class="invoice-pdf">
+          <div class="header">
+            <div>
+              <div class="header-title">فاتورة</div>
+              <div class="header-num">${invoice.invoice_number}</div>
+              <div class="header-date">تاريخ الإصدار: ${new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' })}</div>
+            </div>
+            <div style="text-align:left;font-size:11px;color:#666;font-weight:600">الشاطئ للحجوزات</div>
+          </div>
+          <div class="section">
+            <div class="section-title">بيانات العميل</div>
+            <div class="grid">
+              <div class="field"><span class="label">الاسم</span><strong>${cust?.name ?? '—'}</strong></div>
+              <div class="field"><span class="label">الكود</span><strong>${cust?.customer_code ?? '—'}</strong></div>
+              <div class="field" style="direction:ltr"><span class="label" style="direction:rtl">الجوال</span><strong>${cust?.phone ?? '—'}</strong></div>
+            </div>
+          </div>
+          ${bookingSection}
+          <table>
+            <thead><tr><th>البند</th><th style="text-align:left;direction:ltr">المبلغ</th></tr></thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #eee"><td>سعر الملعب${invoice.batch_id ? ' (مجموع)' : ''}</td><td style="text-align:left;direction:ltr">${fmt(invoice.base_price)} ر</td></tr>
+              ${discountRow}
+              ${waterRow}
+              <tr class="total-row"><td>الإجمالي</td><td style="text-align:left;direction:ltr">${fmt(invoice.total_amount)} ر</td></tr>
+            </tbody>
+          </table>
+          ${balanceSection}
+          ${cnSection}
+          <div class="footer">${invoice.invoice_number} · ${new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory')}</div>
+        </div>`
+
+      // التقاط off-screen — نفس أسلوب captureChunk بالتقارير
+      const container = document.createElement('div')
+      container.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-9999;'
+      container.innerHTML = html
+      document.body.appendChild(container)
+      await new Promise(r => setTimeout(r, 300))
+      const el = container.querySelector('.invoice-pdf') as HTMLElement | null
+      if (!el) { document.body.removeChild(container); return }
+
       const canvas = await html2canvas(el, {
-        scale: 2, useCORS: true, allowTaint: true,
-        backgroundColor: '#ffffff',
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: 680,
       })
+      document.body.removeChild(container)
+
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const pageW = pdf.internal.pageSize.getWidth()
-      const imgH  = (canvas.height * pageW) / canvas.width
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageW, imgH)
+      const MARGIN = 10
+      const CONT_W = pdf.internal.pageSize.getWidth() - MARGIN * 2
+      const imgH = (canvas.height * CONT_W) / canvas.width
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', MARGIN, MARGIN, CONT_W, imgH)
       pdf.save(`${invoice.invoice_number}.pdf`)
     } catch (e) {
       console.error('[PDF]', e)
@@ -255,81 +349,7 @@ function InvoiceModal({
           </div>
         </div>
 
-        {/* ── منطقة الطباعة (مخفية في PDF) ── */}
-        <div ref={printRef} style={{ background: '#fff', color: '#111', padding: '1.5rem', direction: 'rtl', fontFamily: 'Tajawal, Arial, sans-serif' }}>
-          {/* رأس الفاتورة للـ PDF */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '2px solid #7bba00' }}>
-            <div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#7bba00' }}>فاتورة</div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#111', marginTop: '0.2rem' }}>{invoice.invoice_number}</div>
-              <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.2rem' }}>تاريخ الإصدار: {new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#111' }}>الشاطئ للحجوزات</div>
-            </div>
-          </div>
-
-          {/* بيانات العميل */}
-          <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8f8f8', borderRadius: '0.5rem' }}>
-            <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#888', fontWeight: 700, marginBottom: '0.4rem', letterSpacing: '0.05em' }}>بيانات العميل</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1rem' }}>
-              <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الاسم: </span><strong>{cust?.name ?? '—'}</strong></div>
-              <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الكود: </span><strong>{cust?.customer_code ?? '—'}</strong></div>
-              <div style={{ fontSize: '0.85rem', direction: 'ltr', textAlign: 'right' }}><span style={{ color: '#666' }}>الجوال: </span><strong>{cust?.phone ?? '—'}</strong></div>
-            </div>
-          </div>
-
-          {/* تفاصيل الحجز */}
-          {(bk || invoice.batch_id) && (
-            <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f8f8f8', borderRadius: '0.5rem' }}>
-              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#888', fontWeight: 700, marginBottom: '0.4rem', letterSpacing: '0.05em' }}>
-                {invoice.batch_id ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
-              </div>
-              {bk && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.3rem 1rem' }}>
-                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الملعب: </span><strong>{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div>
-                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>الفترة: </span><strong>{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div>
-                  <div style={{ fontSize: '0.85rem' }}><span style={{ color: '#666' }}>التاريخ: </span><strong>{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong></div>
-                </div>
-              )}
-              {invoice.batch_id && !bk && <div style={{ fontSize: '0.85rem', color: '#666' }}>فاتورة مجمّعة للباقة</div>}
-            </div>
-          )}
-
-          {/* بنود الفاتورة */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', fontSize: '0.875rem' }}>
-            <thead>
-              <tr style={{ background: '#f0f0f0' }}>
-                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'right', fontWeight: 700 }}>البند</th>
-                <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 700, direction: 'ltr' }}>المبلغ</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '0.4rem 0.6rem' }}>سعر الملعب{invoice.batch_id ? ' (مجموع)' : ''}</td>
-                <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.base_price)} ر</td>
-              </tr>
-              {invoice.discount_amount > 0 && (
-                <tr style={{ borderBottom: '1px solid #eee', color: '#d97706' }}>
-                  <td style={{ padding: '0.4rem 0.6rem' }}>خصم{invoice.discount_code ? ` (${invoice.discount_code})` : ''}{invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}</td>
-                  <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>−{fmt(invoice.discount_amount)} ر</td>
-                </tr>
-              )}
-              {invoice.water_quantity > 0 && (
-                <tr style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '0.4rem 0.6rem' }}>مياه ({invoice.water_quantity} كرتون × {fmt(invoice.water_unit_price)} ر)</td>
-                  <td style={{ padding: '0.4rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.water_total)} ر</td>
-                </tr>
-              )}
-              <tr style={{ background: '#f0f0f0', fontWeight: 700, fontSize: '1rem' }}>
-                <td style={{ padding: '0.5rem 0.6rem' }}>الإجمالي</td>
-                <td style={{ padding: '0.5rem 0.6rem', textAlign: 'left', direction: 'ltr' }}>{fmt(invoice.total_amount)} ر</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* ── أقسام الـ Modal التفاعلية ── */}
+        {/* ── أقسام الـ Modal ── */}
 
         {/* بيانات العميل */}
         <section className="inv-section">
