@@ -63,6 +63,21 @@ export default function AdminError({
         حدث خطأ غير متوقع في هذا القسم. يمكنك إعادة المحاولة أو الرجوع للوحة التحكم.
       </p>
 
+      {/* ── DEBUG TEMP: يُحذف بعد التشخيص ── */}
+      <details style={{ maxWidth: '600px', textAlign: 'left', direction: 'ltr' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          تفاصيل الخطأ (للمطور)
+        </summary>
+        <pre style={{
+          fontSize: '0.7rem', color: 'var(--color-danger)', background: 'var(--bg-elevated)',
+          padding: '0.75rem', borderRadius: 'var(--radius-sm)', overflow: 'auto',
+          border: '1px solid var(--color-danger)', marginTop: '0.5rem', maxHeight: '200px',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+        }}>
+          {error.message}{'\n\n'}{error.stack}
+        </pre>
+      </details>
+
       {error.digest && (
         <code style={{
           fontSize: 'var(--text-xs)',
