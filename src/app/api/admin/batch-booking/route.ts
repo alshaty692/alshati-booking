@@ -243,24 +243,31 @@ export async function POST(request: NextRequest) {
     let invoice_numbers: string[] = []
     if (isConfirmed && createdCount > 0) {
       try {
-        const successSlots = results
+        const successBookingIds = results
           .filter(r => r.ok && r.booking_id)
-          .map(r => {
-            // نجلب بيانات الحجز من نتائج الـ loop (نحتاج إعادة بناء البيانات)
-            const originalSlot = slots.find(
-              s => s.booking_date === r.booking_date &&
-                   s.court_id    === r.court_id &&
-                   s.period_number === r.period_number
-            )
-            return {
-              booking_id:      r.booking_id!,
-              base_price:      0,   // ستُملأ من priceData المحسوبة في الـ loop — انظر ملاحظة أدناه
-              discount_amount: 0,
-              discount_code:   originalSlot?.code_used ?? null,
-              final_price:     0,
-              water_quantity:  originalSlot?.water_quantity ?? 0,
-            }
-          })
+          .map(r => r.booking_id!)
+
+        // جلب الأسعار الفعلية من DB (تم حفظها صحيحاً أثناء INSERT بالـ loop)
+        const { data: bookingRows } = await admin
+          .from('bookings')
+          .select('id, base_price, discount_amount, final_price, code_used, water_quantity')
+          .in('id', successBookingIds)
+
+        const bookingMap = new Map(
+          (bookingRows ?? []).map(b => [b.id, b])
+        )
+
+        const successSlots = successBookingIds.map(bookingId => {
+          const dbRow = bookingMap.get(bookingId)
+          return {
+            booking_id:      bookingId,
+            base_price:      dbRow?.base_price      ?? 0,
+            discount_amount: dbRow?.discount_amount ?? 0,
+            discount_code:   dbRow?.code_used       ?? null,
+            final_price:     dbRow?.final_price      ?? 0,
+            water_quantity:  dbRow?.water_quantity   ?? 0,
+          }
+        })
 
         const inv = await createBatchInvoices({
           slots:            successSlots,

@@ -299,6 +299,47 @@ function InvoiceModal({
       container.innerHTML = html
       document.body.appendChild(container)
       await new Promise(r => setTimeout(r, 300))
+
+      // استبدل كل .section-title بصورة canvas — يحل مشكلة بيانات لعمهل / تفصيل لحجز
+      const sectionTitles = Array.from(container.querySelectorAll('.section-title'))
+      for (const titleEl of sectionTitles) {
+        const titleText = (titleEl as HTMLElement).textContent?.trim() ?? ''
+        if (!titleText) continue
+        const cvs = document.createElement('canvas')
+        cvs.width = 580; cvs.height = 22
+        const ctx = cvs.getContext('2d')!
+        ctx.clearRect(0, 0, 580, 22)
+        ctx.font         = '700 11px Tajawal, Arial'
+        ctx.fillStyle    = '#5a8a00'
+        ctx.textAlign    = 'right'
+        ctx.direction    = 'rtl'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(titleText, 570, 11)
+        const img = document.createElement('img')
+        img.src = cvs.toDataURL('image/png')
+        img.style.cssText = 'display:block;width:580px;height:22px;margin-bottom:8px;'
+        ;(titleEl as HTMLElement).replaceWith(img)
+      }
+
+      // استبدل .header-title بصورة canvas — نفس مشكلة bold ligatures
+      const headerTitle = container.querySelector('.header-title') as HTMLElement | null
+      if (headerTitle) {
+        const cvs = document.createElement('canvas')
+        cvs.width = 200; cvs.height = 36
+        const ctx = cvs.getContext('2d')!
+        ctx.clearRect(0, 0, 200, 36)
+        ctx.font         = '800 22px Tajawal, Arial'
+        ctx.fillStyle    = '#7bba00'
+        ctx.textAlign    = 'right'
+        ctx.direction    = 'rtl'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('فاتورة', 190, 18)
+        const img = document.createElement('img')
+        img.src = cvs.toDataURL('image/png')
+        img.style.cssText = 'display:block;width:200px;height:36px;'
+        headerTitle.replaceWith(img)
+      }
+
       const el = container.querySelector('.invoice-pdf') as HTMLElement | null
       if (!el) { document.body.removeChild(container); return }
 
@@ -763,7 +804,7 @@ export default function InvoicesPage() {
         .inv-bc-due .inv-bc-due-val { color:#ef4444; }
         .inv-bc-clear .inv-bc-due-val { color:#22c55e; }
         /* Modal */
-        .inv-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem; }
+        .inv-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(2px); }
         .inv-modal { background:var(--card); border-radius:1rem; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; }
         .inv-modal-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.25rem .75rem; border-bottom:1px solid var(--border); }
         .inv-number { font-size:1rem; font-weight:700; }
