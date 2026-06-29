@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import BatchCancelButton from '@/components/admin/BatchCancelButton'
+import { cancelInvoicesForBooking } from '@/lib/invoices'
 
 export const metadata: Metadata = { title: 'تفاصيل الحجز' }
 
@@ -167,12 +168,23 @@ async function cancelBookingAdmin(formData: FormData) {
   const reason = formData.get('cancellation_reason') as string
   const refunded = formData.get('refunded') === 'on'
   const { data: bookingData } = await supabase.from('bookings').select('status, water_quantity').eq('id', id).single()
-  await supabase.from('bookings').update({
+  const { error: updateErr } = await supabase.from('bookings').update({
     status: 'cancelled',
     internal_note: `إلغاء إداري: ${reason}${refunded ? ' (تم الاسترداد)' : ''}`,
   }).eq('id', id)
+  if (updateErr) return
   if (bookingData?.status === 'confirmed' && bookingData.water_quantity > 0) {
     await adjustWaterStock(supabase, bookingData.water_quantity, 'increment')
+  }
+  // إلغاء الفاتورة المرتبطة تلقائياً
+  try {
+    await cancelInvoicesForBooking(
+      id,
+      `إلغاء إداري: ${reason}${refunded ? ' (تم الاسترداد)' : ''}`,
+      supabase,
+    )
+  } catch (invErr) {
+    console.warn('[cancelBookingAdmin] فشل إلغاء الفاتورة (غير حرج):', invErr)
   }
   await supabase.from('audit_log').insert({
     table_name: 'bookings', record_id: id, action: 'update',
@@ -180,6 +192,7 @@ async function cancelBookingAdmin(formData: FormData) {
     notes: `إلغاء إداري: ${reason}${refunded ? ' | تم استرداد المبلغ' : ''}`,
   })
   revalidatePath('/admin/bookings')
+  revalidatePath('/admin/invoices')
   revalidatePath('/admin')
   redirect('/admin/bookings')
 }
