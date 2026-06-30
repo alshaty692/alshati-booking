@@ -239,14 +239,15 @@ export async function deleteBookingPermanently({
   }
 
   // ── T3: فحص نوع الفاتورة ─────────────────────────────────
+  // نجلب الفاتورة المُصدَرة فقط لفحوصات T3/T4 والإحصائيات
+  // لكن سنُزيل booking_id من جميع الفواتير (بأي حالة) في خطوة T1
   const { data: invoices } = await supabase
     .from('invoices')
-    .select('id, invoice_number, customer_id, total_amount, batch_id')
+    .select('id, invoice_number, customer_id, total_amount, batch_id, status')
     .eq('booking_id', bookingId)
-    .eq('status', 'issued')
-    .limit(1)
 
-  const invoice = invoices?.[0] ?? null
+  // الفاتورة المُصدَرة (إن وُجدت) — للفحوصات والإحصائيات
+  const invoice = invoices?.find(inv => inv.status === 'issued') ?? null
 
   // فاتورة combined للباقة؟
   if (!invoice && booking.batch_id) {
@@ -308,9 +309,10 @@ export async function deleteBookingPermanently({
     invoice_number:  invoice?.invoice_number ?? null,
   }
 
-  // ── T1: إلغاء الفاتورة وفصل ربطها بالحجز ────────────────
+  // ── T1: إلغاء الفاتورة المُصدَرة وفصل ربط جميع الفواتير بالحجز ───
+
+  // T1a: إلغاء الفاتورة المُصدَرة + حفظ snapshot (لو موجودة)
   if (invoice) {
-    // T1a: إلغاء الفاتورة + حفظ snapshot
     const { error: invoiceErr } = await supabase
       .from('invoices')
       .update({
@@ -325,27 +327,31 @@ export async function deleteBookingPermanently({
       console.error('[deleteBookingPermanently] فشل إلغاء الفاتورة:', invoiceErr)
       return { success: false, error: 'فشل إلغاء الفاتورة المرتبطة' }
     }
+  }
 
-    // T1b: فصل ربط booking_id عشان نتجاوز RESTRICT
-    // نضيف batch_id مؤقت إذا لم يكن موجوداً لتجنب constraint invoices_must_have_target
-    // الفاتورة لديها batch_id أو نضيف placeholder
-    const hasExistingBatchId = !!invoice.batch_id
+  // T1b: فصل booking_id عن جميع الفواتير (بأي حالة) لتجاوز ON DELETE RESTRICT
+  // السبب: الفواتير الملغاة مسبقاً لا تزال تحمل booking_id وتمنع الحذف
+  const allInvoices = invoices ?? []
+  console.log(`[deleteBookingPermanently] فواتير مرتبطة بالحجز: ${allInvoices.length}`)
 
+  for (const inv of allInvoices) {
+    const hasExistingBatchId = !!inv.batch_id
     const nullifyUpdate: Record<string, string | null> = { booking_id: null }
     if (!hasExistingBatchId) {
-      // نحتاج batch_id بديل عشان constraint (booking_id IS NOT NULL OR batch_id IS NOT NULL)
+      // نحتاج batch_id بديل لتجنب constraint: (booking_id IS NOT NULL OR batch_id IS NOT NULL)
       nullifyUpdate['batch_id'] = `deleted_booking_${bookingId}`
     }
 
     const { error: nullifyErr } = await supabase
       .from('invoices')
       .update(nullifyUpdate)
-      .eq('id', invoice.id)
+      .eq('id', inv.id)
 
     if (nullifyErr) {
-      console.error('[deleteBookingPermanently] فشل فصل booking_id:', nullifyErr)
-      return { success: false, error: 'فشل فصل ربط الفاتورة بالحجز' }
+      console.error(`[deleteBookingPermanently] فشل فصل booking_id للفاتورة ${inv.id}:`, nullifyErr.message)
+      return { success: false, error: `فشل فصل ربط الفاتورة (${inv.id}) بالحجز: ${nullifyErr.message}` }
     }
+    console.log(`[deleteBookingPermanently] ✓ تم فصل booking_id عن الفاتورة: ${inv.id} (${inv.status})`)
   }
 
   // ── T10: تنظيف slot_holds ────────────────────────────────
