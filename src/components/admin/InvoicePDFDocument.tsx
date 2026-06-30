@@ -108,20 +108,34 @@ function fmt(n: number): string {
   return n.toFixed(n % 1 === 0 ? 0 : 2)
 }
 
-function fmtDate(iso: string): string {
+// — dateParts تُرجع أجزاء التاريخ منفصلة — تُستخدم في DateView
+function dateParts(iso: string): { day: string; monthName: string; year: string } {
   try {
     const d = new Date(iso)
-    const day    = d.getDate()
-    const month  = d.getMonth() + 1
-    const year   = d.getFullYear()
     const months = ['يناير','فبراير','مارس','ابريل','مايو','يونيو','يوليو','اغسطس','سبتمبر','اكتوبر','نوفمبر','ديسمبر']
-    // react-pdf مع RTL يعكس ترتيب الكلمات المختلطة (عربي+ارقام)
-    // نكتب العام اولاً والاسم في الوسط واليوم اخيراً
-    // حتى بعد الـ bidi reversal يظهر: يوم شهر سنة
-    return `${year} ${months[month - 1]} ${day}`
+    return {
+      day:       String(d.getDate()),
+      monthName: months[d.getMonth()],
+      year:      String(d.getFullYear()),
+    }
   } catch {
-    return iso
+    return { day: '', monthName: iso, year: '' }
   }
+}
+
+/* ── DateView: يعرض التاريخ كمكوّن (يوم + شهر + سنة) كل block مستقل ────────── */
+// DateView: كل جزء من التاريخ (يوم، شهر، سنة) block مستقل — نفس مبدأ amountCell
+const DateView = ({ date }: { date: string }) => {
+  const p = dateParts(date)
+  return (
+    <View style={s.dateRow}>
+      <Text style={s.datePart}>{p.day}</Text>
+      <Text style={s.dateSep}> </Text>
+      <Text style={s.dateMonthPart}>{p.monthName}</Text>
+      <Text style={s.dateSep}> </Text>
+      <Text style={s.datePart}>{p.year}</Text>
+    </View>
+  )
 }
 
 /* ── الأنماط ─────────────────────────────────────────────────── */
@@ -175,6 +189,39 @@ const s = StyleSheet.create({
     color:     C.muted,
     marginTop: 2,
     textAlign: 'left',
+  },
+  // ── مكوّنات عرض التاريخ (DateView)
+  dateRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+  },
+  datePart: {
+    fontSize:  8,
+    color:     C.muted,
+  },
+  dateMonthPart: {
+    fontSize:  8,
+    color:     C.muted,
+  },
+  dateSep: {
+    fontSize:  8,
+    color:     C.muted,
+    width:     3,
+  },
+  datePartValue: {
+    fontSize:   9,
+    fontWeight: 700,
+    color:      C.black,
+  },
+  dateMonthPartValue: {
+    fontSize:   9,
+    fontWeight: 700,
+    color:      C.black,
+  },
+  dateSepValue: {
+    fontSize:  9,
+    color:     C.black,
+    width:     3,
   },
   divider: {
     borderBottomWidth: 2,
@@ -427,7 +474,7 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
 
   const courtLabel  = bk ? (COURT_LABELS[bk.court_id] ?? bk.court_id) : null
   const periodLabel = bk ? (PERIOD_LABELS[bk.period_number] ?? String(bk.period_number)) : null
-  const dateLabel   = bk ? fmtDate(bk.booking_date + 'T00:00:00') : null
+  const dateIso     = bk ? (bk.booking_date + 'T00:00:00') : null
 
   return (
     <Document
@@ -445,7 +492,10 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
           </View>
           <View style={s.headerLeft}>
             <Text style={s.headerInvNum}>{invoice.invoice_number}</Text>
-            <Text style={s.headerDate}>{'تاريخ الاصدار: ' + fmtDate(invoice.issued_at)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+              <Text style={s.headerDate}>{'تاريخ الاصدار: '}</Text>
+              <DateView date={invoice.issued_at} />
+            </View>
           </View>
         </View>
         <View style={s.divider} />
@@ -490,9 +540,9 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
                 <Text style={s.infoLabel}>الفترة</Text>
               </View>
             ) : null}
-            {dateLabel ? (
+            {dateIso ? (
               <View style={s.infoRow}>
-                <Text style={s.infoValue}>{dateLabel}</Text>
+                <DateView date={dateIso} />
                 <Text style={s.infoLabel}>التاريخ</Text>
               </View>
             ) : null}
@@ -592,9 +642,11 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
 
         {/* الفوتر */}
         <View style={s.footer}>
-          <Text style={s.footerText}>
-            {invoice.invoice_number + ' · ' + fmtDate(invoice.issued_at) + ' · مركز حي الشاطئ للحجوزات'}
-          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={s.footerText}>{invoice.invoice_number + ' · '}</Text>
+            <DateView date={invoice.issued_at} />
+            <Text style={s.footerText}>{' · مركز حي الشاطئ للحجوزات'}</Text>
+          </View>
         </View>
 
       </Page>
