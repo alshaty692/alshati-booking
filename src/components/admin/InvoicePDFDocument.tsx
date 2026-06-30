@@ -92,9 +92,9 @@ const COURT_LABELS: Record<string, string> = {
 }
 
 const PERIOD_LABELS: Record<number, string> = {
-  1: '5-7م',
-  2: '7-9م',
-  3: '9-11م',
+  1: 'الفترة الاولى (5-7)',
+  2: 'الفترة الثانية (7-9)',
+  3: 'الفترة الثالثة (9-11)',
 }
 
 const CN_TYPE_LABELS: Record<string, string> = {
@@ -103,8 +103,9 @@ const CN_TYPE_LABELS: Record<string, string> = {
   error_correction: 'تصحيح خطأ',
 }
 
+// — fmt تُرجع الرقم فقط (بدون "ر") — الوحدة تُضاف في الـ JSX كعنصر منفصل
 function fmt(n: number): string {
-  return n.toFixed(n % 1 === 0 ? 0 : 2) + ' ر'
+  return n.toFixed(n % 1 === 0 ? 0 : 2)
 }
 
 function fmtDate(iso: string): string {
@@ -114,7 +115,10 @@ function fmtDate(iso: string): string {
     const month  = d.getMonth() + 1
     const year   = d.getFullYear()
     const months = ['يناير','فبراير','مارس','ابريل','مايو','يونيو','يوليو','اغسطس','سبتمبر','اكتوبر','نوفمبر','ديسمبر']
-    return `${day} ${months[month - 1]} ${year}`
+    // react-pdf مع RTL يعكس ترتيب الكلمات المختلطة (عربي+ارقام)
+    // نكتب العام اولاً والاسم في الوسط واليوم اخيراً
+    // حتى بعد الـ bidi reversal يظهر: يوم شهر سنة
+    return `${year} ${months[month - 1]} ${day}`
   } catch {
     return iso
   }
@@ -250,13 +254,45 @@ const s = StyleSheet.create({
     flex:      1,
   },
   tableAmount: {
+    fontSize:       9.5,
+    color:          C.black,
+    textAlign:      'left',
+    minWidth:       60,
+  },
+  // حاوي الرقم + وحدة العملة كعنصرين منفصلين لتجنّب تشويش bidi
+  amountCell: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'flex-end',
+    minWidth:       60,
+  },
+  amountNum: {
     fontSize:  9.5,
     color:     C.black,
     textAlign: 'left',
-    minWidth:  60,
   },
-  tableDiscount: {
-    color: C.red,
+  amountUnit: {
+    fontSize:   9.5,
+    color:      C.muted,
+    textAlign:  'left',
+    marginLeft: 2,
+  },
+  amountNumBold: {
+    fontSize:   10,
+    fontWeight: 700,
+    color:      C.black,
+    textAlign:  'left',
+  },
+  amountNumRed: {
+    fontSize:  9.5,
+    color:     C.red,
+    textAlign: 'left',
+  },
+  amountNumGreen: {
+    fontSize:   15,
+    fontWeight: 700,
+    color:      C.green,
+    textAlign:  'left',
   },
   tableTotalRow: {
     flexDirection:     'row',
@@ -477,7 +513,10 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
             <Text style={s.tableLabel}>
               {invoice.batch_id ? 'سعر الملعب (مجموع)' : 'سعر الملعب'}
             </Text>
-            <Text style={s.tableAmount}>{fmt(invoice.base_price)}</Text>
+            <View style={s.amountCell}>
+              <Text style={s.amountNum}>{fmt(invoice.base_price)}</Text>
+              <Text style={s.amountUnit}>ر</Text>
+            </View>
           </View>
 
           {invoice.discount_amount > 0 ? (
@@ -487,11 +526,13 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
                 {invoice.discount_code ? ' (' + invoice.discount_code + ')' : ''}
                 {invoice.discount_percentage > 0 ? ' - ' + invoice.discount_percentage + '%' : ''}
               </Text>
-              <Text style={[s.tableAmount, s.tableDiscount]}>
-                {'-' + fmt(invoice.discount_amount)}
-              </Text>
+              <View style={s.amountCell}>
+                <Text style={s.amountNumRed}>{'-' + fmt(invoice.discount_amount)}</Text>
+                <Text style={[s.amountUnit, { color: C.red }]}>ر</Text>
+              </View>
             </View>
           ) : null}
+
 
           {invoice.water_quantity > 0 ? (
             <View style={s.tableRow}>
@@ -519,7 +560,10 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
                     {cn.credit_note_number}
                     {cn.type ? ' - ' + (CN_TYPE_LABELS[cn.type] ?? cn.type) : ''}
                   </Text>
-                  <Text style={s.cnAmount}>{'-' + fmt(cn.amount)}</Text>
+                  <View style={s.amountCell}>
+                    <Text style={s.amountNumRed}>{'-' + fmt(cn.amount)}</Text>
+                    <Text style={[s.amountUnit, { color: C.red }]}>ر</Text>
+                  </View>
                 </View>
                 {cn.reason ? (
                   <Text style={s.cnReason}>{'السبب: ' + cn.reason}</Text>
@@ -533,12 +577,15 @@ export function InvoicePDFDocument({ invoice, creditNotes, balance }: InvoicePDF
         <View style={s.netBox}>
           <View style={s.netRow}>
             <Text style={s.netLabel}>الصافي المستحق</Text>
-            <Text style={s.netAmount}>{fmt(netAmount)}</Text>
+            <View style={s.amountCell}>
+              <Text style={s.amountNumGreen}>{fmt(netAmount)}</Text>
+              <Text style={[s.amountUnit, { fontSize: 13, color: C.green }]}>ر</Text>
+            </View>
           </View>
           {balance ? (
             <View style={s.netSub}>
-              <Text style={s.netSubText}>{'المدفوع: ' + fmt(balance.paid_amount)}</Text>
-              <Text style={s.netSubText}>{'المتبقي: ' + fmt(balance.balance_due)}</Text>
+              <Text style={s.netSubText}>{'المدفوع: ' + fmt(balance.paid_amount) + ' ر'}</Text>
+              <Text style={s.netSubText}>{'المتبقي: ' + fmt(balance.balance_due) + ' ر'}</Text>
             </View>
           ) : null}
         </View>
