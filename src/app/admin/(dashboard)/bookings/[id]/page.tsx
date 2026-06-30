@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import BatchCancelButton from '@/components/admin/BatchCancelButton'
+import HardDeleteModal from '@/components/admin/HardDeleteModal'
 import { cancelInvoicesForBooking } from '@/lib/invoices'
 
 export const metadata: Metadata = { title: 'تفاصيل الحجز' }
@@ -483,29 +484,40 @@ export default async function BookingDetailPage({ params }: Props) {
             </div>
           )}
 
-          {/* ── حذف ناعم — يظهر فقط للحجوزات الملغاة / المرفوضة / المنتهية ── */}
+          {/* ── إخفاء ناعم — يظهر للـ admin و editor على الملغاة/المرفوضة/المنتهية ── */}
           {canEdit && ['cancelled', 'rejected', 'expired'].includes(booking.status) && !booking.deleted_at && (
             <div className="card bd-soft-delete-card">
-              <CardHead icon={<ShieldAlert size={16} strokeWidth={1.75} />} title="حذف الحجز نهائياً" />
+              <CardHead icon={<ShieldAlert size={16} strokeWidth={1.75} />} title="إخفاء الحجز (ناعم)" />
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
-                يُخفي الحجز من جميع القوائم نهائياً. السجل يبقى موجوداً في قاعدة البيانات للمراجعة.
+                يُخفي الحجز من القوائم. السجل يبقى في قاعدة البيانات ويمكن استرجاعه.
               </p>
               <form action={softDeleteBooking}>
                 <input type="hidden" name="booking_id" value={booking.id} />
                 <button
                   id={`btn-soft-delete-${booking.id}`}
                   type="submit"
-                  className="btn btn-danger btn-full"
+                  className="btn btn-secondary btn-full"
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}
                 >
                   <Trash2 size={15} strokeWidth={2} />
-                  حذف الحجز نهائياً
+                  إخفاء الحجز
                 </button>
                 <p className="bd-warning-note" style={{ marginTop: 'var(--space-2)' }}>
                   <AlertTriangle size={12} strokeWidth={2} />
-                  الحجز لن يظهر في القوائم بعد الحذف
+                  الحجز لن يظهر في القوائم (السجل يبقى في DB)
                 </p>
               </form>
+            </div>
+          )}
+
+          {/* ── حذف نهائي (Hard Delete) — admin فقط ── */}
+          {role === 'admin' && ['cancelled', 'rejected', 'expired'].includes(booking.status) && !booking.deleted_at && (
+            <div className="card" style={{ borderColor: 'rgba(224,85,85,.35)', background: 'rgba(224,85,85,.03)' }}>
+              <CardHead icon={<ShieldAlert size={16} strokeWidth={1.75} />} title="حذف نهائي" />
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
+                يحذف الحجز نهائياً من قاعدة البيانات ويشطب الفاتورة مع حفظ السبب. لا رجعة بعد التأكيد.
+              </p>
+              <HardDeleteModal bookingId={booking.id} role={role} />
             </div>
           )}
 
