@@ -9,16 +9,22 @@ import {
 } from '@react-pdf/renderer'
 
 // ── تسجيل خط Tajawal ──────────────────────────────────────────
-Font.register({
-  family: 'Tajawal',
-  fonts: [
-    { src: '/fonts/Tajawal-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/Tajawal-Bold.ttf',    fontWeight: 700 },
-  ],
-})
-
-// تعطيل hyphenation لتجنب كسر الكلمات العربية
-Font.registerHyphenationCallback((word) => [word])
+// يُستدعى عند أول توليد PDF فقط (lazy) لضمان وجود window.location
+let fontsRegistered = false
+export function registerTajawalFonts() {
+  if (fontsRegistered) return
+  fontsRegistered = true
+  // نستخدم URL مطلق لأن @react-pdf/renderer يحتاجه في بيئة المتصفح
+  const base = typeof window !== 'undefined' ? window.location.origin : ''
+  Font.register({
+    family: 'Tajawal',
+    fonts: [
+      { src: base + '/fonts/Tajawal-Regular.ttf', fontWeight: 400 },
+      { src: base + '/fonts/Tajawal-Bold.ttf',    fontWeight: 700 },
+    ],
+  })
+  Font.registerHyphenationCallback((word) => [word])
+}
 
 /* ── أنواع ──────────────────────────────────────────────────── */
 interface Customer { name: string; phone: string; customer_code: string }

@@ -205,7 +205,10 @@ function InvoiceModal({
     try {
       // dynamic import لتجنب SSR issues
       const { pdf } = await import('@react-pdf/renderer')
-      const { InvoicePDFDocument } = await import('@/components/admin/InvoicePDFDocument')
+      const { InvoicePDFDocument, registerTajawalFonts } = await import('@/components/admin/InvoicePDFDocument')
+
+      // تسجيل الخط بـ URL مطلق — يجب أن يكون قبل pdf()
+      registerTajawalFonts()
 
       // تصفية CNs المعتمدة فقط — لا نُرسل المسودات للـ PDF
       const approvedCNs = creditNotes.filter(cn => cn.status === 'approved')
