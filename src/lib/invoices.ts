@@ -200,9 +200,19 @@ export async function cancelInvoicesForBooking(
     .eq('booking_id', booking_id)
     .eq('status', 'issued')
 
-  // تحديث إحصائيات العميل (طرح)
+  // تحديث إحصائيات العميل (طرح net_amount لا total_amount)
+  // سبب: لو اعتُمد CN سابقاً، total_paid انخفض بمبلغ CN بالفعل
+  // فنطرح فقط الصافي المتبقي لتجنب الطرح المزدوج
   for (const inv of invoices) {
-    await updateCustomerStats(inv.customer_id, -inv.total_amount, -1, admin)
+    // احسب مجموع CNs المعتمدة لهذه الفاتورة
+    const { data: cnsData } = await admin
+      .from('credit_notes')
+      .select('amount')
+      .eq('invoice_id', inv.id)
+      .eq('status', 'approved')
+    const approvedCNsTotal = (cnsData ?? []).reduce((s, cn) => s + Number(cn.amount), 0)
+    const netAmount = Math.max(0, Number(inv.total_amount) - approvedCNsTotal)
+    await updateCustomerStats(inv.customer_id, -netAmount, -1, admin)
   }
 }
 
@@ -230,15 +240,24 @@ export async function cancelInvoicesForBatch(
     .eq('batch_id', batch_id)
     .eq('status', 'issued')
 
+  // نفس منطق cancelInvoicesForBooking — نطرح net لا total
   for (const inv of invoices) {
-    await updateCustomerStats(inv.customer_id, -inv.total_amount, -1, admin)
+    const { data: cnsData } = await admin
+      .from('credit_notes')
+      .select('amount')
+      .eq('invoice_id', inv.id)
+      .eq('status', 'approved')
+    const approvedCNsTotal = (cnsData ?? []).reduce((s, cn) => s + Number(cn.amount), 0)
+    const netAmount = Math.max(0, Number(inv.total_amount) - approvedCNsTotal)
+    await updateCustomerStats(inv.customer_id, -netAmount, -1, admin)
   }
 }
 
 /* ─────────────────────────────────────────────────────────────
-   updateCustomerStats — مساعد داخلي لتحديث إحصائيات العميل
+   updateCustomerStats — مُصدَّرة لاستخدامها في lib/credit-notes.ts
+   amountDelta: موجب عند إصدار، سالب عند إلغاء أو اعتماد CN
 ───────────────────────────────────────────────────────────── */
-async function updateCustomerStats(
+export async function updateCustomerStats(
   customer_id:    string,
   amountDelta:    number,   // موجب عند إصدار، سالب عند إلغاء
   bookingsDelta:  number,

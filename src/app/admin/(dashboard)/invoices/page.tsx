@@ -200,163 +200,35 @@ function InvoiceModal({
     error_correction: 'تصحيح خطأ',
   }
 
-  // ── تصدير PDF — نفس نهج التقارير (off-screen HTML string) ────
+  // ── تصدير PDF بـ @react-pdf/renderer — نص عربي حقيقي بدون عكس حروف ──
   async function handleExportPDF() {
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
+      // dynamic import لتجنب SSR issues
+      const { pdf } = await import('@react-pdf/renderer')
+      const { InvoicePDFDocument } = await import('@/components/admin/InvoicePDFDocument')
 
-      // تحميل خط Tajawal قبل الرسم
-      const FONT_URL = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block'
-      if (!document.querySelector(`link[href="${FONT_URL}"]`)) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'; link.href = FONT_URL
-        document.head.appendChild(link)
-      }
-      await document.fonts.ready
-      await Promise.allSettled([
-        document.fonts.load('700 20px Tajawal', 'فاتورة'),
-        document.fonts.load('400 14px Tajawal', 'فاتورة'),
-      ])
+      // تصفية CNs المعتمدة فقط — لا نُرسل المسودات للـ PDF
+      const approvedCNs = creditNotes.filter(cn => cn.status === 'approved')
 
-      // بناء HTML الفاتورة
-      const discountRow = invoice.discount_amount > 0
-        ? `<tr style="color:#d97706;border-bottom:1px solid #eee"><td style="padding:.4rem .6rem">خصم${invoice.discount_code ? ` (${invoice.discount_code})` : ''}${invoice.discount_percentage > 0 ? ` — ${invoice.discount_percentage}%` : ''}</td><td style="padding:.4rem .6rem;text-align:left;direction:ltr">−${fmt(invoice.discount_amount)} ر</td></tr>` : ''
+      const blob = await pdf(
+        <InvoicePDFDocument
+          invoice={invoice}
+          creditNotes={approvedCNs}
+          balance={balance}
+        />
+      ).toBlob()
 
-      const waterRow = invoice.water_quantity > 0
-        ? `<tr style="border-bottom:1px solid #eee"><td style="padding:.4rem .6rem">مياه (${invoice.water_quantity} كرتون × ${fmt(invoice.water_unit_price)} ر)</td><td style="padding:.4rem .6rem;text-align:left;direction:ltr">${fmt(invoice.water_total)} ر</td></tr>` : ''
-
-      const bookingSection = bk
-        ? `<div class="section"><div class="section-title">تفاصيل الحجز</div><div class="grid"><div class="field"><span class="label">الملعب</span><strong>${COURT_LABELS[bk.court_id] ?? bk.court_id}</strong></div><div class="field"><span class="label">الفترة</span><strong>${PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong></div><div class="field" style="grid-column:1/-1"><span class="label">التاريخ</span><strong>${new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</strong></div></div></div>`
-        : invoice.batch_id ? `<div class="section"><div class="section-title">باقة</div><p>فاتورة مجمّعة للباقة</p></div>` : ''
-
-      const approvedCNs = creditNotes.filter(cn => cn.status !== 'cancelled')
-      const cnSection = approvedCNs.length > 0
-        ? `<div class="section"><div class="section-title">إشعارات الائتمان</div>${approvedCNs.map(cn => `<div style="display:flex;justify-content:space-between;padding:.25rem 0;border-bottom:1px solid #eee;font-size:11px"><span>${cn.credit_note_number} — ${cn.reason}</span><span style="color:#ef4444">−${fmt(cn.amount)} ر (${cn.status === 'approved' ? 'معتمد' : 'مسودة'})</span></div>`).join('')}</div>` : ''
-
-      const balanceSection = balance
-        ? `<div class="section"><div class="section-title">الرصيد المالي</div><div class="balance-row"><span>المُفوتَر</span><span>${fmt(balance.total_amount)} ر</span></div>${balance.approved_cn_total > 0 ? `<div class="balance-row" style="color:#d97706"><span>إشعارات ائتمان</span><span>−${fmt(balance.approved_cn_total)} ر</span></div>` : ''}<div class="balance-row"><span>المدفوع</span><span style="color:#16a34a">${fmt(balance.paid_amount)} ر</span></div><div class="balance-row" style="font-weight:700"><span>المتبقي</span><span style="color:${balance.balance_due > 0 ? '#dc2626' : '#16a34a'}">${fmt(balance.balance_due)} ر</span></div></div>` : ''
-
-      const html = `
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;800&display=block');
-          * { box-sizing:border-box;margin:0;padding:0;font-family:'Tajawal',Arial,sans-serif;direction:rtl; }
-          .invoice-pdf { width:620px;padding:28px;background:#fff;color:#111; }
-          .header { display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:3px solid #7bba00;margin-bottom:16px; }
-          .header-title { font-size:22px;font-weight:800;color:#7bba00; }
-          .header-num { font-size:13px;font-weight:700;margin-top:4px; }
-          .header-date { font-size:10px;color:#666;margin-top:2px; }
-          .section { margin-bottom:12px;padding:10px 12px;background:#f8f9fa;border-radius:6px; }
-          .section-title { font-size:9px;text-transform:uppercase;color:#5a8a00;font-weight:700;letter-spacing:.06em;margin-bottom:8px; }
-          .grid { display:grid;grid-template-columns:1fr 1fr;gap:5px 12px; }
-          .field { display:flex;flex-direction:column;gap:2px; }
-          .label { font-size:8px;color:#888;font-weight:600;text-transform:uppercase; }
-          .field strong { font-size:12px;font-weight:700; }
-          table { width:100%;border-collapse:collapse;margin-bottom:12px;font-size:11px; }
-          thead tr { background:#1a1a1a; }
-          th { padding:.4rem .6rem;text-align:right;font-weight:700;color:#c8ff3e; }
-          td { padding:.35rem .6rem;border-bottom:1px solid #eee; }
-          .total-row td { background:#f0f0f0;font-weight:700;font-size:13px; }
-          .balance-row { display:flex;justify-content:space-between;padding:.3rem 0;font-size:11px;border-bottom:1px solid #eee; }
-          .footer { text-align:center;color:#999;font-size:8px;margin-top:14px;padding-top:8px;border-top:1px solid #eee; }
-        </style>
-        <div class="invoice-pdf">
-          <div class="header">
-            <div>
-              <div class="header-title">فاتورة</div>
-              <div class="header-num">${invoice.invoice_number}</div>
-              <div class="header-date">تاريخ الإصدار: ${new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory', { year:'numeric', month:'long', day:'numeric' })}</div>
-            </div>
-            <div style="text-align:left;font-size:11px;color:#666;font-weight:600">الشاطئ للحجوزات</div>
-          </div>
-          <div class="section">
-            <div class="section-title">بيانات العميل</div>
-            <div class="grid">
-              <div class="field"><span class="label">الاسم</span><strong>${cust?.name ?? '—'}</strong></div>
-              <div class="field"><span class="label">الكود</span><strong>${cust?.customer_code ?? '—'}</strong></div>
-              <div class="field" style="direction:ltr"><span class="label" style="direction:rtl">الجوال</span><strong>${cust?.phone ?? '—'}</strong></div>
-            </div>
-          </div>
-          ${bookingSection}
-          <table>
-            <thead><tr><th>البند</th><th style="text-align:left;direction:ltr">المبلغ</th></tr></thead>
-            <tbody>
-              <tr style="border-bottom:1px solid #eee"><td>سعر الملعب${invoice.batch_id ? ' (مجموع)' : ''}</td><td style="text-align:left;direction:ltr">${fmt(invoice.base_price)} ر</td></tr>
-              ${discountRow}
-              ${waterRow}
-              <tr class="total-row"><td>الإجمالي</td><td style="text-align:left;direction:ltr">${fmt(invoice.total_amount)} ر</td></tr>
-            </tbody>
-          </table>
-          ${balanceSection}
-          ${cnSection}
-          <div class="footer">${invoice.invoice_number} · ${new Date(invoice.issued_at).toLocaleDateString('ar-SA-u-ca-gregory')}</div>
-        </div>`
-
-      // التقاط off-screen — نفس أسلوب captureChunk بالتقارير
-      const container = document.createElement('div')
-      container.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-9999;'
-      container.innerHTML = html
-      document.body.appendChild(container)
-      await new Promise(r => setTimeout(r, 300))
-
-      // استبدل كل .section-title بصورة canvas — يحل مشكلة بيانات لعمهل / تفصيل لحجز
-      const sectionTitles = Array.from(container.querySelectorAll('.section-title'))
-      for (const titleEl of sectionTitles) {
-        const titleText = (titleEl as HTMLElement).textContent?.trim() ?? ''
-        if (!titleText) continue
-        const cvs = document.createElement('canvas')
-        cvs.width = 580; cvs.height = 22
-        const ctx = cvs.getContext('2d')!
-        ctx.clearRect(0, 0, 580, 22)
-        ctx.font         = '700 11px Tajawal, Arial'
-        ctx.fillStyle    = '#5a8a00'
-        ctx.textAlign    = 'right'
-        ctx.direction    = 'rtl'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(titleText, 570, 11)
-        const img = document.createElement('img')
-        img.src = cvs.toDataURL('image/png')
-        img.style.cssText = 'display:block;width:580px;height:22px;margin-bottom:8px;'
-        ;(titleEl as HTMLElement).replaceWith(img)
-      }
-
-      // استبدل .header-title بصورة canvas — نفس مشكلة bold ligatures
-      const headerTitle = container.querySelector('.header-title') as HTMLElement | null
-      if (headerTitle) {
-        const cvs = document.createElement('canvas')
-        cvs.width = 200; cvs.height = 36
-        const ctx = cvs.getContext('2d')!
-        ctx.clearRect(0, 0, 200, 36)
-        ctx.font         = '800 22px Tajawal, Arial'
-        ctx.fillStyle    = '#7bba00'
-        ctx.textAlign    = 'right'
-        ctx.direction    = 'rtl'
-        ctx.textBaseline = 'middle'
-        ctx.fillText('فاتورة', 190, 18)
-        const img = document.createElement('img')
-        img.src = cvs.toDataURL('image/png')
-        img.style.cssText = 'display:block;width:200px;height:36px;'
-        headerTitle.replaceWith(img)
-      }
-
-      const el = container.querySelector('.invoice-pdf') as HTMLElement | null
-      if (!el) { document.body.removeChild(container); return }
-
-      const canvas = await html2canvas(el, {
-        scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false, windowWidth: 680,
-      })
-      document.body.removeChild(container)
-
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-      const MARGIN = 10
-      const CONT_W = pdf.internal.pageSize.getWidth() - MARGIN * 2
-      const imgH = (canvas.height * CONT_W) / canvas.width
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', MARGIN, MARGIN, CONT_W, imgH)
-      pdf.save(`${invoice.invoice_number}.pdf`)
+      const url  = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href     = url
+      link.download = `${invoice.invoice_number}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
     } catch (e) {
       console.error('[PDF]', e)
+      alert('حدث خطأ أثناء توليد الفاتورة')
     }
   }
 

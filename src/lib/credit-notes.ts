@@ -3,6 +3,7 @@
 // خدمة إشعارات الائتمان — إنشاء، اعتماد، إلغاء، استعلام
 // ============================================================
 import { createAdminClient } from '@/lib/supabase/server'
+import { updateCustomerStats } from '@/lib/invoices'
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -109,7 +110,7 @@ export async function approveCreditNote(
 
   const { data: cn, error: fetchErr } = await admin
     .from('credit_notes')
-    .select('id, status')
+    .select('id, status, customer_id, amount')
     .eq('id', cn_id)
     .single()
 
@@ -129,6 +130,10 @@ export async function approveCreditNote(
     .eq('id', cn_id)
 
   if (error) throw new Error(`[approveCreditNote] فشل الاعتماد: ${error.message}`)
+
+  // تحديث customers.total_paid — نطرح مبلغ CN لأنه خصم فعلي معتمد
+  // bookingsDelta=0 لأن CN لا يغيّر عدد الحجوزات
+  await updateCustomerStats(cn.customer_id, -Number(cn.amount), 0, admin)
 
   // الـ Trigger يُحدّث payment_status على الفاتورة تلقائياً
 }
