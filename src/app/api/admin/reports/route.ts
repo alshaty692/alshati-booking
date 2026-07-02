@@ -7,7 +7,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import type {
   ReportData, ReportMeta, ReportKpis, ReportFinancial,
   ReportBookings, ReportCustomers, ReportCodes,
@@ -53,8 +53,8 @@ function buildHeatGrid(rows: BookingRow[], weeksCount: number): HeatGrid {
 // ──────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   try {
-    // 1. التحقق من الصلاحية — admin/editor فقط
-    const auth = await requireAdminRole()
+    // 1. التحقق من الصلاحية — view_reports (admin/editor/viewer)
+    const auth = await requirePermission('view_reports')
     if (!auth.ok) return auth.response
 
     // 2. قراءة الفلاتر من الـ URL
