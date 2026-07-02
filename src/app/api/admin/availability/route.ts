@@ -1,13 +1,13 @@
 // GET /api/admin/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
-// Returns { slots, blocked, settings } — admin/editor فقط
+// Returns { slots, blocked, settings } — admin/editor/viewer
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_availability')
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(req.url)

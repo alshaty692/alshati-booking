@@ -4,6 +4,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { createCreditNote, getCreditNotesForInvoice } from '@/lib/credit-notes'
 import { createAdminClient } from '@/lib/supabase/server'
 import type { CreditNoteType } from '@/lib/credit-notes'
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('view_invoices')
     if (!auth.ok) return auth.response
 
     const invoice_id = new URL(request.url).searchParams.get('invoice_id')
