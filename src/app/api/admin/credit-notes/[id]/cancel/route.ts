@@ -3,7 +3,7 @@
 // يعمل على draft فقط — الإشعارات المعتمدة لا تُلغى
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { cancelCreditNote } from '@/lib/credit-notes'
 import { createAdminClient } from '@/lib/supabase/server'
 
@@ -12,7 +12,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireAdminRole(['admin', 'editor'])
+    const auth = await requirePermission('manage_credit_notes')
     if (!auth.ok) return auth.response
 
     const { id } = await params
@@ -30,14 +30,14 @@ export async function PATCH(
 
     if (!cn) return Response.json({ error: 'الإشعار غير موجود' }, { status: 404 })
 
-    await cancelCreditNote(id, auth.session.userId, cancel_reason, admin)
+    await cancelCreditNote(id, auth.userId, cancel_reason, admin)
 
     // تسجيل في audit_log
     await admin.from('audit_log').insert({
       table_name:   'credit_notes',
       record_id:    id,
       action:       'update',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes:        `إلغاء إشعار ائتمان ${cn.credit_note_number}${cancel_reason ? ` — السبب: ${cancel_reason}` : ''}`,
     })
 

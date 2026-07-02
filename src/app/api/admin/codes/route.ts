@@ -2,12 +2,12 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function POST(req: NextRequest) {
   try {
     // 🔴 حرج — إنشاء كود خصم
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_codes')
     if (!auth.ok) return auth.response
 
     const supabase = createAdminClient()

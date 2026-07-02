@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         table_name: 'bookings',
         record_id: existingBooking.id,
         action: 'soft_delete',
-        performed_by: user.id,
+        performed_by: auth.userId,
         notes: `حذف ناعم لحجز ${existingBooking.status} قديم استعداداً لحجز يدوي جديد على نفس الفترة`,
       }).then(() => {}) // تجاهل خطأ audit بدون إيقاف التدفق
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         .from('bookings')
         .update({
           deleted_at: new Date().toISOString(),
-          deleted_by: user.id,
+          deleted_by: auth.userId,
         })
         .eq('id', existingBooking.id)
         .eq('status', existingBooking.status) // قيد أمان: لا يُعدَّل إلا بنفس الحالة المتوقعة
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
         is_manual:       true,
         internal_note:   internal_note || null,
         ...(isConfirmed
-          ? { confirmed_by: user.id, confirmed_at: new Date().toISOString() }
+          ? { confirmed_by: auth.userId, confirmed_at: new Date().toISOString() }
           : {}),
       })
       .select('id')
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
       table_name: 'bookings',
       record_id:  booking!.id,
       action:     'insert',
-      performed_by: user.id,
+      performed_by: auth.userId,
       notes: `حجز يدوي (${finalStatus}) بواسطة الإدارة لـ ${customer_phone}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
     })
 

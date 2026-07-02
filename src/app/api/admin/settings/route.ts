@@ -3,11 +3,11 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET() {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_settings')
     if (!auth.ok) return auth.response
 
     // نستخدم Admin Client لجلب كل الإعدادات بما فيها الحساسة
@@ -24,7 +24,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     // 🔴 حرج — تعديل الإعدادات يشمل الأسعار والبنك وغيرها
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_settings')
     if (!auth.ok) return auth.response
 
     const body = await req.json()

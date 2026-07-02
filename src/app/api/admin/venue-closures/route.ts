@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         start_date,
         end_date,
         reason: reason || 'صيانة',
-        created_by: auth.session.userId,
+        created_by: auth.userId,
       })
       .select()
       .single()
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       table_name: 'venue_closures',
       record_id: data.id,
       action: 'insert',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes: `إيقاف ملعب ${court_id} من ${start_date} إلى ${end_date}: ${reason}`,
     })
 
@@ -88,7 +88,7 @@ export async function DELETE(request: NextRequest) {
       table_name: 'venue_closures',
       record_id: id,
       action: 'delete',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes: 'حذف إيقاف ملعب',
     })
 

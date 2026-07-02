@@ -3,7 +3,6 @@
 // GET  /api/admin/credit-notes     — جلب إشعارات فاتورة
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
 import { requirePermission } from '@/lib/permissions'
 import { createCreditNote, getCreditNotesForInvoice } from '@/lib/credit-notes'
 import { createAdminClient } from '@/lib/supabase/server'
@@ -13,7 +12,7 @@ const VALID_TYPES: CreditNoteType[] = ['price_adjustment', 'partial_refund', 'er
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdminRole(['admin', 'editor'])
+    const auth = await requirePermission('manage_credit_notes')
     if (!auth.ok) return auth.response
 
     const body = await request.json()
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
       reason:      reason.trim(),
       type,
       items:       items ?? null,
-      created_by:  auth.session.userId,
+      created_by:  auth.userId,
     }, admin)
 
     // تسجيل في audit_log
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
       table_name:   'credit_notes',
       record_id:    id,
       action:       'insert',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes:        `إنشاء إشعار ائتمان ${credit_note_number} بمبلغ ${numericAmount} ريال — ${type}`,
     })
 

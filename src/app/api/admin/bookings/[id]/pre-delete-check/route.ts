@@ -3,7 +3,7 @@
 // فحص ما قبل الحذف النهائي — يُستدعى قبل فتح المودال
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { preDeleteCheck } from '@/lib/bookings'
 
@@ -13,7 +13,7 @@ export async function GET(
 ) {
   try {
     // admin فقط (editor لا يحذف نهائياً)
-    const auth = await requireAdminRole(['admin'])
+    const auth = await requirePermission('hard_delete_booking')
     if (!auth.ok) return auth.response
 
     const { id } = await params

@@ -49,7 +49,7 @@ export async function DELETE(
       .from('bookings')
       .update({
         deleted_at: new Date().toISOString(),
-        deleted_by: user.id,
+        deleted_by: auth.userId,
       })
       .eq('id', id)
 
@@ -63,7 +63,7 @@ export async function DELETE(
       table_name: 'bookings',
       record_id:  id,
       action:     'soft_delete',
-      performed_by: user.id,
+      performed_by: auth.userId,
       notes: `حذف ناعم للحجز (${booking.customer_name} — ${booking.booking_date})`,
     })
 

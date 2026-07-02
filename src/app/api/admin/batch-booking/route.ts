@@ -134,12 +134,12 @@ export async function POST(request: NextRequest) {
           /* حجز ملغى → حذف ناعم (نُخفيه بدل مسحه — يحافظ على FK مع invoices) */
           await admin.from('audit_log').insert({
             table_name: 'bookings', record_id: existing.id,
-            action: 'soft_delete', performed_by: auth.session.userId,
+            action: 'soft_delete', performed_by: auth.userId,
             notes: `حذف ناعم لحجز ${existing.status} قديم استعداداً لحجز متعدد (${batchId})`,
           }).then(() => {})
           const { error: delErr } = await admin.from('bookings').update({
             deleted_at: new Date().toISOString(),
-            deleted_by: auth.session.userId,
+            deleted_by: auth.userId,
           }).eq('id', existing.id).eq('status', existing.status)
           if (delErr) throw new Error(delErr.message)
         }
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
             batch_id:       batchId,
             internal_note:  internal_note || null,
             ...(isConfirmed
-              ? { confirmed_by: auth.session.userId, confirmed_at: new Date().toISOString() }
+              ? { confirmed_by: auth.userId, confirmed_at: new Date().toISOString() }
               : {}),
           })
           .select('id')
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
           table_name: 'bookings',
           record_id: booking!.id,
           action: 'insert',
-          performed_by: auth.session.userId,
+          performed_by: auth.userId,
           notes: `حجز متعدد (${batchId}) · ${finalStatus} · ${slotLabel}${waterQty > 0 ? ` + ${waterQty} كرتون ماء` : ''}`,
         })
 
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
       table_name: 'bookings',
       record_id: batchId,
       action: 'batch_create',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes: `باقة (${batchId}) — ${createdCount}/${slots.length} فترة · ${customer_phone.trim()}`,
     })
 
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
    ================================================================ */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('view_bookings')
     if (!auth.ok) return auth.response
 
     const batchId = new URL(request.url).searchParams.get('batch_id')
@@ -334,7 +334,7 @@ export async function GET(request: NextRequest) {
    ================================================================ */
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('cancel_booking')
     if (!auth.ok) return auth.response
 
     const batchId = new URL(request.url).searchParams.get('batch_id')
@@ -376,7 +376,7 @@ export async function DELETE(request: NextRequest) {
       table_name: 'bookings',
       record_id: batchId,
       action: 'batch_cancel',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes: `إلغاء جماعي للباقة (${batchId}) — ${activeBookings.length} حجز · السبب: ${reason}`,
     })
 

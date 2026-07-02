@@ -3,7 +3,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import * as XLSX from 'xlsx'
 import { getCourtName, getPeriodName } from '@/lib/utils'
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   void request
   try {
     // 🔴 حرج — يصدّر كل بيانات الحجوزات
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('export_data')
     if (!auth.ok) return auth.response
 
     // جلب كل الحجوزات

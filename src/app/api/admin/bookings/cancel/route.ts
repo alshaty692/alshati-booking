@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       table_name: 'bookings',
       record_id: booking_id,
       action: 'update',
-      performed_by: user.id,
+      performed_by: auth.userId,
       notes: `إلغاء إداري للحجز. السبب: ${cancellation_reason || 'لم يُذكر'}`,
     })
 

@@ -3,14 +3,13 @@
 // GET  /api/admin/payments      — جلب دفعات + رصيد فاتورة
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
 import { requirePermission } from '@/lib/permissions'
 import { recordPayment, getInvoiceBalance } from '@/lib/payments'
 import { createAdminClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdminRole(['admin', 'editor'])
+    const auth = await requirePermission('manage_payments')
     if (!auth.ok) return auth.response
 
     const body = await request.json()
@@ -43,7 +42,7 @@ export async function POST(request: NextRequest) {
       payment_date,
       reference_number,
       notes,
-      recorded_by: auth.session.userId,
+      recorded_by: auth.userId,
     }, admin)
 
     // أعد الرصيد المحدّث
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
       table_name:   'payments',
       record_id:    id,
       action:       'insert',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes:        `تسجيل دفعة ${numericAmount} ريال بطريقة ${payment_method} على الفاتورة ${invoice_id}`,
     })
 

@@ -2,7 +2,7 @@
 // PATCH /api/admin/credit-notes/[id]/approve — اعتماد إشعار (admin فقط)
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { approveCreditNote } from '@/lib/credit-notes'
 import { createAdminClient } from '@/lib/supabase/server'
 
@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireAdminRole(['admin']) // admin فقط
+    const auth = await requirePermission('approve_credit_note') // admin فقط
     if (!auth.ok) return auth.response
 
     const { id } = await params
@@ -26,14 +26,14 @@ export async function PATCH(
 
     if (!cn) return Response.json({ error: 'الإشعار غير موجود' }, { status: 404 })
 
-    await approveCreditNote(id, auth.session.userId, admin)
+    await approveCreditNote(id, auth.userId, admin)
 
     // تسجيل في audit_log
     await admin.from('audit_log').insert({
       table_name:   'credit_notes',
       record_id:    id,
       action:       'update',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes:        `اعتماد إشعار ائتمان ${cn.credit_note_number} بمبلغ ${cn.amount} ريال`,
     })
 

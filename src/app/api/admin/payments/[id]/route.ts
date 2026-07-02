@@ -2,7 +2,7 @@
 // DELETE /api/admin/payments/[id] — حذف دفعة خاطئة (admin فقط)
 // ============================================================
 import { NextRequest } from 'next/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { deletePayment } from '@/lib/payments'
 import { createAdminClient } from '@/lib/supabase/server'
 
@@ -11,7 +11,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireAdminRole(['admin']) // admin فقط
+    const auth = await requirePermission('delete_payment') // admin فقط
     if (!auth.ok) return auth.response
 
     const { id } = await params
@@ -34,7 +34,7 @@ export async function DELETE(
       table_name:   'payments',
       record_id:    id,
       action:       'delete',
-      performed_by: auth.session.userId,
+      performed_by: auth.userId,
       notes:        `حذف دفعة ${payment.amount} ريال (${payment.payment_method}) من الفاتورة ${payment.invoice_id}`,
     })
 
