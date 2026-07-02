@@ -6,11 +6,11 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET() {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_availability')
     if (!auth.ok) return auth.response
 
     const supabase = createAdminClient()
@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_availability')
     if (!auth.ok) return auth.response
 
     const { court_id, start_date, end_date, reason } = await request.json()
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('manage_availability')
     if (!auth.ok) return auth.response
 
     const { id } = await request.json()

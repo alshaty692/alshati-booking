@@ -3,20 +3,14 @@
 // إلغاء حجز من قِبَل الأدمن مع سبب اختياري
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { cancelInvoicesForBooking } from '@/lib/invoices'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
-
-    const { data: adminUser } = await supabase
-      .from('admin_users').select('role').eq('id', user.id).single()
-    if (!['admin', 'editor'].includes(adminUser?.role ?? '')) {
-      return Response.json({ error: 'ليس لديك صلاحية الإلغاء' }, { status: 403 })
-    }
+    const auth = await requirePermission('cancel_booking')
+    if (!auth.ok) return auth.response
 
     const body = await request.json()
     const { booking_id, cancellation_reason } = body

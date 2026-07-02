@@ -4,7 +4,8 @@
 // لا يُسمح بحذف حجز مؤكد أو معلق
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 
 const DELETABLE_STATUSES = ['cancelled', 'rejected', 'expired'] as const
 
@@ -16,15 +17,8 @@ export async function DELETE(
     const { id } = await params
 
     // ── مصادقة ───────────────────────────────────────────────
-    const authClient = await createClient()
-    const { data: { user } } = await authClient.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
-
-    const { data: adminUser } = await authClient
-      .from('admin_users').select('role').eq('id', user.id).single()
-    if (!['admin', 'editor'].includes(adminUser?.role ?? '')) {
-      return Response.json({ error: 'ليس لديك صلاحية الحذف' }, { status: 403 })
-    }
+    const auth = await requirePermission('soft_delete_booking')
+    if (!auth.ok) return auth.response
 
     const admin = createAdminClient()
 

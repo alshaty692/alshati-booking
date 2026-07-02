@@ -5,7 +5,7 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 import { fetchCourtNames } from '@/hooks/useCourtNames'
 import { findOrCreateCustomer } from '@/lib/customers'
 import { createBatchInvoices, cancelInvoicesForBatch } from '@/lib/invoices'
@@ -53,7 +53,7 @@ const PERIOD_NAMES: Record<number, string> = { 1: '5-7م', 2: '7-9م', 3: '9-11�
 export async function POST(request: NextRequest) {
   try {
     /* ── مصادقة ── */
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('create_booking')
     if (!auth.ok) return auth.response
 
     /* ── قراءة الـ body ── */
