@@ -288,31 +288,40 @@ function InvoiceModal({
         </section>
 
         {/* تفاصيل الحجز */}
-        {(bk || invoice.batch_id) && (
-          <section className="inv-section">
-            <h3 className="inv-section-title">
-              🏟️ {invoice.batch_id ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
-            </h3>
-            {bk ? (
-              <div className="inv-grid-2">
-                <div className="inv-field">
-                  <span className="inv-field-label">الملعب</span>
-                  <strong className="inv-field-val">{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong>
+        {(bk || invoice.batch_id) && (() => {
+          const isDeletedBooking = !!invoice.batch_id?.startsWith('deleted_booking_')
+          const isRealBatch      = !!invoice.batch_id && !isDeletedBooking
+          return (
+            <section className="inv-section">
+              <h3 className="inv-section-title">
+                🏟️ {isDeletedBooking ? 'تفاصيل الحجز (محذوف نهائياً)' : isRealBatch ? `باقة — ${invoice.batch_id}` : 'تفاصيل الحجز'}
+              </h3>
+              {bk ? (
+                <div className="inv-grid-2">
+                  <div className="inv-field">
+                    <span className="inv-field-label">الملعب</span>
+                    <strong className="inv-field-val">{COURT_LABELS[bk.court_id] ?? bk.court_id}</strong>
+                  </div>
+                  <div className="inv-field">
+                    <span className="inv-field-label">الفترة</span>
+                    <strong className="inv-field-val">{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong>
+                  </div>
+                  <div className="inv-field" style={{ gridColumn: '1 / -1' }}>
+                    <span className="inv-field-label">التاريخ</span>
+                    <strong className="inv-field-val">{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                  </div>
                 </div>
-                <div className="inv-field">
-                  <span className="inv-field-label">الفترة</span>
-                  <strong className="inv-field-val">{PERIOD_LABELS[bk.period_number] ?? bk.period_number}</strong>
+              ) : isDeletedBooking ? (
+                <div style={{ fontSize: '.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '.4rem' }}>
+                  <span>🗑️</span>
+                  <span>تم حذف بيانات هذا الحجز نهائياً — تفاصيل الفاتورة محفوظة أعلاه</span>
                 </div>
-                <div className="inv-field" style={{ gridColumn: '1 / -1' }}>
-                  <span className="inv-field-label">التاريخ</span>
-                  <strong className="inv-field-val">{new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
-                </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: '.85rem', color: 'var(--text-muted)' }}>فاتورة مجمّعة للباقة</div>
-            )}
-          </section>
-        )}
+              ) : (
+                <div style={{ fontSize: '.85rem', color: 'var(--text-muted)' }}>فاتورة مجمّعة للباقة</div>
+              )}
+            </section>
+          )
+        })()}
 
         {/* بنود الفاتورة */}
         <section className="inv-section">
@@ -797,7 +806,9 @@ export default function InvoicesPage() {
                   <tr key={inv.id} onClick={() => setSelected(inv)}>
                     <td>
                       <span className="inv-number">{inv.invoice_number}</span>
-                      {inv.batch_id && <div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>📦 {inv.batch_id}</div>}
+                      {inv.batch_id && !inv.batch_id.startsWith('deleted_booking_') && (
+                        <div style={{ fontSize: '.72rem', color: 'var(--text-muted)' }}>📦 {inv.batch_id}</div>
+                      )}
                     </td>
                     <td>
                       <div>{cust?.name ?? '—'}</div>
@@ -811,6 +822,8 @@ export default function InvoicesPage() {
                             {new Date(bk.booking_date + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-gregory')} · {PERIOD_LABELS[bk.period_number]}
                           </div>
                         </>
+                      ) : inv.batch_id?.startsWith('deleted_booking_') ? (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '.85rem' }}>🗑️ حجز محذوف نهائياً</span>
                       ) : (
                         <span style={{ color: 'var(--text-muted)', fontSize: '.85rem' }}>باقة مجمّعة</span>
                       )}
