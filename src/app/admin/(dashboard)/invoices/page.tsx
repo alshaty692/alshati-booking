@@ -586,7 +586,8 @@ export default function InvoicesPage() {
         .inv-stat-val { font-size:1.4rem; font-weight:700; }
         .inv-stat-lbl { font-size:.8rem; color:var(--text-muted); margin-top:.1rem; }
         .inv-filters { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; }
-        .inv-select { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text); min-width:140px; }
+        .inv-select { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text-primary); min-width:140px; color-scheme:light dark; }
+        .inv-select option { background:var(--bg-surface); color:var(--text-primary); }
         .inv-search { display:flex; gap:.5rem; flex:1; min-width:200px; }
         .inv-search input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text); }
         .inv-search button { background:var(--primary); color:#fff; border:none; border-radius:.5rem; padding:.45rem .9rem; cursor:pointer; display:flex; align-items:center; gap:.3rem; }
@@ -630,7 +631,8 @@ export default function InvoicesPage() {
         .inv-pay-form-title { font-size:.8rem; font-weight:600; color:var(--text-muted); }
         .inv-pay-form-row { display:flex; gap:.5rem; }
         .inv-pay-input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text); }
-        .inv-pay-select { background:var(--card); border:1px solid var(--border); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text); }
+        .inv-pay-select { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text-primary); appearance:auto; -webkit-appearance:auto; color-scheme:light dark; }
+        .inv-pay-select option { background:var(--bg-surface); color:var(--text-primary); }
         .inv-pay-submit { background:var(--primary,#7bba00); color:#fff; border:none; border-radius:.4rem; padding:.5rem; cursor:pointer; font-size:.875rem; }
         .inv-pay-submit:disabled { opacity:.6; cursor:not-allowed; }
         .inv-pay-error { color:#ef4444; font-size:.8rem; }
