@@ -18,19 +18,22 @@ import { createAdminClient } from '@/lib/supabase/server'
 
 // قائمة مفاتيح الصلاحيات الصالحة (تُزامَن مع migration 008)
 const VALID_PERMISSION_KEYS = new Set([
-  'view_bookings',
-  'manage_bookings',
-  'view_customers',
-  'manage_customers',
-  'view_invoices',
-  'manage_invoices',
-  'manage_payments',
-  'manage_credit_notes',
-  'view_reports',
-  'manage_settings',
-  'manage_availability',
-  'manage_users',
-  'delete_payment',
+  // الحجوزات
+  'view_bookings', 'create_booking', 'edit_booking',
+  'cancel_booking', 'soft_delete_booking', 'hard_delete_booking',
+  // العملاء
+  'view_customers', 'edit_customer',
+  // الفواتير والمالية
+  'view_invoices', 'manage_invoices', 'manage_payments',
+  'delete_payment', 'manage_credit_notes', 'approve_credit_note',
+  // المصروفات
+  'view_expenses', 'create_expense', 'approve_expense',
+  // الأكواد والتوافر
+  'manage_codes', 'manage_availability', 'manage_closure',
+  // التقارير والتصدير
+  'view_dashboard', 'view_reports', 'export_data',
+  // إدارة النظام
+  'manage_settings', 'manage_users',
 ])
 
 export async function PATCH(

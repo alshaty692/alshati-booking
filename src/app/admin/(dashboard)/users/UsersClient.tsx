@@ -1,16 +1,17 @@
 'use client'
 // ============================================================
-// UsersClient — صفحة إدارة المستخدمين (Client Component)
-// /admin/users — القائمة + الـ modals
+// UsersClient — صفحة إدارة المستخدمين والأدوار (Client Component)
+// /admin/users — تبويبان: المستخدمون | الأدوار والصلاحيات
 // ============================================================
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  Users, Plus, Edit2, KeyRound, ToggleLeft, ToggleRight,
+  Users, Plus, Edit2, KeyRound,
   Loader2, X, Eye, EyeOff, ShieldCheck, UserCheck, UserX,
-  Settings, Lock,
+  Lock, LayoutGrid,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
+import RolesMatrix from './RolesMatrix'
 
 // ── أنواع البيانات ──────────────────────────────────────────
 
@@ -47,6 +48,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 export default function UsersClient({ currentUserId }: Props) {
   const [mounted,  setMounted]  = useState(false)
+  const [tab,      setTab]      = useState<'users' | 'roles'>('users')
   const [users,    setUsers]    = useState<AdminUser[]>([])
   const [roles,    setRoles]    = useState<Role[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -116,23 +118,25 @@ export default function UsersClient({ currentUserId }: Props) {
         subtitle="إدارة حسابات الموظفين وأدوار الوصول"
       />
 
+      {/* ── التبويبان ── */}
+      <div className="u-tabs">
+        <button id="tab-users" className={`u-tab ${tab==='users'?'u-tab-active':''}`} onClick={()=>setTab('users')}>
+          <Users size={15}/> الموظفون
+        </button>
+        <button id="tab-roles" className={`u-tab ${tab==='roles'?'u-tab-active':''}`} onClick={()=>setTab('roles')}>
+          <LayoutGrid size={15}/> الأدوار والصلاحيات
+        </button>
+      </div>
+
+      {/* ── تبويب: المستخدمون ── */}
+      {tab === 'users' && <>
       {/* ── شريط الأدوات ── */}
       <div className="u-toolbar">
-        <button
-          id="btn-add-user"
-          className="btn btn-primary"
-          onClick={() => setAddOpen(true)}
-        >
-          <Plus size={16} strokeWidth={2.5} />
-          إضافة موظف
+        <button id="btn-add-user" className="btn btn-primary" onClick={()=>setAddOpen(true)}>
+          <Plus size={16} strokeWidth={2.5}/> إضافة موظف
         </button>
-        <button
-          id="btn-my-password"
-          className="btn btn-ghost"
-          onClick={() => setPwdOpen(true)}
-        >
-          <Lock size={15} strokeWidth={2} />
-          تغيير كلمة مروري
+        <button id="btn-my-password" className="btn btn-ghost" onClick={()=>setPwdOpen(true)}>
+          <Lock size={15} strokeWidth={2}/> تغيير كلمة مروري
         </button>
       </div>
 
@@ -263,9 +267,16 @@ export default function UsersClient({ currentUserId }: Props) {
         </div>
       )}
 
+      {/* إغلاق تبويب المستخدمين */}
+      </>}
+
+      {/* ── تبويب: الأدوار والصلاحيات ── */}
+      {tab === 'roles' && <RolesMatrix onRolesChange={fetchData} />}
+
       {/* ── Modals (Portal) ─────────────────────────────────── */}
       {mounted && createPortal(
         <>
+
           {addOpen && (
             <AddUserModal
               roles={roles}
@@ -300,7 +311,34 @@ export default function UsersClient({ currentUserId }: Props) {
 
       {/* ── Styles ─────────────────────────────────────────── */}
       <style>{`
-        .u-page { max-width: 900px; }
+        .u-tabs {
+          display: flex;
+          gap: var(--space-1);
+          margin-bottom: var(--space-5);
+          background: var(--bg-elevated);
+          border-radius: var(--radius-lg);
+          padding: var(--space-1);
+          width: fit-content;
+          border: 1px solid var(--border-color);
+        }
+        .u-tab {
+          display: flex; align-items: center; gap: var(--space-2);
+          padding: var(--space-2) var(--space-4);
+          border-radius: var(--radius-md);
+          font-size: var(--text-sm);
+          font-weight: var(--font-semibold);
+          color: var(--text-secondary);
+          background: none;
+          border: none;
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+          white-space: nowrap;
+        }
+        .u-tab:hover:not(.u-tab-active) { background: var(--bg-surface); color: var(--text-primary); }
+        .u-tab-active { background: var(--bg-surface); color: var(--color-lime); border: 1px solid var(--border-color); }
+        [data-theme="light"] .u-tab-active { color: #2D5A00; }
+
+        .u-page { max-width: 960px; }
 
         .u-toolbar {
           display: flex;
