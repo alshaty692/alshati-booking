@@ -1,7 +1,7 @@
 'use client'
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LogIn, ShieldCheck, Mail, Lock, AlertCircle, ShieldOff } from 'lucide-react'
+import { LogIn, ShieldCheck, User, Lock, AlertCircle, ShieldOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
@@ -13,7 +13,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isUnauthorized = searchParams.get('error') === 'unauthorized'
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')   // اسم مستخدم أو بريد كامل
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,8 +32,13 @@ function LoginForm() {
     setLoading(true)
     try {
       const supabase = createClient()
+      // لو المُدخَل يحتوي @ → بريد حقيقي (حساب المدير القديم)
+      // لو بدون @ → اسم مستخدم داخلي → يُحوَّل لـ username@alshati.internal
+      const email = identifier.includes('@')
+        ? identifier.trim()
+        : `${identifier.trim()}@alshati.internal`
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-      if (authError) { setError('البريد الإلكتروني أو كلمة المرور غير صحيحة'); return }
+      if (authError) { setError('اسم المستخدم أو كلمة المرور غير صحيحة'); return }
       router.push('/admin')
       router.refresh()
     } catch {
@@ -57,23 +62,27 @@ function LoginForm() {
       {/* النموذج */}
       <form onSubmit={handleLogin} id="admin-login-form" className="al-login-form">
 
-        {/* البريد */}
+        {/* اسم المستخدم أو البريد */}
         <div className="al-field">
-          <label htmlFor="admin-email" className="al-field-label">
-            البريد الإلكتروني
+          <label htmlFor="admin-identifier" className="al-field-label">
+            اسم المستخدم
           </label>
           <div className="al-field-wrap">
-            <Mail size={16} strokeWidth={1.75} className="al-field-icon" />
+            <User size={16} strokeWidth={1.75} className="al-field-icon" />
             <input
-              id="admin-email"
-              type="email"
+              id="admin-identifier"
+              type="text"
               className="input al-field-input"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
               required
               autoFocus
-              placeholder="admin@example.com"
+              placeholder="اسم المستخدم أو البريد الإلكتروني"
               dir="ltr"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
             />
           </div>
         </div>
