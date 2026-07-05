@@ -94,13 +94,13 @@ export async function PATCH(
       .single()
 
     if (updateError) {
-      console.error('[PATCH /api/admin/users/[id]] update:', updateError.message)
+      console.error('[PATCH /api/admin/users/[id]] update code:', updateError.code, '| msg:', updateError.message)
 
-      // ── ترجمة أخطاء DB trigger (حماية آخر أدمن) ───────────
-      const raw = updateError.message
-      if (raw.includes('last_admin') || raw.includes('آخر') || raw.includes('يجب أن يبقى') || raw.includes('P0001')) {
+      // ── خطأ P0001 = RAISE EXCEPTION من trigger حماية آخر أدمن ──
+      // الـ trigger يُرسل رسالة عربية واضحة — نمررها مباشرة للمستخدم
+      if (updateError.code === 'P0001') {
         return Response.json({
-          error: 'لا يمكن تعطيل الحساب أو تغيير دور آخر مشرف — يجب أن يبقى مشرف واحد على الأقل نشطاً',
+          error: updateError.message,   // الرسالة العربية من migration 008
         }, { status: 422 })
       }
 
