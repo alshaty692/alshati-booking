@@ -19,18 +19,10 @@ export async function GET() {
 
     const admin = createAdminClient()
 
-    // ── الأدوار مع صلاحياتها ─────────────────────────────────
+    // ── الأدوار — استعلامان منفصلان (roles ليس له FK مُعرَّف لـ PostgREST)
     const { data: roles, error: rolesError } = await admin
       .from('roles')
-      .select(`
-        id,
-        name,
-        display_name,
-        description,
-        is_system,
-        created_at,
-        permissions:role_permissions ( permission_key )
-      `)
+      .select('id, name, label_ar, description, is_system, created_at')
       .order('created_at', { ascending: true })
 
     if (rolesError) {
@@ -55,9 +47,20 @@ export async function GET() {
       }
     })
 
+    // ── جلب الصلاحيات لكل الأدوار دفعةً واحدة ─────────────────
+    const { data: allPerms } = await admin
+      .from('role_permissions')
+      .select('role_id, permission_key')
+
+    const permsByRole: Record<string, string[]> = {}
+    ;(allPerms ?? []).forEach(p => {
+      if (!permsByRole[p.role_id]) permsByRole[p.role_id] = []
+      permsByRole[p.role_id].push(p.permission_key)
+    })
+
     const result = (roles ?? []).map(r => ({
       ...r,
-      permissions: (r.permissions ?? []).map((p: { permission_key: string }) => p.permission_key),
+      permissions: permsByRole[r.id] ?? [],
       user_count:  userCountByRole[r.id] ?? 0,
     }))
 
@@ -94,6 +97,7 @@ export async function POST(request: NextRequest) {
     if (!cleanName || cleanName.length < 2) {
       return Response.json({ error: 'اسم الدور يجب أن يحتوي على أحرف إنجليزية أو أرقام فقط' }, { status: 400 })
     }
+    // label_ar هو اسم العمود الفعلي في DB (بدل display_name)
 
     const admin = createAdminClient()
 
@@ -112,12 +116,12 @@ export async function POST(request: NextRequest) {
     const { data: newRole, error: insertError } = await admin
       .from('roles')
       .insert({
-        name:         cleanName,
-        display_name: display_name.trim(),
-        description:  description?.trim() ?? null,
-        is_system:    false,   // الأدوار الجديدة دائماً غير نظامية
+        name:        cleanName,
+        label_ar:    display_name.trim(),   // label_ar هو الاسم الفعلي للعمود
+        description: description?.trim() ?? null,
+        is_system:   false,
       })
-      .select('id, name, display_name')
+      .select('id, name, label_ar')
       .single()
 
     if (insertError || !newRole) {

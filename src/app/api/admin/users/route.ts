@@ -21,16 +21,10 @@ export async function GET() {
 
     const admin = createAdminClient()
 
-    const { data, error } = await admin
+    // استعلامان منفصلان: admin_users ثم roles (PostgREST لا يعرف الـ FK تلقائياً)
+    const { data: users, error } = await admin
       .from('admin_users')
-      .select(`
-        id,
-        username,
-        display_name,
-        is_active,
-        created_at,
-        role:roles!admin_users_role_id_fkey ( id, name, display_name )
-      `)
+      .select('id, username, display_name, is_active, created_at, role_id')
       .order('created_at', { ascending: true })
 
     if (error) {
@@ -38,7 +32,24 @@ export async function GET() {
       return Response.json({ error: 'حدث خطأ أثناء جلب قائمة الموظفين' }, { status: 500 })
     }
 
-    return Response.json({ users: data ?? [] })
+    // جلب الأدوار دفعةً واحدة
+    const { data: roles } = await admin
+      .from('roles')
+      .select('id, name, label_ar')
+
+    const rolesMap: Record<string, { id: string; name: string; label_ar: string }> = {}
+    ;(roles ?? []).forEach(r => { rolesMap[r.id] = r })
+
+    const result = (users ?? []).map(u => ({
+      id:           u.id,
+      username:     u.username,
+      display_name: u.display_name,
+      is_active:    u.is_active,
+      created_at:   u.created_at,
+      role:         u.role_id ? rolesMap[u.role_id] ?? null : null,
+    }))
+
+    return Response.json({ users: result })
   } catch (err) {
     console.error('[GET /api/admin/users]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })
