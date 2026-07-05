@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getClosureState } from '@/lib/closure'
+import { isPeriodStarted } from '@/lib/periods'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +39,17 @@ export async function POST(request: NextRequest) {
     if (closure.scheduledStartISO && booking_date >= closure.scheduledStartISO) {
       return Response.json(
         { error: `المنشأة مغلقة في هذا التاريخ` },
+        { status: 400 }
+      )
+    }
+
+    // ── حاجز دفاعي: الفترة بدأ وقتها ───────────────────
+    // يعتمد توقيت الرياض (UTC+3) بدل ساعة جهاز العميل
+    const nowSA = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' }))
+    const todaySA = `${nowSA.getFullYear()}-${String(nowSA.getMonth()+1).padStart(2,'0')}-${String(nowSA.getDate()).padStart(2,'0')}`
+    if (booking_date === todaySA && isPeriodStarted(period_number, nowSA)) {
+      return Response.json(
+        { error: 'انتهى وقت هذه الفترة، الرجاء اختيار فترة أخرى' },
         { status: 400 }
       )
     }

@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getClosureState } from '@/lib/closure'
+import { isPeriodStarted } from '@/lib/periods'
 
 export async function GET(request: NextRequest) {
   try {
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       ])
     )
 
-    // ── دمج: محجوبة أو محجوزة مؤقتاً أو ضمن إغلاق مجدول ────
+    // ── دمج: محجوبة أو محجوزة مؤقتاً أو ضمن إغلاق مجدول أو بدأ وقتها ────
     const mergedSlots = (slots ?? []).map(slot => {
       const key = `${slot.day_date}|${slot.court_id}|${slot.period_number}`
       const isBlocked          = blockedSet.has(key)
@@ -78,9 +79,13 @@ export async function GET(request: NextRequest) {
         ? slot.day_date >= closure.scheduledStartISO
         : false
 
+      // ── فلتر الفترات التي بدأ وقتها (اليوم الحالي فقط) ─────
+      // nowSA محسوب بتوقيت الرياض (Asia/Riyadh) في السطور أعلاه
+      const isPastStart = slot.day_date === today && isPeriodStarted(slot.period_number, nowSA)
+
       return {
         ...slot,
-        is_available: slot.is_available && !isBlocked && !isHeldByOther && !isFullClosureBlock,
+        is_available: slot.is_available && !isBlocked && !isHeldByOther && !isFullClosureBlock && !isPastStart,
         is_held: !!isHeldByOther,
         is_full_closure_blocked: isFullClosureBlock,
       }
