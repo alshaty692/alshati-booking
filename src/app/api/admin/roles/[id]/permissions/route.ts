@@ -72,19 +72,12 @@ export async function PATCH(
     // ── التحقق من وجود الدور ────────────────────────────────
     const { data: role } = await admin
       .from('roles')
-      .select('id, name, is_system')
+      .select('id, name')
       .eq('id', roleId)
       .maybeSingle()
 
     if (!role) {
       return Response.json({ error: 'الدور غير موجود' }, { status: 404 })
-    }
-
-    // ── حماية الأدوار النظامية ───────────────────────────────
-    if (role.is_system) {
-      return Response.json({
-        error: `الدور "${role.name}" نظامي — لا يمكن تعديل صلاحياته مباشرة. تواصل مع المطوّر لتعديل الأدوار النظامية.`,
-      }, { status: 422 })
     }
 
     // ── تنفيذ grant / revoke ──────────────────────────────────
