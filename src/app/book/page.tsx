@@ -11,10 +11,13 @@ import {
   CalendarDays, User, ClipboardCheck, CreditCard, CheckCircle2,
   ArrowLeft, ArrowRight, Dumbbell, BookOpen, Minus, Plus,
   Upload, Loader2, AlertTriangle, Lock, Droplets, Tag,
-  PointerIcon, PartyPopper,
+  PointerIcon,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 import HeaderMenu from '@/components/book/HeaderMenu'
+import WaterSelector from '@/components/book/WaterSelector'
+import PriceBox from '@/components/book/PriceBox'
+import SuccessStep from '@/components/book/SuccessStep'
 
 // ── أنواع ────────────────────────────────────────────────────
 interface BookingState {
@@ -585,66 +588,14 @@ export default function BookPage() {
             </div>
 
             {/* ── قسم المياه ── */}
-            <div className="form-group">
-              <label>
-                <Droplets size={14} strokeWidth={2} />
-                كراتين مياه 💧 (اختياري)
-              </label>
-              {waterStock <= 0 ? (
-                <p className="water-unavailable">المياه غير متوفرة حالياً</p>
-              ) : (
-                <>
-                  <p className="water-hint">
-                    كل كرتون {formatAmount(waterPrice)}
-                    {waterStock <= 10 && <span className="water-low"> (متبقي {waterStock} كرتون)</span>}
-                  </p>
-                  <div className="water-counter">
-                    <button
-                      type="button" className="water-btn"
-                      disabled={booking.water_quantity <= 0}
-                      onClick={() => setBooking(b => ({ ...b, water_quantity: Math.max(0, b.water_quantity - 1) }))}
-                    >
-                      <Minus size={16} strokeWidth={2.5} />
-                    </button>
-                    <span className="water-qty">{booking.water_quantity}</span>
-                    <button
-                      type="button" className="water-btn"
-                      disabled={booking.water_quantity >= waterMax}
-                      onClick={() => setBooking(b => ({ ...b, water_quantity: Math.min(waterMax, b.water_quantity + 1) }))}
-                    >
-                      <Plus size={16} strokeWidth={2.5} />
-                    </button>
-                    {booking.water_quantity > 0 && (
-                      <span className="water-total">= {formatAmount(waterTotal)}</span>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            <WaterSelector
+              quantity={booking.water_quantity}
+              onChange={(newQty) => setBooking(b => ({ ...b, water_quantity: newQty }))}
+              settings={settings}
+            />
 
             {booking.price && (
-              <div className="price-box animate-fade-in">
-                <div className="price-row">
-                  <span>السعر الأصلي</span>
-                  <span>{formatAmount(booking.price.base_price)}</span>
-                </div>
-                {booking.price.discount_amount > 0 && (
-                  <div className="price-row discount">
-                    <span>الخصم 🎉</span>
-                    <span>- {formatAmount(booking.price.discount_amount)}</span>
-                  </div>
-                )}
-                {booking.water_quantity > 0 && (
-                  <div className="price-row">
-                    <span>💧 مياه ({booking.water_quantity} كرتون)</span>
-                    <span>{formatAmount(waterTotal)}</span>
-                  </div>
-                )}
-                <div className="price-row total">
-                  <span>الإجمالي</span>
-                  <strong>{formatAmount((booking.price.final_price ?? 0) + waterTotal)}</strong>
-                </div>
-              </div>
+              <PriceBox price={booking.price} waterTotal={waterTotal} />
             )}
 
             <button
@@ -808,31 +759,13 @@ export default function BookPage() {
 
         {/* ========== الخطوة 4: النجاح ========== */}
         {step === 4 && (
-          <div className="book-step success-step animate-slide-up">
-            <div className="success-icon-wrap">
-              <PartyPopper size={40} strokeWidth={1.5} />
-            </div>
-            <h2 className="success-title">تم استلام حجزك!</h2>
-            <p className="success-desc">سيتم مراجعة الإيصال وتأكيد الحجز خلال فترة وجيزة</p>
-            <div className="review-card" style={{ margin:'1.5rem 0' }}>
-              <div className="review-row"><span className="review-label">التاريخ</span><span>{formatDate(booking.date)}</span></div>
-              <div className="review-row"><span className="review-label">الملعب</span><span>{courtName(booking.court_id)}</span></div>
-              <div className="review-row"><span className="review-label">الفترة</span><span>{getPeriodName(booking.period_number)}</span></div>
-            </div>
-            <button id="btn-new-booking" className="btn-step-next" onClick={resetBooking}>
-              <CalendarDays size={16} strokeWidth={2} />
-              حجز جديد
-            </button>
-            <button
-              id="btn-my-bookings"
-              className="btn-step-secondary"
-              style={{ marginTop:'0.75rem' }}
-              onClick={() => router.push('/my-bookings')}
-            >
-              <BookOpen size={16} strokeWidth={2} />
-              عرض حجوزاتي
-            </button>
-          </div>
+          <SuccessStep
+            date={formatDate(booking.date)}
+            courtDisplayName={courtName(booking.court_id)}
+            periodDisplay={getPeriodName(booking.period_number)}
+            onReset={resetBooking}
+            onMyBookings={() => router.push('/my-bookings')}
+          />
         )}
       </main>
 
