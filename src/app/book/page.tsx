@@ -186,9 +186,13 @@ export default function BookPage() {
   // ── حساب سعر المياه + مخزون ─────────────────────────────────
   const waterPrice = Number(settings.water_price_per_carton) || 20
   const waterStock = Number(settings.water_stock_available ?? '999')
-  const waterMaxSetting = Number(settings.water_max_cartons) || 10
+  // fallback صفر (لا 10 عشوائي) — اتساق مع WaterSelector
+  const waterMaxSetting = settings.water_max_cartons !== undefined
+    ? (Number(settings.water_max_cartons) || 0)
+    : 0
   const waterMax   = waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0
   const waterTotal = booking.water_quantity * waterPrice
+
 
 
   // ── تعيين السعر عند الوصول لخطوة بياناتك ──────────────────

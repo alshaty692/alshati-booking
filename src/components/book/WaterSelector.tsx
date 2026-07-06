@@ -20,7 +20,10 @@ interface WaterSelectorProps {
 export default function WaterSelector({ quantity, onChange, settings }: WaterSelectorProps) {
   const waterPrice      = Number(settings.water_price_per_carton) || 20
   const waterStock      = Number(settings.water_stock_available ?? '999')
-  const waterMaxSetting = Number(settings.water_max_cartons) || 10
+  // fallback صفر (لا 10 عشوائي) — إذا لم تصل settings بعد يبقى + معطَّلاً حتى تكتمل
+  const waterMaxSetting = settings.water_max_cartons !== undefined
+    ? (Number(settings.water_max_cartons) || 0)
+    : 0
   const waterMax        = waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0
   const waterTotal      = quantity * waterPrice
 
