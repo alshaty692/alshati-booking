@@ -4,12 +4,12 @@
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   try {
     // 🔴 حرج — يعرض بيانات العميل الشخصية
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('view_customers')
     if (!auth.ok) return auth.response
 
     const phone = request.nextUrl.searchParams.get('phone')?.trim()

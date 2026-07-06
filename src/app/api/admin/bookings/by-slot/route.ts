@@ -1,14 +1,14 @@
 // ============================================================
 // GET /api/admin/bookings/by-slot?date=YYYY-MM-DD&court_id=X&period=N
-// جلب تفاصيل الحجز الفعّال بناءً على الفترة (admin/editor فقط)
+// جلب تفاصيل الحجز الفعّال بناءً على الفترة — view_bookings
 // ============================================================
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdminRole } from '@/lib/auth'
+import { requirePermission } from '@/lib/permissions'
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdminRole()
+    const auth = await requirePermission('view_bookings')
     if (!auth.ok) return auth.response
 
     const { searchParams } = request.nextUrl

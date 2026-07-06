@@ -4,11 +4,16 @@
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
+import { requirePermission } from '@/lib/permissions'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, context: RouteContext) {
   try {
+    // 🔴 حرج — جلب بيانات كود خصم كامل (للتعديل)
+    const auth = await requirePermission('manage_codes')
+    if (!auth.ok) return auth.response
+
     const { id } = await context.params
     const supabase = createAdminClient()
 
@@ -30,6 +35,10 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
+    // 🔴 حرج — تعديل كود خصم
+    const auth = await requirePermission('manage_codes')
+    if (!auth.ok) return auth.response
+
     const { id } = await context.params
     const supabase = createAdminClient()
     const body = await req.json()
@@ -81,6 +90,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
 export async function DELETE(_req: NextRequest, context: RouteContext) {
   try {
+    // 🔴 حرج — حذف كود خصم نهائياً
+    const auth = await requirePermission('manage_codes')
+    if (!auth.ok) return auth.response
+
     const { id } = await context.params
     const supabase = createAdminClient()
 
