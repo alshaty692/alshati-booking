@@ -18,6 +18,8 @@ import HeaderMenu from '@/components/book/HeaderMenu'
 import WaterSelector from '@/components/book/WaterSelector'
 import PriceBox from '@/components/book/PriceBox'
 import SuccessStep from '@/components/book/SuccessStep'
+import CourtSlotsGrid from '@/components/book/CourtSlotsGrid'
+import PaymentStep from '@/components/book/PaymentStep'
 
 // ── أنواع ────────────────────────────────────────────────────
 interface BookingState {
@@ -398,83 +400,23 @@ export default function BookPage() {
             </div>
 
             {/* الملاعب والفترات */}
-            {!booking.date ? (
-              <div className="date-hint">
-                <div className="date-hint-icon">
-                  <PointerIcon size={28} strokeWidth={1.5} />
-                </div>
-                <p>اختر يوماً أولاً لرؤية المواعيد المتاحة</p>
-              </div>
-            ) : (
-              <div className="courts-grid animate-fade-in">
-                {COURTS.map(courtId => {
-                  const courtSlots = slotsForDate.filter(s => s.court_id === courtId)
-                  const closed = isCourtClosed(courtId, booking.date)
-                  return (
-                    <div key={courtId} className={`court-col ${closed ? 'court-col-closed' : ''}`}>
-                      {/* عنوان الملعب */}
-                      <div className="court-col-head">
-                        <span className="court-col-icon">{COURT_ICONS[courtId]}</span>
-                        <span className="court-col-name">{courtName(courtId)}</span>
-                        {!closed && basePrice(courtId) > 0 && (
-                          <span className="court-col-price">{formatAmount(basePrice(courtId))}</span>
-                        )}
-                        {closed && (
-                          <span className="court-col-closed-tag">موقوف</span>
-                        )}
-                      </div>
-
-                      {/* الفترات */}
-                      {closed ? (
-                        <div className="court-col-unavail">تحت الصيانة</div>
-                      ) : courtSlots.length === 0 ? (
-                        <div className="court-col-unavail">لا فترات</div>
-                      ) : (
-                        <div className="court-col-periods">
-                          {[...courtSlots].sort((a,b) => a.period_number - b.period_number).map(slot => {
-                            const sel    = isSlotSelected(courtId, slot.period_number)
-                            const isHeld = (slot as AvailableSlot & { is_held?: boolean }).is_held
-                            const status = !slot.is_available ? (isHeld ? 'held' : 'booked') : sel ? 'selected' : 'available'
-                            return (
-                              <button
-                                key={slot.period_number}
-                                id={`slot-${courtId}-${slot.period_number}`}
-                                className={`court-period-btn court-period-${status}`}
-                                disabled={!slot.is_available}
-                                onClick={async () => {
-                                  if (!slot.is_available) return
-                                  const ok = await holdSlot(courtId, booking.date, slot.period_number)
-                                  if (!ok) {
-                                    const res = await fetch('/api/booking/slots')
-                                    const data = await res.json()
-                                    setSlots(data.slots ?? [])
-                                    return
-                                  }
-                                  setBooking(b => ({
-                                    ...b,
-                                    court_id: courtId,
-                                    period_number: slot.period_number,
-                                    price: null,
-                                  }))
-                                }}
-                              >
-                                <span className="cpb-time">{getPeriodName(slot.period_number)}</span>
-                                <span className="cpb-dot" />
-                                <span className="cpb-state">
-                                  {status==='held'    ? 'قيد الحجز' :
-                                   status==='booked'  ? 'محجوز' :
-                                   status==='selected'? '✓ مختار' : 'متاح'}
-                                </span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <CourtSlotsGrid
+              selectedDate={booking.date}
+              selectedCourt={booking.court_id}
+              selectedPeriod={booking.period_number}
+              slotsForDate={slotsForDate}
+              holdSlot={holdSlot}
+              onSlotSelect={(courtId, period) => setBooking(b => ({
+                ...b,
+                court_id: courtId,
+                period_number: period,
+                price: null,
+              }))}
+              onSlotsRefresh={(newSlots) => setSlots(newSlots)}
+              isCourtClosed={isCourtClosed}
+              courtName={courtName}
+              basePrice={basePrice}
+            />
 
             {canProceedStep0 && (
               <button
@@ -690,73 +632,16 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* ========== الخطوة 3: الدفع ========== */}
         {step === 3 && (
-          <div className="book-step animate-slide-up">
-            <h2 className="step-title">ادفع بالتحويل البنكي</h2>
-            <p className="step-desc">حوّل المبلغ ثم ارفع صورة الإيصال</p>
-
-            <div className="bank-card">
-              <div className="bank-amount">{formatAmount((booking.price?.final_price ?? 0) + waterTotal)}</div>
-              {[
-                ['البنك',         settings.bank_name || '—'],
-                ['اسم الحساب',   settings.bank_account_name || '—'],
-                ['رقم الآيبان',  settings.bank_iban || '—'],
-                ['رقم الحساب',   settings.bank_account_number || '—'],
-              ].map(([label,value]) => (
-                <div key={label} className="bank-detail">
-                  <span>{label}</span>
-                  <strong className="bank-value">{value}</strong>
-                </div>
-              ))}
-            </div>
-
-            <div className="upload-section">
-              <h3>
-                <Upload size={16} strokeWidth={2} />
-                ارفع صورة الإيصال
-              </h3>
-              <div className="upload-area" onClick={() => document.getElementById('receipt-file')?.click()}>
-                {uploadFile ? (
-                  <div className="upload-selected">
-                    <Upload size={18} strokeWidth={1.75} className="upload-file-icon" />
-                    <span>{uploadFile.name}</span>
-                    <span className="upload-size">({(uploadFile.size/1024).toFixed(0)} KB)</span>
-                  </div>
-                ) : (
-                  <div className="upload-placeholder">
-                    <div className="upload-icon-wrap">
-                      <Upload size={28} strokeWidth={1.5} />
-                    </div>
-                    <p>اضغط لاختيار صورة الإيصال</p>
-                    <small>JPG, PNG, PDF — حد 5MB</small>
-                  </div>
-                )}
-              </div>
-              <input
-                id="receipt-file" type="file" accept="image/*,application/pdf"
-                style={{ display:'none' }} onChange={e => setUploadFile(e.target.files?.[0]??null)}
-              />
-              {error && (
-                <div className="bk-error bk-error-bar">
-                  <AlertTriangle size={14} strokeWidth={2} />
-                  {error}
-                </div>
-              )}
-              <button
-                id="btn-upload-receipt"
-                className="btn-step-next"
-                style={{ marginTop:'1rem' }}
-                disabled={!uploadFile||uploading}
-                onClick={uploadReceipt}
-              >
-                {uploading
-                  ? <><Loader2 size={16} strokeWidth={2} className="bk-spin" />جاري الرفع...</>
-                  : <>رفع الإيصال<ArrowLeft size={16} strokeWidth={2.5} /></>
-                }
-              </button>
-            </div>
-          </div>
+          <PaymentStep
+            totalAmount={(booking.price?.final_price ?? 0) + waterTotal}
+            settings={settings}
+            uploadFile={uploadFile}
+            uploading={uploading}
+            error={error}
+            onFileChange={(file) => setUploadFile(file)}
+            onUpload={uploadReceipt}
+          />
         )}
 
         {/* ========== الخطوة 4: النجاح ========== */}
