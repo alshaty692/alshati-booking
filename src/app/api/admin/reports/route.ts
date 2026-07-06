@@ -31,17 +31,17 @@ function emptyHeatGrid(): HeatGrid {
   return g
 }
 
-function buildHeatGrid(rows: BookingRow[], weeksCount: number): HeatGrid {
+function buildHeatGrid(rows: BookingRow[], weeksCount: number, courtCount: number): HeatGrid {
   const g = emptyHeatGrid()
   rows.forEach(b => {
     const dow = new Date(b.booking_date + 'T00:00:00').getDay()
     const p   = b.period_number
     if (g[dow] && g[dow][p]) g[dow][p].booked++
   })
-  // total = عدد الأسابيع × 3 ملاعب
+  // total = عدد الأسابيع × عدد الملاعب المفلترة فعلياً
   for (let d = 0; d <= 6; d++) {
     for (let p = 1; p <= 3; p++) {
-      g[d][p].total = weeksCount * 3
+      g[d][p].total = weeksCount * courtCount
       g[d][p].pct   = g[d][p].total > 0
         ? Math.round(g[d][p].booked / g[d][p].total * 100)
         : 0
@@ -168,12 +168,15 @@ export async function GET(request: NextRequest) {
 
       kpis.total_collected = (paymentsInPeriod ?? []).reduce((s, p) => s + Number(p.amount), 0)
 
-      // فواتير غير مكتملة السداد (ليست paid)
+      // فواتير غير مكتملة السداد (ليست paid) — مقيّدة بالفترة المفلترة فقط
+      // نفلتر بـ issued_at لنعكس الفواتير الصادرة ضمن النطاق الزمني المختار
       const { data: unpaidInvoices } = await admin
         .from('invoices')
         .select('id, total_amount, payment_status')
         .eq('status', 'issued')
         .neq('payment_status', 'paid')
+        .gte('issued_at', from)
+        .lte('issued_at', to + 'T23:59:59')
 
       const unpaid = unpaidInvoices ?? []
       kpis.partial_invoices_count = unpaid.filter(inv => inv.payment_status === 'partial').length
@@ -364,11 +367,14 @@ export async function GET(request: NextRequest) {
     // فقط الحجوزات المؤكدة أو uploaded للإشغال
     const occupiedBookings = allBookings.filter(b => ['confirmed', 'uploaded'].includes(b.status))
 
+    // عدد الملاعب المفلترة: إن كان الفلتر محدداً = 1، وإلا = 3
+    const filteredCourtsCount = court !== 'all' ? 1 : 3
+
     const heatmap: ReportHeatmap = {
-      all:        buildHeatGrid(occupiedBookings, weeksCount),
-      football:   buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'football'),   weeksCount),
-      volleyball: buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'volleyball'), weeksCount),
-      multi:      buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'multi'),      weeksCount),
+      all:        buildHeatGrid(occupiedBookings, weeksCount, 3),
+      football:   buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'football'),   weeksCount, filteredCourtsCount),
+      volleyball: buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'volleyball'), weeksCount, filteredCourtsCount),
+      multi:      buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'multi'),      weeksCount, filteredCourtsCount),
     }
 
     // ──────────────────────────────────────────────────────────
