@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
 
     // ── حساب سعر المياه + التحقق من المخزون ────────────────
     let waterTotal = 0
+    let clampedQty = 0   // معرَّفة خارج الـ if لتُستخدم في insert
     const waterQty = Math.max(0, Math.min(Number(water_quantity) || 0, 50)) // حد أمان
     if (waterQty > 0) {
       const { data: waterSettings } = await supabase
@@ -129,12 +130,20 @@ export async function POST(request: NextRequest) {
       if (waterQty > stockAvailable) {
         return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
       }
+      // رفض صريح إذا تجاوز الحد الأقصى — لا نقبل silently truncation
+      if (waterQty > maxCartons) {
+        return Response.json(
+          { error: `الحد الأقصى للمياه ${maxCartons} كرتون لكل حجز` },
+          { status: 400 }
+        )
+      }
 
-      const clampedQty = Math.min(waterQty, maxCartons)
+      clampedQty = Math.min(waterQty, maxCartons)   // دائماً = waterQty هنا بعد الفحص أعلاه
       waterTotal = clampedQty * pricePerCarton
     }
 
     const finalPrice = (priceData.final_price ?? 0) + waterTotal
+
 
     // ── إنشاء الحجز — الـ UNIQUE constraint يمنع التضارب ────
     const { data: booking, error } = await supabase
@@ -149,7 +158,7 @@ export async function POST(request: NextRequest) {
         base_price: priceData.base_price,
         discount_amount: priceData.discount_amount,
         final_price: finalPrice,
-        water_quantity: waterQty,
+        water_quantity: clampedQty,
         status: 'pending',
         is_manual: false,
       })
