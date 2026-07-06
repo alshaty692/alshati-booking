@@ -102,9 +102,9 @@ export async function GET(request: NextRequest) {
             message:             closure.message,
           }
         : null,
-    })
+    }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     console.error('[slots]', err)
-    return Response.json({ error: 'فشل جلب المواعيد' }, { status: 500 })
+    return Response.json({ error: 'فشل جلب المواعيد' }, { status: 500, headers: { 'Cache-Control': 'no-store' } })
   }
 }

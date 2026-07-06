@@ -1,7 +1,7 @@
 // GET /api/settings — جلب الإعدادات العامة (للعميل)
 import { createClient } from '@/lib/supabase/server'
 
-// يضمن إن Next.js يجلب من Supabase مباشرة كل مرة بدون تخزين مؤقت
+// force-dynamic: يمنع Next.js من تحويل الـ route لـ static
 export const dynamic = 'force-dynamic'
 
 const PUBLIC_KEYS = [
@@ -21,8 +21,13 @@ export async function GET() {
     const { data } = await supabase.from('settings').select('key, value').in('key', PUBLIC_KEYS)
     const settings: Record<string, string> = {}
     data?.forEach(r => { if (r.key && r.value !== null) settings[r.key] = r.value })
-    return Response.json({ settings })
+    return Response.json(
+      { settings },
+      // no-store: يمنع المتصفح وأي CDN/Edge من تخزين الإعدادات — تُقرأ Fresh بكل طلب
+      { headers: { 'Cache-Control': 'no-store' } }
+    )
   } catch {
-    return Response.json({ settings: {} })
+    return Response.json({ settings: {} }, { headers: { 'Cache-Control': 'no-store' } })
   }
 }
+

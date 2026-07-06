@@ -35,10 +35,9 @@ export async function GET() {
       if (row.key === 'price_multi_normal')      prices.multi      = Number(row.value) || 0
     })
 
-    return Response.json({ prices })
+    return Response.json({ prices }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     console.error('[prices]', err)
-    // fallback to 0 — لا نكشف بيانات داخلية
-    return Response.json({ prices: { football: 0, volleyball: 0, multi: 0 } })
+    return Response.json({ prices: { football: 0, volleyball: 0, multi: 0 } }, { headers: { 'Cache-Control': 'no-store' } })
   }
 }

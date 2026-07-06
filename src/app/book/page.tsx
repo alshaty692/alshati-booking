@@ -130,7 +130,7 @@ export default function BookPage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/booking/slots').then(r => r.json()),
-      fetch('/api/settings').then(r => r.json()),
+      fetch('/api/settings', { cache: 'no-store' }).then(r => r.json()),
       fetch('/api/booking/prices').then(r => r.json()),
       fetch('/api/booking/lookup-customer', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' }).then(r => r.json()).catch(() => ({ found: false })),
     ]).then(([slotsData, settingsData, pricesData, customerData]) => {
