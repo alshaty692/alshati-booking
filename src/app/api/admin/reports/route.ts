@@ -367,11 +367,13 @@ export async function GET(request: NextRequest) {
     // فقط الحجوزات المؤكدة أو uploaded للإشغال
     const occupiedBookings = allBookings.filter(b => ['confirmed', 'uploaded'].includes(b.status))
 
-    // عدد الملاعب المفلترة: إن كان الفلتر محدداً = 1، وإلا = 3
-    const filteredCourtsCount = court !== 'all' ? 1 : 3
+    // عدد الملاعب الكلي — ديناميكي من COURT_NAMES حتى يتحدث تلقائياً عند إضافة ملاعب
+    const totalCourtsCount = Object.keys(COURT_NAMES).length
+    // عند فلترة ملعب واحد المقام = 1، عند "كل الملاعب" المقام = العدد الحقيقي
+    const filteredCourtsCount = court !== 'all' ? 1 : totalCourtsCount
 
     const heatmap: ReportHeatmap = {
-      all:        buildHeatGrid(occupiedBookings, weeksCount, 3),
+      all:        buildHeatGrid(occupiedBookings, weeksCount, totalCourtsCount),
       football:   buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'football'),   weeksCount, filteredCourtsCount),
       volleyball: buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'volleyball'), weeksCount, filteredCourtsCount),
       multi:      buildHeatGrid(occupiedBookings.filter(b => b.court_id === 'multi'),      weeksCount, filteredCourtsCount),
@@ -381,8 +383,8 @@ export async function GET(request: NextRequest) {
     // ١٣. قسم الأداء التشغيلي
     // ──────────────────────────────────────────────────────────
     // نسبة الإشغال: المواعيد المؤكدة / إجمالي المواعيد الممكنة
-    // = حجوزات مؤكدة / (عدد أيام الفترة × 3 ملاعب × 3 فترات)
-    const totalSlots   = daysDiff * 3 * 3
+    // = حجوزات مؤكدة / (عدد أيام الفترة × عدد الملاعب × 3 فترات)
+    const totalSlots   = daysDiff * totalCourtsCount * 3
     const occupancyRate = totalSlots > 0
       ? Math.round(confirmed.length / totalSlots * 100)
       : 0
