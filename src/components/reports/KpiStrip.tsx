@@ -12,7 +12,7 @@ interface KpiStripProps {
 
 export default function KpiStrip({ kpis, loading }: KpiStripProps) {
   const cards = [
-    { id: 'revenue',   label: 'الإيرادات الصافية', icon: '💰', value: formatAmount(kpis.total_revenue),     type: 'amount' },
+    { id: 'revenue',   label: 'إجمالي الإيرادات (بعد الخصم)', icon: '💰', value: formatAmount(kpis.total_revenue),     type: 'amount' },
     { id: 'confirmed', label: 'المؤكدة',            icon: '✅', value: String(kpis.confirmed_count),         type: 'count'  },
     { id: 'discount',  label: 'الخصومات',           icon: '🏷️', value: formatAmount(kpis.total_discount),   type: 'amount' },
     { id: 'water',     label: 'إيرادات المياه',     icon: '💧', value: formatAmount(kpis.water_revenue),    type: 'amount' },
@@ -38,6 +38,28 @@ export default function KpiStrip({ kpis, loading }: KpiStripProps) {
           <div className="kpi-value">{loading ? '…' : `${kpis.cancellation_rate}%`}</div>
           <div className="kpi-label">نسبة الإلغاء</div>
         </div>
+      </div>
+
+      {/* ملاحظة توضيحية — فارق تاريخ الفلترة */}
+      <div id="kpi-date-note" style={{
+        gridColumn: '1 / -1',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        padding: '0.45rem 0.75rem',
+        borderRadius: 'var(--radius-md)',
+        background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-surface))',
+        border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)',
+        fontSize: '0.75rem',
+        color: 'var(--text-muted)',
+      }}>
+        <span style={{ fontSize: '0.9rem' }}>ℹ️</span>
+        <span>
+          <strong style={{ color: 'var(--text-secondary)' }}>الإيراد:</strong> يُحسب بتاريخ الحجز
+          &nbsp;·&nbsp;
+          <strong style={{ color: 'var(--text-secondary)' }}>المحصَّل:</strong> يُحسب بتاريخ الدفعة
+          &nbsp;— الفرق طبيعي إن وُجدت دفعات من فترات مختلفة
+        </span>
       </div>
 
       <style>{`
