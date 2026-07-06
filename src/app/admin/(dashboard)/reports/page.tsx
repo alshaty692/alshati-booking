@@ -285,7 +285,7 @@ export default function ReportsPage() {
       <div class="pdf-section">
         <div class="pdf-section-title">💰 الملخص المالي</div>
         <div class="pdf-stats">
-          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.total_revenue)}</div><div class="pdf-stat-lbl">الإيرادات الصافية</div></div>
+          <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.total_revenue)}</div><div class="pdf-stat-lbl">إجمالي الإيرادات (بعد الخصم)</div></div>
           <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.total_discount)}</div><div class="pdf-stat-lbl">الخصومات</div></div>
           <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.water_revenue)}</div><div class="pdf-stat-lbl">إيرادات المياه</div></div>
           <div class="pdf-stat"><div class="pdf-stat-val">${fmt(kpis.avg_booking_value)}</div><div class="pdf-stat-lbl">متوسط الحجز</div></div>
@@ -323,7 +323,7 @@ export default function ReportsPage() {
       <div class="pdf-section">
         <div class="pdf-section-title">📋 تفاصيل الحجوزات (${br.details.length})</div>
         <table><thead><tr><th>الاسم</th><th>الملعب</th><th>الفترة</th><th>التاريخ</th><th>المبلغ</th><th>الحالة</th></tr></thead>
-        <tbody>${br.details.slice(0, 100).map(b => `<tr><td>${b.customer_name}</td><td>${getCourtName(b.court_id)}</td><td>${getPeriodName(b.period_number)}</td><td>${b.booking_date}</td><td>${b.final_price.toLocaleString('ar-SA')} ر.س</td><td>${STATUS_AR[b.status]??b.status}</td></tr>`).join('')}</tbody></table>
+        <tbody>${br.details.map(b => `<tr><td>${b.customer_name}</td><td>${getCourtName(b.court_id)}</td><td>${getPeriodName(b.period_number)}</td><td>${b.booking_date}</td><td>${b.final_price.toLocaleString('ar-SA')} ر.س</td><td>${STATUS_AR[b.status]??b.status}</td></tr>`).join('')}</tbody></table>
       </div>
       <div class="footer">تم الإنشاء بواسطة النظام الداخلي · ${new Date().toLocaleString('ar-SA')}</div>
     </div>`
@@ -389,9 +389,11 @@ export default function ReportsPage() {
 
   async function exportAllPDF() {
     if (!data) return
-    // الشامل يصدر كل الأقسام = يستخدم PDF المالي + الحجوزات
+    // الشامل يصدر كل الأقسام الأربعة تسلسلياً (ملفات PDF منفصلة)
     await exportFinancialPDF()
     await exportBookingsPDF()
+    await exportCustomersPDF()
+    await exportCodesPDF()
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -409,7 +411,7 @@ export default function ReportsPage() {
     const ws = wb.addWorksheet('الملخص المالي')
     ws.columns = [{ header:'البند', key:'label', width:28 }, { header:'القيمة', key:'value', width:20 }]
     ws.getRow(1).eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT })
-    ws.addRow({ label:'الإيرادات الصافية', value:data.kpis.total_revenue })
+    ws.addRow({ label:'إجمالي الإيرادات (بعد الخصم)', value:data.kpis.total_revenue })
     ws.addRow({ label:'الخصومات', value:data.kpis.total_discount })
     ws.addRow({ label:'إيرادات المياه', value:data.kpis.water_revenue })
     ws.addRow({ label:'متوسط قيمة الحجز', value:data.kpis.avg_booking_value })
@@ -507,7 +509,7 @@ export default function ReportsPage() {
     const ws1 = wb.addWorksheet('ملخص عام')
     ws1.columns = [{ header:'البند', key:'label', width:28 }, { header:'القيمة', key:'value', width:20 }]
     styleRow(ws1)
-    ws1.addRow({ label:'الإيرادات الصافية', value:data.kpis.total_revenue })
+    ws1.addRow({ label:'إجمالي الإيرادات (بعد الخصم)', value:data.kpis.total_revenue })
     ws1.addRow({ label:'الخصومات الكلية', value:data.kpis.total_discount })
     ws1.addRow({ label:'إيرادات المياه', value:data.kpis.water_revenue })
     ws1.addRow({ label:'إجمالي الحجوزات', value:data.kpis.total_count })
