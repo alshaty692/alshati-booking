@@ -97,23 +97,28 @@
   ║  PRESERVED POLICIES — لم تُلمس (مستقلة عن الدالتين)        ║
   ╚══════════════════════════════════════════════════════════════╝
 
+  ملاحظة تاريخية: السياسات القديمة (*_anon_select_own، *_anon_select،
+  *_anon_insert، إلخ) من migration 001 حُذفت جميعها بـ migration 010
+  واستُبدلت بسياسات RESTRICTIVE deny_anon تُغلق بوابة anon بالكامل.
+  القائمة التالية تعكس الوضع الحالي بعد migration 010:
+
   الجدول          | اسم السياسة                         | ملاحظة
   ─────────────────────────────────────────────────────────────────────
-  admin_users     | admin_users_authenticated_select_own | auth.uid() مباشرة
-  admin_users     | admin_users_service_role_all         | service_role
-  blocked_slots   | blocked_slots_anon_select            | anon SELECT
-  blocked_slots   | blocked_slots_service_role_all       | service_role
-  bookings        | bookings_anon_insert                 | anon INSERT
-  bookings        | bookings_anon_select_own             | anon SELECT
-  bookings        | bookings_service_role_all            | service_role
-  codes           | codes_anon_select_active             | is_active=true
-  codes           | codes_service_role_all               | service_role
-  customers       | customers_anon_select_own            | anon SELECT
-  customers       | customers_service_role_all           | service_role
-  slot_holds      | slot_holds_anon_select               | anon
-  slot_holds      | slot_holds_anon_insert               | anon
-  slot_holds      | slot_holds_anon_delete_own           | anon
-  slot_holds      | slot_holds_service_role_all          | service_role
+  admin_users     | admin_users_authenticated_select_own | auth.uid() مباشرة (محفوظة)
+  admin_users     | admin_users_service_role_all         | service_role (محفوظة)
+  blocked_slots   | blocked_slots_deny_anon              | RESTRICTIVE — من migration 010
+  blocked_slots   | blocked_slots_service_role_all       | service_role (محفوظة)
+  bookings        | bookings_deny_anon                   | RESTRICTIVE — من migration 010
+  bookings        | bookings_service_role_all            | service_role (محفوظة)
+  codes           | codes_deny_anon                      | RESTRICTIVE — من migration 010
+  codes           | codes_service_role_all               | service_role (محفوظة)
+  customers       | customers_deny_anon                  | RESTRICTIVE — من migration 010
+  customers       | customers_service_role_all           | service_role (محفوظة)
+  slot_holds      | slot_holds_deny_anon                 | RESTRICTIVE — من migration 010
+  slot_holds      | slot_holds_service_role_all          | service_role (محفوظة)
+  ─────────────────────────────────────────────────────────────────────
+  ⚠️ الأسماء الدقيقة لسياسات deny_anon تحتاج تأكيداً من Dashboard
+     (migration 010 طُبِّق مباشرة ولم يُحفظ كملف .sql)
   ─────────────────────────────────────────────────────────────────────
 
   ╔══════════════════════════════════════════════════════════════╗
@@ -163,16 +168,18 @@ DROP POLICY IF EXISTS "customers_admin_all" ON public.customers;
 -- ============================================================
 -- القسم ٢.١ — إعادة بناء bookings_visitor_select بدون is_admin_user()
 -- ============================================================
--- الأصلية: SELECT للـ authenticated بشرط OR is_admin_user() مع شرط آخر
--- الجديدة: SELECT للـ authenticated بالشرط الأساسي فحسب (بدون OR)
--- ملاحظة: تُعاد للـ authenticated لأن الـ anon تغطيها bookings_anon_select_own
---          وكل API routes تستخدم service_role الذي يتجاوز RLS كلياً.
+-- الأصلية: SELECT لـ TO public بشرطين:
+--            customer_phone = current_setting('app.current_phone', ...) OR is_admin_user()
+-- الجديدة:  نفس الدور (TO public) + نفس شرط phone (محفوظ حرفياً) بدون OR is_admin_user()
+-- التحسين: NULLIF(..., '') بدل مقارنة مباشرة — يمنع تسرب صفوف عند غياب الـ setting
+-- ملاحظة: كل API routes تستخدم service_role الذي يتجاوز RLS كلياً —
+--          هذه السياسة احتياطية للوصول المباشر المحتمل.
 -- ============================================================
 CREATE POLICY "bookings_visitor_select" ON public.bookings
   FOR SELECT
-  TO authenticated
+  TO public
   USING (
-    customer_phone = NULLIF(current_setting('app.customer_phone', TRUE), '')
+    customer_phone = NULLIF(current_setting('app.current_phone', TRUE), '')
   );
 
 
