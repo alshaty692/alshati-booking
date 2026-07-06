@@ -9,7 +9,7 @@ import type { Booking } from '@/types'
 import {
   ArrowRight, Star, X, CalendarDays, Clock,
   Trophy, Upload, Trash2, AlertCircle, InboxIcon,
-  CheckCircle2, Loader2,
+  CheckCircle2, Loader2, AlertTriangle,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
@@ -157,7 +157,139 @@ function RatingModal({ bookingId, onClose, onSuccess }: {
   )
 }
 
-// ── الصفحة الرئيسية ──────────────────────────────────────────
+// ── Modal رفع الإيصال ─────────────────────────────────────────
+function UploadReceiptModal({ booking, onClose, onSuccess }: {
+  booking:   BookingWithRating
+  onClose:   () => void
+  onSuccess: (bookingId: string) => void
+}) {
+  const [file,     setFile]     = useState<File | null>(null)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+  const [done,     setDone]     = useState(false)
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  async function handleUpload() {
+    if (!file) { setError('اختر ملفاً أولاً'); return }
+    setLoading(true); setError('')
+    try {
+      const fd = new FormData()
+      fd.append('receipt',    file)
+      fd.append('booking_id', booking.id)
+      const res  = await fetch('/api/booking/upload-receipt', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'فشل الرفع'); return }
+      setDone(true)
+      setTimeout(() => { onSuccess(booking.id); onClose() }, 1200)
+    } catch { setError('فشل الاتصال، حاول مرة أخرى') }
+    finally  { setLoading(false) }
+  }
+
+  return (
+    <div className="mb-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="mb-modal" role="dialog" aria-modal="true" aria-label="رفع الإيصال">
+
+        {/* رأس الـ modal */}
+        <div className="mb-modal-head">
+          <div className="mb-modal-icon">
+            <Upload size={22} strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="mb-modal-title">رفع إيصال التحويل</h2>
+            <p className="mb-modal-sub">تأكد أنك تحول للحجز الصحيح</p>
+          </div>
+          <button className="mb-modal-close" onClick={onClose} aria-label="إغلاق">
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* ملخص الحجز */}
+        <div className="mb-upload-summary">
+          <div className="mb-upload-summary-row">
+            <CalendarDays size={14} strokeWidth={2} />
+            <span>{formatDate(booking.booking_date)}</span>
+          </div>
+          <div className="mb-upload-summary-row">
+            <Clock size={14} strokeWidth={2} />
+            <span>{getCourtName(booking.court_id)} — {getPeriodName(booking.period_number)}</span>
+          </div>
+          <div className="mb-upload-summary-amount">
+            {formatAmount(booking.final_price)}
+          </div>
+        </div>
+
+        {done ? (
+          /* حالة النجاح */
+          <div className="mb-upload-success">
+            <CheckCircle2 size={40} strokeWidth={1.5} />
+            <p>تم رفع الإيصال بنجاح!</p>
+            <small>سيتم مراجعته من الإدارة قريباً</small>
+          </div>
+        ) : (
+          <>
+            {/* منطقة اختيار الملف */}
+            <div
+              className="mb-upload-area"
+              onClick={() => document.getElementById('mb-receipt-input')?.click()}
+            >
+              {file ? (
+                <div className="mb-upload-selected">
+                  <Upload size={18} strokeWidth={1.75} />
+                  <span>{file.name}</span>
+                  <span className="mb-upload-size">({(file.size / 1024).toFixed(0)} KB)</span>
+                </div>
+              ) : (
+                <div className="mb-upload-placeholder">
+                  <div className="mb-upload-icon-wrap">
+                    <Upload size={28} strokeWidth={1.5} />
+                  </div>
+                  <p>اضغط لاختيار صورة الإيصال</p>
+                  <small>JPG, PNG, PDF — حد 5MB</small>
+                </div>
+              )}
+            </div>
+            <input
+              id="mb-receipt-input"
+              type="file"
+              accept="image/*,application/pdf"
+              style={{ display: 'none' }}
+              onChange={e => setFile(e.target.files?.[0] ?? null)}
+            />
+
+            {error && (
+              <div className="mb-error">
+                <AlertTriangle size={14} strokeWidth={2} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* أزرار */}
+            <div className="mb-modal-actions">
+              <button
+                id="btn-confirm-upload"
+                className="mb-btn-primary"
+                onClick={handleUpload}
+                disabled={!file || loading}
+              >
+                {loading
+                  ? <><Loader2 size={16} strokeWidth={2} className="mb-spin" />جاري الرفع...</>
+                  : <><Upload size={16} strokeWidth={2} />رفع الإيصال</>
+                }
+              </button>
+              <button className="mb-btn-ghost" onClick={onClose}>إلغاء</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function MyBookingsPage() {
   const router = useRouter()
   const [bookings,   setBookings]   = useState<BookingWithRating[]>([])
@@ -165,6 +297,7 @@ export default function MyBookingsPage() {
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [error,      setError]      = useState('')
   const [ratingFor,  setRatingFor]  = useState<string | null>(null)
+  const [uploadFor,  setUploadFor]  = useState<BookingWithRating | null>(null)
 
   const today = localDateStr(new Date())
 
@@ -204,6 +337,12 @@ export default function MyBookingsPage() {
         : bk
     ))
     setRatingFor(null)
+  }
+
+  function handleUploadSuccess(bookingId: string) {
+    setBookings(prev => prev.map(b =>
+      b.id === bookingId ? { ...b, status: 'uploaded' } : b
+    ))
   }
 
   return (
@@ -331,7 +470,7 @@ export default function MyBookingsPage() {
                       <button
                         id={`btn-upload-${bk.id}`}
                         className="mb-btn-upload"
-                        onClick={() => router.push(`/book?upload=${bk.id}`)}
+                        onClick={() => setUploadFor(bk)}
                       >
                         <Upload size={13} strokeWidth={2} />
                         رفع إيصال
@@ -365,6 +504,14 @@ export default function MyBookingsPage() {
           bookingId={ratingFor}
           onClose={() => setRatingFor(null)}
           onSuccess={(stars, comment) => handleRatingSuccess(ratingFor, stars, comment)}
+        />
+      )}
+
+      {uploadFor && (
+        <UploadReceiptModal
+          booking={uploadFor}
+          onClose={() => setUploadFor(null)}
+          onSuccess={handleUploadSuccess}
         />
       )}
 
@@ -826,6 +973,60 @@ export default function MyBookingsPage() {
         @keyframes mb-slide-up { from { transform:translateY(16px); opacity:0 } to { transform:none; opacity:1 } }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }
         .animate-fade-in { animation: fadeIn 0.3s ease both; }
+
+        /* ══ upload receipt modal ══ */
+        .mb-upload-summary {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-color);
+          border-radius: 10px;
+          padding: 0.875rem 1rem;
+          margin-bottom: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .mb-upload-summary-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.875rem;
+          color: var(--text-secondary);
+        }
+        .mb-upload-summary-amount {
+          font-size: 1.35rem;
+          font-weight: 700;
+          color: var(--color-lime);
+          margin-top: 0.25rem;
+        }
+        .mb-upload-area {
+          border: 2px dashed var(--border-color);
+          border-radius: 10px;
+          padding: 1.5rem;
+          text-align: center;
+          cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+          margin-bottom: 1rem;
+          background: var(--bg-elevated);
+        }
+        .mb-upload-area:hover {
+          border-color: var(--color-lime-dim);
+          background: var(--bg-surface);
+        }
+        .mb-upload-placeholder { display:flex; flex-direction:column; align-items:center; gap:0.5rem; color:var(--text-muted); }
+        .mb-upload-icon-wrap { color: var(--color-lime); opacity: 0.7; }
+        .mb-upload-placeholder p { margin:0; font-size:0.9rem; color:var(--text-secondary); }
+        .mb-upload-placeholder small { font-size:0.78rem; color:var(--text-muted); }
+        .mb-upload-selected {
+          display: flex; align-items: center; gap: 0.5rem; justify-content: center;
+          color: var(--color-lime); font-size: 0.9rem;
+        }
+        .mb-upload-size { font-size: 0.78rem; color: var(--text-muted); }
+        .mb-upload-success {
+          display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+          padding: 1.5rem; color: var(--color-lime); text-align: center;
+        }
+        .mb-upload-success p  { margin:0; font-weight:600; }
+        .mb-upload-success small { color:var(--text-muted); font-size:0.82rem; }
 
         /* ══ جوال ≤480px ══ */
         @media (max-width: 480px) {
