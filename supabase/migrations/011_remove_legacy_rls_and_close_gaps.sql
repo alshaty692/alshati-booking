@@ -1,6 +1,6 @@
 -- ============================================================
 -- Migration 011 — إزالة نظام RLS القديم + إغلاق الثغرات الأمنية
--- النسخة النهائية الشاملة — 13 سياسة على 9 جداول
+-- النسخة النهائية الشاملة — 14 سياسة على 9 جداول + storage
 -- ============================================================
 -- التاريخ:  2026-07-06
 -- المرجع:   جلسة الأمن — NOTES_LEGACY_RLS.md + قرارات 2026-07-06
@@ -84,23 +84,31 @@
    WHERE schemaname='public' AND (qual LIKE '%get_admin_role%'
    OR qual LIKE '%is_admin_user%' OR ...))
 
-  الجدول                | اسم السياسة                   | CMD  | يعتمد على
-  ─────────────────────────────────────────────────────────────────────────
-  admin_users           | admin_users_admin_write        | ALL  | is_admin_user()
-  admin_users           | admin_users_self_select        | SEL  | is_admin_user() / get_admin_role()
-  audit_log             | (سياسة أو أكثر)               | ALL  | is_admin_user()
-  blocked_slots         | admin_all                      | ALL  | is_admin_user()
-  bookings              | bookings_admin_all             | ALL  | is_admin_user()
-  bookings              | bookings_viewer_select         | SEL  | get_admin_role() = 'viewer'
-  bookings              | bookings_visitor_select        | SEL  | OR is_admin_user() — مُستبدَلة
-  codes                 | codes_admin_write              | ALL  | is_admin_user()
-  customer_contact_log  | (سياسة أو أكثر)               | ALL  | is_admin_user()
-  customers             | customers_admin_all            | ALL  | is_admin_user()
-  payments_legacy       | (سياسة أو أكثر)               | ALL  | is_admin_user()
-  settings              | settings_write_admin           | ALL  | get_admin_role()
-  suspensions           | suspensions_admin_write        | ALL  | get_admin_role()
-  ─────────────────────────────────────────────────────────────────────────
-  المجموع: 13 سياسة على 9 جداول
+  الـ schema   | الجدول                | اسم السياسة                   | CMD  | يعتمد على
+  ──────────────────────────────────────────────────────────────────────────────────
+  public       | admin_users           | admin_users_admin_write        | ALL  | is_admin_user()
+  public       | admin_users           | admin_users_self_select        | SEL  | is_admin_user() / get_admin_role()
+  public       | audit_log             | (سياسة أو أكثر)               | ALL  | is_admin_user()
+  public       | blocked_slots         | admin_all                      | ALL  | is_admin_user()
+  public       | bookings              | bookings_admin_all             | ALL  | is_admin_user()
+  public       | bookings              | bookings_viewer_select         | SEL  | get_admin_role() = 'viewer'
+  public       | bookings              | bookings_visitor_select        | SEL  | OR is_admin_user() — مُستبدَلة
+  public       | codes                 | codes_admin_write              | ALL  | is_admin_user()
+  public       | customer_contact_log  | (سياسة أو أكثر)               | ALL  | is_admin_user()
+  public       | customers             | customers_admin_all            | ALL  | is_admin_user()
+  public       | payments_legacy       | (سياسة أو أكثر)               | ALL  | is_admin_user()
+  public       | settings              | settings_write_admin           | ALL  | get_admin_role()
+  public       | suspensions           | suspensions_admin_write        | ALL  | get_admin_role()
+  storage      | objects               | receipts_admin_read            | SEL  | is_admin_user()
+  ──────────────────────────────────────────────────────────────────────────────────
+  المجموع: 14 سياسة (13 على public + 1 على storage)
+
+  ── تحليل receipts_admin_read (storage.objects) ────────────────
+  الـ bucket: receipts (خاص private)
+  سبب عدم التأثير: كل الوصول للـ storage يتم عبر createAdminClient()
+  (service_role) من API route. الأدمن يرى الإيصالات عبر Signed URL
+  مُوقَّع مسبقاً ومخزَّن في bookings.receipt_url — لا browser-side
+  storage access مباشر موجود في كامل src/.
 
   ── حالة الجداول الجديدة (مكتشفة 2026-07-06) ──────────────────
   payments_legacy     : 0 صف  — مهجور، جاهز للحذف مستقبلاً (migration 006 ينشئه شرطياً)
@@ -154,8 +162,8 @@
 
 -- ============================================================
 -- القسم ٢ — حذف شامل ديناميكي (الضمانة الرئيسية)
--- يلتقط كل سياسة تشير للدالتين في أي جدول — بما فيها أي
--- سياسة غير مُسمَّاة صراحةً في القسم ٣ أدناه
+-- يلتقط كل سياسة تشير للدالتين في أي جدول أو schema —
+-- بما فيها storage.objects وأي سياسة غير مُسمَّاة صراحةً
 -- bookings_visitor_select مستثناة هنا — تُعالَج في القسم ٤
 -- ============================================================
 
@@ -163,10 +171,11 @@ DO $$
 DECLARE
   rec RECORD;
 BEGIN
+  -- ── public schema ─────────────────────────────────────────
   FOR rec IN
-    SELECT tablename, policyname
+    SELECT schemaname, tablename, policyname
     FROM   pg_policies
-    WHERE  schemaname = 'public'
+    WHERE  schemaname IN ('public', 'storage')
       AND  policyname != 'bookings_visitor_select'
       AND  (
                qual        LIKE '%get_admin_role%'
@@ -174,13 +183,17 @@ BEGIN
             OR with_check  LIKE '%get_admin_role%'
             OR with_check  LIKE '%is_admin_user%'
            )
-    ORDER BY tablename, policyname
+    ORDER BY schemaname, tablename, policyname
   LOOP
-    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', rec.policyname, rec.tablename);
-    RAISE NOTICE 'تم حذف السياسة: % على %', rec.policyname, rec.tablename;
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON %I.%I',
+      rec.policyname, rec.schemaname, rec.tablename
+    );
+    RAISE NOTICE 'تم حذف السياسة: % على %.%',
+      rec.policyname, rec.schemaname, rec.tablename;
   END LOOP;
 
-  RAISE NOTICE '══ DO dynamic drop: اكتمل ══';
+  RAISE NOTICE '══ DO dynamic drop (public + storage): اكتمل ══';
 END $$;
 
 
@@ -227,6 +240,12 @@ DROP POLICY IF EXISTS "settings_write_admin"     ON public.settings;
 
 -- ── suspensions ───────────────────────────────────────────────
 DROP POLICY IF EXISTS "suspensions_admin_write"  ON public.suspensions;
+
+-- ── storage.objects ───────────────────────────────────────────
+-- السياسة الوحيدة على schema مختلف (storage وليس public)
+-- الـ bucket: receipts (خاص) — الوصول كله عبر service_role server-side
+-- الأدمن يرى الإيصالات عبر Signed URL مخزَّن في bookings.receipt_url
+DROP POLICY IF EXISTS "receipts_admin_read"      ON storage.objects;
 
 
 -- ============================================================
@@ -277,10 +296,10 @@ BEGIN
     RAISE NOTICE '✓ الدالتان القديمتان محذوفتان بالكامل';
   END IF;
 
-  -- ب: تأكد لا سياسة تشير للدالتين (ما عدا bookings_visitor_select الجديدة التي لا تشير)
+  -- ب: تأكد لا سياسة تشير للدالتين في أي schema (public + storage)
   SELECT COUNT(*) INTO v_stale_count
   FROM   pg_policies
-  WHERE  schemaname = 'public'
+  WHERE  schemaname IN ('public', 'storage')
     AND  (
              qual        LIKE '%get_admin_role%'
           OR qual        LIKE '%is_admin_user%'
@@ -291,7 +310,7 @@ BEGIN
   IF v_stale_count > 0 THEN
     RAISE EXCEPTION 'FAIL: % سياسة لا تزال تشير للدالتين — راجع pg_policies', v_stale_count;
   ELSE
-    RAISE NOTICE '✓ لا سياسة متبقية تشير للدالتين';
+    RAISE NOTICE '✓ لا سياسة متبقية تشير للدالتين (public + storage)';
   END IF;
 
   -- ج: إحصاء السياسات الكلية المتبقية (للتوثيق)
@@ -305,18 +324,22 @@ BEGIN
 END $$;
 
 
--- ── عرض نهائي: كل السياسات المتبقية على الجداول التسعة ───────
+-- ── عرض نهائي: كل السياسات المتبقية (public + storage) ─────────
 SELECT
+  schemaname,
   tablename,
   policyname,
   cmd,
   permissive,
   roles::text AS roles
 FROM   pg_policies
-WHERE  schemaname = 'public'
-  AND  tablename IN (
-    'admin_users', 'audit_log', 'blocked_slots', 'bookings',
-    'codes', 'customer_contact_log', 'customers',
-    'payments_legacy', 'settings', 'slot_holds', 'suspensions'
+WHERE  schemaname IN ('public', 'storage')
+  AND  (
+    tablename IN (
+      'admin_users', 'audit_log', 'blocked_slots', 'bookings',
+      'codes', 'customer_contact_log', 'customers',
+      'payments_legacy', 'settings', 'slot_holds', 'suspensions'
+    )
+    OR (schemaname = 'storage' AND tablename = 'objects')
   )
-ORDER BY tablename, policyname;
+ORDER BY schemaname, tablename, policyname;
