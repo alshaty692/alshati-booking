@@ -93,6 +93,15 @@ const PERMISSION_GROUPS = [
       { key: 'approve_credit_note', label: 'اعتماد إشعار دائن' },
     ],
   },
+  {
+    label: 'المحاسبة والرواتب',
+    icon: '💼',
+    keys: [
+      { key: 'manage_employees', label: 'إدارة الموظفين' },
+      { key: 'manage_payroll',   label: 'إدارة الرواتب والعمولات' },
+      { key: 'view_payroll',     label: 'عرض الرواتب' },
+    ],
+  },
 ]
 
 // ── مُعرِّف فريد لكل مفتاح صلاحية ──────────────────────────
