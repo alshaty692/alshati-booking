@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import { formatAmount, formatDateTime, formatDate, getCourtName, getPeriodName } from '@/lib/utils'
 import { STATUS_LABELS } from '@/types'
@@ -35,6 +36,8 @@ async function adjustWaterStock(supabase: ReturnType<typeof createAdminClient>, 
 
 async function confirmBooking(formData: FormData) {
   'use server'
+  const auth = await requirePermission('cancel_booking')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية تأكيد الحجوزات')
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return
@@ -131,6 +134,8 @@ async function confirmBooking(formData: FormData) {
 
 async function rejectBooking(formData: FormData) {
   'use server'
+  const auth = await requirePermission('cancel_booking')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية رفض الحجوزات')
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return
@@ -152,6 +157,8 @@ async function rejectBooking(formData: FormData) {
 
 async function addNote(formData: FormData) {
   'use server'
+  const auth = await requirePermission('view_bookings')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية تعديل الملاحظات')
   const supabase = createAdminClient()
   const id = formData.get('booking_id') as string
   const note = formData.get('internal_note') as string
@@ -161,6 +168,8 @@ async function addNote(formData: FormData) {
 
 async function cancelBookingAdmin(formData: FormData) {
   'use server'
+  const auth = await requirePermission('cancel_booking')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية إلغاء الحجوزات')
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return
@@ -200,6 +209,8 @@ async function cancelBookingAdmin(formData: FormData) {
 
 async function softDeleteBooking(formData: FormData) {
   'use server'
+  const auth = await requirePermission('soft_delete_booking')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية إخفاء الحجوزات')
   const authClient = await createClient()
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return

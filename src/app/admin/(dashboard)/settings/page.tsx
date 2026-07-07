@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import {
   Building2, Phone, MessageSquare, MapPin,
@@ -15,9 +16,8 @@ export const metadata: Metadata = { title: 'الإعدادات' }
 
 async function saveSettings(formData: FormData): Promise<{ success: boolean; error?: string }> {
   'use server'
-  const authClient = await createClient()
-  const { data: { user }, error: authError } = await authClient.auth.getUser()
-  if (authError || !user) return { success: false, error: 'غير مصرح — يرجى تسجيل الدخول' }
+  const auth = await requirePermission('manage_settings')
+  if (!auth.ok) return { success: false, error: 'ليس لديك صلاحية تعديل الإعدادات' }
 
   const pairs: { key: string; value: string }[] = []
   formData.forEach((value, key) => {
@@ -41,9 +41,8 @@ async function saveSettings(formData: FormData): Promise<{ success: boolean; err
 
 async function saveClosureSettings(formData: FormData): Promise<{ success: boolean; error?: string }> {
   'use server'
-  const authClient = await createClient()
-  const { data: { user }, error: authError } = await authClient.auth.getUser()
-  if (authError || !user) return { success: false, error: 'غير مصرح' }
+  const auth = await requirePermission('manage_settings')
+  if (!auth.ok) return { success: false, error: 'ليس لديك صلاحية تعديل إعدادات الإغلاق' }
 
   const supabase = createAdminClient()
 

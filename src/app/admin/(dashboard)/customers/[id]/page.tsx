@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import { formatAmount, formatDateTime, getCourtName, getPeriodName } from '@/lib/utils'
 import { CLASSIFICATION_LABELS } from '@/types'
@@ -17,6 +18,8 @@ interface Props { params: Promise<{ id: string }> }
 
 async function updateCustomer(formData: FormData) {
   'use server'
+  const auth = await requirePermission('edit_customer')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية تعديل بيانات العميل')
   const supabase = createAdminClient()
   const id = formData.get('customer_id') as string
   await supabase.from('customers').update({
@@ -30,6 +33,8 @@ async function updateCustomer(formData: FormData) {
 
 async function addContactLog(formData: FormData) {
   'use server'
+  const auth = await requirePermission('view_customers')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية إضافة سجل تواصل')
   const supabase = createAdminClient()
   await supabase.from('customer_contact_log').insert({
     customer_phone: formData.get('phone') as string,

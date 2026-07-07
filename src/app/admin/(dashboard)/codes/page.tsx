@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import { formatDateTime, formatAmount } from '@/lib/utils'
 import { fetchCourtNames } from '@/hooks/useCourtNames'
@@ -11,6 +12,8 @@ export const metadata: Metadata = { title: 'الأكواد' }
 
 async function toggleCode(formData: FormData) {
   'use server'
+  const auth = await requirePermission('manage_codes')
+  if (!auth.ok) throw new Error('ليس لديك صلاحية تعديل الأكواد')
   const supabase = createAdminClient()
   const id = formData.get('code_id') as string
   const current = formData.get('current_active') === 'true'
