@@ -40,10 +40,22 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'لا يمكن رفع إيصال لهذا الحجز' }, { status: 400 })
     }
 
+    // ── التحقق من الملف قبل أي رفع ────────────────────────────
+    const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
+    if (file.size > MAX_SIZE) {
+      return Response.json({ error: 'حجم الملف يتجاوز 10 ميجابايت' }, { status: 400 })
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return Response.json({ error: 'صيغة الملف غير مدعومة. الرجاء رفع صورة (JPG/PNG/WEBP) أو PDF' }, { status: 400 })
+    }
+
     // رفع الملف إلى Supabase Storage
     const ext = file.name.split('.').pop() ?? 'jpg'
     const fileName = `${phone}/${bookingId}.${ext}`
     const fileBuffer = await file.arrayBuffer()
+
 
     const { error: uploadErr } = await supabase.storage
       .from('receipts')
