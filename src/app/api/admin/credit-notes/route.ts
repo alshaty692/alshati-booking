@@ -1,6 +1,8 @@
 // ============================================================
 // POST /api/admin/credit-notes     — إنشاء إشعار ائتمان (draft)
-// GET  /api/admin/credit-notes     — جلب إشعارات فاتورة
+// GET  /api/admin/credit-notes     — جلب إشعارات:
+//   ?invoice_id=X  → إشعارات فاتورة محددة (السلوك الأصلي)
+//   بدون params   → كل الإشعارات (مع فلترة اختيارية بـ status)
 // ============================================================
 import { NextRequest } from 'next/server'
 import { requirePermission } from '@/lib/permissions'
@@ -74,12 +76,52 @@ export async function GET(request: NextRequest) {
     const auth = await requirePermission('view_invoices')
     if (!auth.ok) return auth.response
 
-    const invoice_id = new URL(request.url).searchParams.get('invoice_id')
-    if (!invoice_id) return Response.json({ error: 'invoice_id مطلوب' }, { status: 400 })
+    const params    = new URL(request.url).searchParams
+    const invoiceId = params.get('invoice_id')
+    const status    = params.get('status')   // 'draft' | 'approved' | 'cancelled' | null=all
+    const limit     = Math.min(200, Number(params.get('limit') ?? 100))
 
-    const { credit_notes, approved_total } = await getCreditNotesForInvoice(invoice_id)
+    // ── السلوك الأصلي: جلب إشعارات فاتورة محددة ──────────────
+    if (invoiceId) {
+      const { credit_notes, approved_total } = await getCreditNotesForInvoice(invoiceId)
+      return Response.json({ credit_notes, approved_total })
+    }
 
-    return Response.json({ credit_notes, approved_total })
+    // ── السلوك الجديد: جلب كل الإشعارات (للصفحة المستقلة) ────
+    const admin = createAdminClient()
+
+    let query = admin
+      .from('credit_notes')
+      .select(`
+        id,
+        credit_note_number,
+        invoice_id,
+        customer_id,
+        amount,
+        reason,
+        type,
+        status,
+        created_at,
+        approved_at,
+        cancelled_at,
+        cancel_reason,
+        invoices (
+          id,
+          invoice_number,
+          booking_id,
+          bookings ( id, booking_date, court_id, period_number )
+        ),
+        customers ( id, name, phone, customer_code )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (status) query = query.eq('status', status)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    return Response.json({ credit_notes: data ?? [] })
   } catch (err) {
     console.error('[GET /api/admin/credit-notes]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })

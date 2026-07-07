@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Receipt, DollarSign, Briefcase,
   BarChart3, TrendingUp, Clock, AlertCircle,
-  ArrowLeft,
+  ArrowLeft, FileText,
 } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'المحاسبة — نظرة عامة' }
@@ -115,8 +115,8 @@ export default async function AccountingPage() {
       label:   'إشعارات ائتمان بانتظار الاعتماد',
       value:   String(summary.draftCNCount),
       sub:     'بحالة draft',
-      icon:    <Clock size={22} />,
-      href:    '/admin/invoices',
+      icon:    <FileText size={22} />,
+      href:    '/admin/credit-notes',
       color:   'info' as const,
       visible: canViewInvoices,
     },

@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ClipboardList, PenLine, Users, Tag,
   CalendarDays, BarChart2, Settings2, AlignJustify, X,
   LogOut, ChevronRight, Package, Receipt, ShieldCheck, Briefcase,
-  BarChart3, ChevronDown, DollarSign,
+  BarChart3, ChevronDown, DollarSign, FileText,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
@@ -32,6 +32,7 @@ const NAV = [
 const ACCOUNTING_NAV = [
   { href: '/admin/accounting',    Icon: DollarSign,  label: 'نظرة عامة',          roles: ['admin'] },
   { href: '/admin/invoices',      Icon: Receipt,     label: 'الفواتير',            roles: ['admin','editor','viewer'] },
+  { href: '/admin/credit-notes',  Icon: FileText,    label: 'إشعارات الائتمان',   roles: ['admin','editor'] },
   { href: '/admin/employees',     Icon: Briefcase,   label: 'الفريق الميداني',    roles: ['admin'] },
   { href: '/admin/commissions',   Icon: BarChart3,   label: 'العمولات',            roles: ['admin'] },
 ]
