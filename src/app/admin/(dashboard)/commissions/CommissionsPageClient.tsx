@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   DollarSign, Loader2, Filter, RefreshCw,
-  TrendingUp, Hash, CheckCircle2, Clock,
+  CheckCircle2, Clock, Trash2,
 } from 'lucide-react'
 
 // ── أنواع ───────────────────────────────────────────────────
@@ -49,12 +49,14 @@ function getLast12Months(): { value: string; label: string }[] {
 // ============================================================
 
 export default function CommissionsPageClient({ canManagePayroll }: Props) {
-  const [commissions, setCommissions] = useState<Commission[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState<string | null>(null)
+  const [commissions,  setCommissions]  = useState<Commission[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState<string | null>(null)
+  const [deletingId,   setDeletingId]   = useState<string | null>(null)
+  const [deleteError,  setDeleteError]  = useState<string | null>(null)
 
   // فلاتر
-  const [filterMonth,  setFilterMonth]  = useState('')
+  const [filterMonth, setFilterMonth] = useState('')
 
   const months = getLast12Months()
 
@@ -78,6 +80,28 @@ export default function CommissionsPageClient({ canManagePayroll }: Props) {
   }, [filterMonth])
 
   useEffect(() => { fetchCommissions() }, [fetchCommissions])
+
+  // حذف عمولة
+  const handleDelete = async (commissionId: string) => {
+    if (deletingId) return
+    if (!window.confirm('متأكد تبي تحذف هذي العمولة؟')) return
+    setDeleteError(null)
+    setDeletingId(commissionId)
+    try {
+      const res  = await fetch(`/api/admin/commissions/${commissionId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) {
+        setDeleteError(data.error ?? 'فشل الحذف')
+        return
+      }
+      // تحديث فوري بدون رفرش
+      setCommissions(prev => prev.filter(c => c.id !== commissionId))
+    } catch {
+      setDeleteError('فشل الاتصال بالخادم')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   // ── إحصائيات ────────────────────────────────────────────────
 
@@ -161,6 +185,17 @@ export default function CommissionsPageClient({ canManagePayroll }: Props) {
         </div>
       ) : (
         <div className="card" style={{ padding: 0 }}>
+          {deleteError && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+              background: 'var(--color-danger-bg)', borderBottom: '1px solid var(--color-danger)',
+              padding: 'var(--space-2) var(--space-4)',
+              fontSize: 'var(--text-sm)', color: 'var(--color-danger)',
+            }}>
+              <span>{deleteError}</span>
+              <button onClick={() => setDeleteError(null)} style={{ marginRight: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>×</button>
+            </div>
+          )}
           <div className="table-container">
             <table className="table">
               <thead>
@@ -170,6 +205,7 @@ export default function CommissionsPageClient({ canManagePayroll }: Props) {
                   <th>رقم الفاتورة</th>
                   <th>التاريخ</th>
                   <th>الحالة</th>
+                  {canManagePayroll && <th style={{ width: 48 }}></th>}
                 </tr>
               </thead>
               <tbody>
@@ -208,15 +244,42 @@ export default function CommissionsPageClient({ canManagePayroll }: Props) {
                     </td>
                     <td>
                       {c.included_in_salary_payment_id ? (
-                        <span className="badge badge-confirmed" style={{ fontSize: '0.7rem' }}>
+                        <span className="badge badge-confirmed" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <CheckCircle2 size={10} /> مُدرجة
                         </span>
                       ) : (
-                        <span className="badge badge-pending" style={{ fontSize: '0.7rem' }}>
+                        <span className="badge badge-pending" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Clock size={10} /> معلّقة
                         </span>
                       )}
                     </td>
+                    {canManagePayroll && (
+                      <td>
+                        {!c.included_in_salary_payment_id && (
+                          <button
+                            id={`btn-del-comm-${c.id}`}
+                            onClick={() => handleDelete(c.id)}
+                            disabled={deletingId === c.id}
+                            title="حذف العمولة"
+                            style={{
+                              width: 28, height: 28,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: 'none', border: '1px solid transparent',
+                              borderRadius: 'var(--radius-sm)',
+                              color: 'var(--text-muted)', cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-danger)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-danger)'; (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-danger-bg)' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-muted)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.background = 'none' }}
+                          >
+                            {deletingId === c.id
+                              ? <Loader2 size={12} className="cp-spin" />
+                              : <Trash2 size={12} />
+                            }
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

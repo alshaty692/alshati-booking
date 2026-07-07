@@ -13,12 +13,13 @@ export async function GET(request: NextRequest) {
 
     const admin  = createAdminClient()
     const params = new URL(request.url).searchParams
-    const status = params.get('status')   // 'issued' | 'cancelled' | null = all
-    const month  = params.get('month')    // 'YYYY-MM' | null
-    const search = params.get('search')   // نص البحث (اسم العميل أو customer_code)
-    const page   = Math.max(1, Number(params.get('page') ?? 1))
-    const limit  = 20
-    const offset = (page - 1) * limit
+    const status    = params.get('status')     // 'issued' | 'cancelled' | null = all
+    const month     = params.get('month')      // 'YYYY-MM' | null
+    const search    = params.get('search')     // نص البحث (اسم العميل أو customer_code)
+    const bookingId = params.get('booking_id') // فلترة جديدة: UUID الحجز
+    const page      = Math.max(1, Number(params.get('page') ?? 1))
+    const limit     = bookingId ? 10 : 20      // لما يجلب بحجز محدد النتائج محدودة أصلاً
+    const offset    = (page - 1) * limit
 
     // بناء الاستعلام
     let query = admin
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (status) query = query.eq('status', status)
+    if (bookingId) query = query.eq('booking_id', bookingId)
 
     const paymentStatus = params.get('payment_status') // 'unpaid'|'partial'|'paid'
     if (paymentStatus) query = query.eq('payment_status', paymentStatus)

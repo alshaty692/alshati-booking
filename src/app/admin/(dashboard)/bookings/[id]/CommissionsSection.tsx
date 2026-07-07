@@ -62,13 +62,15 @@ function CommIcon({ type }: { type: string }) {
 function AddCommissionModal({
   bookingId,
   bookingAmount,
+  linkedInvoiceId,
   onClose,
   onSuccess,
 }: {
-  bookingId:     string
-  bookingAmount: number
-  onClose:       () => void
-  onSuccess:     (c: Commission) => void
+  bookingId:        string
+  bookingAmount:    number
+  linkedInvoiceId:  string | null   // فاتورة الحجز — تُربط تلقائياً بصمت
+  onClose:          () => void
+  onSuccess:        (c: Commission) => void
 }) {
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([])
   const [loadingB,      setLoadingB]      = useState(true)
@@ -117,6 +119,7 @@ function AddCommissionModal({
         body:    JSON.stringify({
           compensation_profile_id: selected.profile_id,
           booking_id:  bookingId,
+          invoice_id:  linkedInvoiceId ?? undefined,  // ربط تلقائي بصمت
           amount:      parsedAmount,
         }),
       })
@@ -254,14 +257,30 @@ function AddCommissionModal({
 // ============================================================
 
 export default function CommissionsSection({ bookingId, bookingAmount, canManagePayroll }: Props) {
-  const [mounted,     setMounted]     = useState(false)
-  const [commissions, setCommissions] = useState<Commission[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [addOpen,     setAddOpen]     = useState(false)
-  const [deletingId,  setDeletingId]  = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [mounted,          setMounted]          = useState(false)
+  const [commissions,      setCommissions]      = useState<Commission[]>([])
+  const [loading,          setLoading]          = useState(true)
+  const [addOpen,          setAddOpen]          = useState(false)
+  const [deletingId,       setDeletingId]       = useState<string | null>(null)
+  const [deleteError,      setDeleteError]      = useState<string | null>(null)
+  const [linkedInvoiceId,  setLinkedInvoiceId]  = useState<string | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
+
+  // جلب فاتورة الحجز تلقائياً عند التحميل (الأولوية issued ثم partial/unpaid/paid)
+  useEffect(() => {
+    const PRIORITY = ['issued', 'paid', 'partial', 'unpaid']
+    fetch(`/api/admin/invoices?booking_id=${bookingId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const list: Array<{ id: string; status: string }> = data?.invoices ?? []
+        const active = list
+          .filter(inv => inv.status !== 'cancelled')
+          .sort((a, b) => PRIORITY.indexOf(a.status) - PRIORITY.indexOf(b.status))
+        if (active.length > 0) setLinkedInvoiceId(active[0].id)
+      })
+      .catch(() => {/* لا توقف التحميل لو فشل جلب الفاتورة */})
+  }, [bookingId])
 
   // جلب العمولات لهذا الحجز
   const fetchCommissions = useCallback(async () => {
@@ -277,9 +296,10 @@ export default function CommissionsSection({ bookingId, bookingAmount, canManage
 
   useEffect(() => { fetchCommissions() }, [fetchCommissions])
 
-  // حذف عمولة
+  // حذف عمولة (مع تأكيد confirm)
   const handleDelete = async (commissionId: string) => {
     if (deletingId) return
+    if (!window.confirm('متأكد تبي تحذف هذي العمولة؟')) return
     setDeleteError(null)
     setDeletingId(commissionId)
     try {
@@ -390,6 +410,7 @@ export default function CommissionsSection({ bookingId, bookingAmount, canManage
         <AddCommissionModal
           bookingId={bookingId}
           bookingAmount={bookingAmount}
+          linkedInvoiceId={linkedInvoiceId}
           onClose={() => setAddOpen(false)}
           onSuccess={handleAddSuccess}
         />,
