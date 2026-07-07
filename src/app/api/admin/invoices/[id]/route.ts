@@ -3,7 +3,8 @@
 // PATCH /api/admin/invoices/[id] — إلغاء فاتورة يدوياً
 // ============================================================
 import { NextRequest } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { cancelInvoicesForBooking, cancelInvoicesForBatch } from '@/lib/invoices'
 
 export async function GET(
@@ -11,9 +12,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
+    const auth = await requirePermission('view_invoices')
+    if (!auth.ok) return auth.response
 
     const { id } = await params
     const admin  = createAdminClient()
@@ -53,14 +53,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'غير مصرّح' }, { status: 401 })
-
-    const { data: adminUser } = await supabase
-      .from('admin_users').select('role').eq('id', user.id).single()
-    if (adminUser?.role !== 'admin')
-      return Response.json({ error: 'إلغاء الفاتورة للمدير فقط' }, { status: 403 })
+    // إلغاء الفاتورة يدوياً — يتطلب صلاحية manage_credit_notes
+    // (لأنه عملية مالية تعديلية تعادل إنشاء CN وإلغاء فاتورة)
+    const auth = await requirePermission('manage_credit_notes')
+    if (!auth.ok) return auth.response
 
     const { id }          = await params
     const { cancel_reason } = await request.json()
