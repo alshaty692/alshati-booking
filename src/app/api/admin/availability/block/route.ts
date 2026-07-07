@@ -1,23 +1,24 @@
 // POST /api/admin/availability/block — حجب فترة
 // DELETE /api/admin/availability/block — إلغاء حجب فترة
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/permissions'
 import { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requirePermission('manage_availability')
+    if (!auth.ok) return auth.response
 
     const { court_id, date, period_number, reason } = await req.json()
     if (!court_id || !date || !period_number) {
       return Response.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('blocked_slots')
-      .insert({ court_id, date, period_number, reason: reason ?? null, blocked_by: user.id })
+      .insert({ court_id, date, period_number, reason: reason ?? null, blocked_by: auth.userId })
       .select()
       .single()
 
@@ -37,15 +38,15 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    const auth = await requirePermission('manage_availability')
+    if (!auth.ok) return auth.response
 
     const { court_id, date, period_number } = await req.json()
     if (!court_id || !date || !period_number) {
       return Response.json({ error: 'Missing fields' }, { status: 400 })
     }
 
+    const supabase = createAdminClient()
     const { error } = await supabase
       .from('blocked_slots')
       .delete()
