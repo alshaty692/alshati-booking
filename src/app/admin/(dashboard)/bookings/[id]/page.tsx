@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/permissions'
+import { hasPermission } from '@/lib/permissions'
 import { revalidatePath } from 'next/cache'
 import { formatAmount, formatDateTime, formatDate, getCourtName, getPeriodName } from '@/lib/utils'
 import { STATUS_LABELS } from '@/types'
@@ -13,6 +14,7 @@ import {
 import PageHeader from '@/components/admin/PageHeader'
 import BatchCancelButton from '@/components/admin/BatchCancelButton'
 import HardDeleteModal from '@/components/admin/HardDeleteModal'
+import CommissionsSection from './CommissionsSection'
 import { cancelInvoicesForBooking } from '@/lib/invoices'
 
 export const metadata: Metadata = { title: 'تفاصيل الحجز' }
@@ -270,6 +272,13 @@ export default async function BookingDetailPage({ params }: Props) {
   if (!adminUser) redirect('/admin/login?error=unauthorized')
   const role = adminUser.role
   const canEdit = ['admin', 'editor'].includes(role)
+
+  // فحص صلاحيات المحاسبة (للقسم الجديد)
+  const [canViewPayroll, canManagePayroll] = await Promise.all([
+    hasPermission(user.id, 'view_payroll'),
+    hasPermission(user.id, 'manage_payroll'),
+  ])
+  const canSeeCommissions = canViewPayroll || canManagePayroll
 
   const waterCost = booking.water_quantity > 0
     ? booking.final_price - booking.base_price + booking.discount_amount
@@ -581,6 +590,15 @@ export default async function BookingDetailPage({ params }: Props) {
               <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>لم يُقيَّم بعد</p>
             )}
           </div>
+
+          {/* ── تخصيص عمولة — يظهر لمن يملك view_payroll أو manage_payroll ── */}
+          {canSeeCommissions && (
+            <CommissionsSection
+              bookingId={booking.id}
+              bookingAmount={booking.final_price}
+              canManagePayroll={canManagePayroll}
+            />
+          )}
         </div>
       </div>
 
