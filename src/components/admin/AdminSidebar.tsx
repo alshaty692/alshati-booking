@@ -7,7 +7,7 @@ import type { AdminRole } from '@/types'
 import {
   LayoutDashboard, ClipboardList, PenLine, Users, Tag,
   CalendarDays, BarChart2, Settings2, AlignJustify, X,
-  LogOut, ChevronRight, Package, Receipt, ShieldCheck,
+  LogOut, ChevronRight, Package, Receipt, ShieldCheck, Briefcase,
 } from 'lucide-react'
 import ThemeToggle from '@/components/ui/ThemeToggle'
 
@@ -23,6 +23,7 @@ const NAV = [
   { href: '/admin/codes',          Icon: Tag,             label: 'الأكواد',              roles: ['admin','editor'] },
   { href: '/admin/availability',   Icon: CalendarDays,    label: 'التوافر',              roles: ['admin','editor'] },
   { href: '/admin/reports',        Icon: BarChart2,       label: 'التقارير',             roles: ['admin','editor','viewer'] },
+  { href: '/admin/employees',      Icon: Briefcase,       label: 'الموظفون',             roles: ['admin'] },
   { href: '/admin/users',          Icon: ShieldCheck,     label: 'المستخدمون',           roles: ['admin'] },
   { href: '/admin/settings',       Icon: Settings2,       label: 'الإعدادات',            roles: ['admin'] },
 ]

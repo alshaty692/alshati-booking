@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import {
   Users, Plus, Edit2, KeyRound,
   Loader2, X, Eye, EyeOff, ShieldCheck, UserCheck, UserX,
-  Lock, LayoutGrid,
+  Lock, LayoutGrid, DollarSign,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import RolesMatrix from './RolesMatrix'
@@ -239,6 +239,17 @@ export default function UsersClient({ currentUserId }: Props) {
                           >
                             <KeyRound size={14} />
                           </button>
+
+                          {/* إعدادات الراتب — رابط لصفحة الموظفين */}
+                          <a
+                            id={`btn-salary-${user.id}`}
+                            className="btn-icon"
+                            title="إعدادات الراتب والعمولة"
+                            href={`/admin/employees?admin_user=${user.id}`}
+                            style={{ color: 'var(--color-lime)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          >
+                            <DollarSign size={14} />
+                          </a>
 
                           {/* تفعيل / تعطيل — لا يظهر على حسابي */}
                           {!isMe && (
