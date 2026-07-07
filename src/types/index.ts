@@ -253,3 +253,69 @@ export type SettingKey =
   | 'water_price_per_carton' | 'water_max_cartons'
   | 'venue_1_name' | 'venue_2_name' | 'venue_3_name'
   | 'closure_active' | 'closure_reason' | 'closure_return_date' | 'closure_message'
+
+// ============================================================
+// قسم المحاسبة — المرحلة 1 (migration 012)
+// ============================================================
+
+export type CommissionType = 'percentage' | 'fixed_per_booking' | 'none'
+export type BeneficiaryType = 'admin_user' | 'employee'
+
+// مفاتيح الصلاحيات الجديدة (للاستخدام المرجعي في المرحلتين 2 و3)
+export type PayrollPermissionKey = 'manage_employees' | 'manage_payroll' | 'view_payroll'
+
+export interface Employee {
+  id:         string
+  full_name:  string
+  position:   string | null
+  phone:      string | null
+  hire_date:  string | null  // DATE as ISO string 'YYYY-MM-DD'
+  is_active:  boolean
+  notes:      string | null
+  created_at: string
+}
+
+export interface CompensationProfile {
+  id:               string
+  beneficiary_type: BeneficiaryType
+  beneficiary_id:   string
+  base_salary:      number
+  commission_type:  CommissionType
+  commission_value: number
+  is_active:        boolean
+  created_at:       string
+  updated_at:       string
+}
+
+export interface SalaryPayment {
+  id:                       string
+  compensation_profile_id:  string
+  period_month:             string  // 'YYYY-MM'
+  base_amount:              number
+  commission_amount:        number
+  bonus_amount:             number
+  total_amount:             number
+  paid_at:                  string
+  paid_by:                  string | null  // admin_users.id
+  notes:                    string | null
+}
+
+export interface Bonus {
+  id:                             string
+  compensation_profile_id:        string
+  amount:                         number
+  reason:                         string
+  granted_at:                     string
+  granted_by:                     string | null  // admin_users.id
+  included_in_salary_payment_id:  string | null
+}
+
+export interface Commission {
+  id:                             string
+  compensation_profile_id:        string
+  booking_id:                     string | null
+  invoice_id:                     string | null
+  amount:                         number
+  calculated_at:                  string
+  included_in_salary_payment_id:  string | null
+}
