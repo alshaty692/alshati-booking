@@ -186,12 +186,13 @@ async function cancelBookingAdmin(formData: FormData) {
   if (bookingData?.status === 'confirmed' && bookingData.water_quantity > 0) {
     await adjustWaterStock(supabase, bookingData.water_quantity, 'increment')
   }
-  // إلغاء الفاتورة المرتبطة تلقائياً
+  // إلغاء الفاتورة المرتبطة تلقائياً + إنشاء CN draft
   try {
     await cancelInvoicesForBooking(
       id,
       `إلغاء إداري: ${reason}${refunded ? ' (تم الاسترداد)' : ''}`,
       supabase,
+      user.id,
     )
   } catch (invErr) {
     console.warn('[cancelBookingAdmin] فشل إلغاء الفاتورة (غير حرج):', invErr)

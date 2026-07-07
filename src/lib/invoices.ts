@@ -177,15 +177,19 @@ export async function createBatchInvoices(opts: {
 
 /* ─────────────────────────────────────────────────────────────
    cancelInvoicesForBooking — إلغاء فاتورة حجز فردي
+   تُنشئ تلقائياً CN بحالة draft لكل فاتورة مُلغاة (إن كان المبلغ > 0)
+   الـ CN يبقى draft بانتظار موافقة يدوية من واجهة إشعارات الائتمان.
+   created_by: UUID المستخدم الذي أجرى الإلغاء (اختياري — يُسجَّل في CN)
 ───────────────────────────────────────────────────────────── */
 export async function cancelInvoicesForBooking(
   booking_id:   string,
   cancel_reason = 'إلغاء الحجز المرتبط',
-  adminClient?: AdminClient
+  adminClient?: AdminClient,
+  created_by?:  string
 ): Promise<void> {
   const admin = adminClient ?? createAdminClient()
 
-  // اجلب الفواتير المصدرة لهذا الحجز لتحديث إحصائيات العميل
+  // 1. اجلب الفواتير المصدرة المرتبطة بالحجز
   const { data: invoices } = await admin
     .from('invoices')
     .select('id, customer_id, total_amount')
@@ -194,35 +198,78 @@ export async function cancelInvoicesForBooking(
 
   if (!invoices || invoices.length === 0) return
 
-  await admin
-    .from('invoices')
-    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason })
-    .eq('booking_id', booking_id)
-    .eq('status', 'issued')
-
-  // تحديث إحصائيات العميل (طرح net_amount لا total_amount)
-  // سبب: لو اعتُمد CN سابقاً، total_paid انخفض بمبلغ CN بالفعل
-  // فنطرح فقط الصافي المتبقي لتجنب الطرح المزدوج
+  // 2. احسب netAmount لكل فاتورة (مرة واحدة — نُخزّنها في Map لإعادة الاستخدام)
+  const netAmountMap = new Map<string, number>()
   for (const inv of invoices) {
-    // احسب مجموع CNs المعتمدة لهذه الفاتورة
     const { data: cnsData } = await admin
       .from('credit_notes')
       .select('amount')
       .eq('invoice_id', inv.id)
       .eq('status', 'approved')
     const approvedCNsTotal = (cnsData ?? []).reduce((s, cn) => s + Number(cn.amount), 0)
-    const netAmount = Math.max(0, Number(inv.total_amount) - approvedCNsTotal)
+    netAmountMap.set(inv.id, Math.max(0, Number(inv.total_amount) - approvedCNsTotal))
+  }
+
+  // 3. أنشئ CN draft لكل فاتورة — يجب قبل تغيير status إلى cancelled
+  //    (createCreditNote تشترط status === 'issued')
+  //    نستخدم dynamic import لتجنب الاستيراد الدائري مع credit-notes.ts
+  try {
+    const { createCreditNote } = await import('@/lib/credit-notes')
+    for (const inv of invoices) {
+      const netAmount = netAmountMap.get(inv.id) ?? 0
+      if (netAmount <= 0) continue
+
+      // idempotency: تجاوز الإنشاء لو يوجد CN غير ملغى لنفس الفاتورة
+      const { data: existingCN } = await admin
+        .from('credit_notes')
+        .select('id')
+        .eq('invoice_id', inv.id)
+        .in('status', ['draft', 'approved'])
+        .limit(1)
+        .maybeSingle()
+
+      if (existingCN) continue  // CN موجود مسبقاً — تخطّ
+
+      await createCreditNote(
+        {
+          invoice_id:  inv.id,
+          customer_id: inv.customer_id,
+          amount:      netAmount,
+          reason:      cancel_reason,
+          type:        'partial_refund',
+          created_by:  created_by ?? '00000000-0000-0000-0000-000000000000',
+        },
+        admin
+      )
+    }
+  } catch (cnErr) {
+    // فشل CN لا يوقف الإلغاء — يُسجَّل فقط
+    console.warn('[cancelInvoicesForBooking] فشل إنشاء CN التلقائي (غير حرج):', cnErr)
+  }
+
+  // 4. حدّث حالة الفواتير إلى cancelled
+  await admin
+    .from('invoices')
+    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason })
+    .eq('booking_id', booking_id)
+    .eq('status', 'issued')
+
+  // 5. حدّث إحصائيات العميل (نطرح netAmount الصافي — القيم محسوبة مسبقاً)
+  for (const inv of invoices) {
+    const netAmount = netAmountMap.get(inv.id) ?? 0
     await updateCustomerStats(inv.customer_id, -netAmount, -1, admin)
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
+/* ───────────────────────────────────────────────────────────
    cancelInvoicesForBatch — إلغاء فواتير باقة كاملة
-───────────────────────────────────────────────────────────── */
+   نفس منطق cancelInvoicesForBooking — CN draft تلقائي قبل الإلغاء
+─────────────────────────────────────────────────────────── */
 export async function cancelInvoicesForBatch(
   batch_id:     string,
   cancel_reason = 'إلغاء الباقة المرتبطة',
-  adminClient?: AdminClient
+  adminClient?: AdminClient,
+  created_by?:  string
 ): Promise<void> {
   const admin = adminClient ?? createAdminClient()
 
@@ -234,13 +281,8 @@ export async function cancelInvoicesForBatch(
 
   if (!invoices || invoices.length === 0) return
 
-  await admin
-    .from('invoices')
-    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason })
-    .eq('batch_id', batch_id)
-    .eq('status', 'issued')
-
-  // نفس منطق cancelInvoicesForBooking — نطرح net لا total
+  // احسب netAmount لكل فاتورة
+  const netAmountMap = new Map<string, number>()
   for (const inv of invoices) {
     const { data: cnsData } = await admin
       .from('credit_notes')
@@ -248,7 +290,52 @@ export async function cancelInvoicesForBatch(
       .eq('invoice_id', inv.id)
       .eq('status', 'approved')
     const approvedCNsTotal = (cnsData ?? []).reduce((s, cn) => s + Number(cn.amount), 0)
-    const netAmount = Math.max(0, Number(inv.total_amount) - approvedCNsTotal)
+    netAmountMap.set(inv.id, Math.max(0, Number(inv.total_amount) - approvedCNsTotal))
+  }
+
+  // أنشئ CN draft قبل إلغاء الفواتير
+  try {
+    const { createCreditNote } = await import('@/lib/credit-notes')
+    for (const inv of invoices) {
+      const netAmount = netAmountMap.get(inv.id) ?? 0
+      if (netAmount <= 0) continue
+
+      const { data: existingCN } = await admin
+        .from('credit_notes')
+        .select('id')
+        .eq('invoice_id', inv.id)
+        .in('status', ['draft', 'approved'])
+        .limit(1)
+        .maybeSingle()
+
+      if (existingCN) continue
+
+      await createCreditNote(
+        {
+          invoice_id:  inv.id,
+          customer_id: inv.customer_id,
+          amount:      netAmount,
+          reason:      cancel_reason,
+          type:        'partial_refund',
+          created_by:  created_by ?? '00000000-0000-0000-0000-000000000000',
+        },
+        admin
+      )
+    }
+  } catch (cnErr) {
+    console.warn('[cancelInvoicesForBatch] فشل إنشاء CN التلقائي (غير حرج):', cnErr)
+  }
+
+  // إلغاء الفواتير
+  await admin
+    .from('invoices')
+    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancel_reason })
+    .eq('batch_id', batch_id)
+    .eq('status', 'issued')
+
+  // تحديث إحصائيات العملاء
+  for (const inv of invoices) {
+    const netAmount = netAmountMap.get(inv.id) ?? 0
     await updateCustomerStats(inv.customer_id, -netAmount, -1, admin)
   }
 }

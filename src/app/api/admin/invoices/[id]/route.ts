@@ -75,9 +75,9 @@ export async function PATCH(
     const reason = cancel_reason?.trim() || 'إلغاء يدوي من الإدارة'
 
     if (invoice.booking_id) {
-      await cancelInvoicesForBooking(invoice.booking_id, reason, admin)
+      await cancelInvoicesForBooking(invoice.booking_id, reason, admin, auth.userId)
     } else if (invoice.batch_id) {
-      await cancelInvoicesForBatch(invoice.batch_id, reason, admin)
+      await cancelInvoicesForBatch(invoice.batch_id, reason, admin, auth.userId)
     }
 
     return Response.json({ success: true })
