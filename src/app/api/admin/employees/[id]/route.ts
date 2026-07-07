@@ -14,31 +14,39 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('view_payroll')
-    if (!auth.ok) {
-      const auth2 = await requirePermission('manage_employees')
-      if (!auth2.ok) return auth.response
-    }
+    const [authView, authManage] = await Promise.all([
+      requirePermission('view_payroll'),
+      requirePermission('manage_employees'),
+    ])
+    if (!authView.ok && !authManage.ok) return authView.response
 
     const { id } = await params
     const admin  = createAdminClient()
 
-    const { data: employee, error } = await admin
+    // ── جلب الموظف ─────────────────────────────────────────────
+    const { data: employee, error: empErr } = await admin
       .from('employees')
-      .select(`
-        *,
-        compensation_profiles (
-          id, base_salary, commission_type, commission_value, is_active, updated_at
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (error || !employee) {
+    if (empErr || !employee) {
       return Response.json({ error: 'الموظف غير موجود' }, { status: 404 })
     }
 
-    return Response.json({ employee })
+    // ── جلب ملف التعويض بشكل منفصل ────────────────────────────
+    const { data: profiles } = await admin
+      .from('compensation_profiles')
+      .select('id, beneficiary_id, base_salary, commission_type, commission_value, is_active, updated_at')
+      .eq('beneficiary_type', 'employee')
+      .eq('beneficiary_id', id)
+
+    return Response.json({
+      employee: {
+        ...employee,
+        compensation_profiles: profiles ?? [],
+      },
+    })
   } catch (err) {
     console.error('[employees/id/get]', err)
     return Response.json({ error: 'حدث خطأ' }, { status: 500 })
