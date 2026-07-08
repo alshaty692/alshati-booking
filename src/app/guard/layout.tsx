@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'بوابة الحارس',
-  description: 'بوابة الحارس — مركز حي الشاطئ',
+  title: 'شاشة الملاعب',
+  description: 'شاشة الملاعب — مركز حي الشاطئ',
   robots: 'noindex, nofollow',
 }
 

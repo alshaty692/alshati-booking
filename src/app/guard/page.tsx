@@ -217,7 +217,7 @@ export default function GuardPortalPage() {
               <Package size={20} strokeWidth={1.75} />
             </div>
             <div>
-              <h1 className="gp-header-title">بوابة الحارس</h1>
+              <h1 className="gp-header-title">شاشة الملاعب</h1>
               <p className="gp-header-date">
                 اليوم التشغيلي: <strong>{operationalDate}</strong>
               </p>

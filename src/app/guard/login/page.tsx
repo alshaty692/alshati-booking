@@ -47,7 +47,7 @@ export default function GuardLoginPage() {
           <div className="glogin-icon">
             <ShieldCheck size={30} strokeWidth={1.5} />
           </div>
-          <h1 className="glogin-title">بوابة الحارس</h1>
+          <h1 className="glogin-title">شاشة الملاعب</h1>
           <p className="glogin-sub">مركز حي الشاطئ — الدخول بـ PIN</p>
         </div>
 
