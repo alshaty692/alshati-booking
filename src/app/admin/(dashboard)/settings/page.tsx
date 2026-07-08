@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import ClosureControl from '@/components/admin/ClosureControl'
+import QuickLinks from '@/components/admin/QuickLinks'
 
 export const metadata: Metadata = { title: 'الإعدادات' }
 
@@ -260,6 +261,10 @@ export default async function SettingsPage() {
           saveAction={saveClosureSettings}
         />
       </div>
+
+      {/* ── الروابط السريعة ── */}
+      <QuickLinks />
+
       <style>{`
         .s-page { max-width: 720px; }
 
