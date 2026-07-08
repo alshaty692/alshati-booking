@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShieldCheck, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import GuardThemeToggle from '@/components/guard/GuardThemeToggle'
 
 export default function GuardLoginPage() {
   const router  = useRouter()
@@ -39,6 +40,7 @@ export default function GuardLoginPage() {
 
   return (
     <div className="glogin-page">
+      <GuardThemeToggle />
       <div className="glogin-card animate-fade-in">
         {/* رأس الكرت */}
         <div className="glogin-header">

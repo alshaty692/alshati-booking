@@ -5,6 +5,7 @@ import {
   Droplets, CheckCircle2, Clock, RefreshCw,
   LogOut, Wifi, WifiOff, Package,
 } from 'lucide-react'
+import GuardThemeToggle from '@/components/guard/GuardThemeToggle'
 
 // ── أسماء الملاعب والفترات (تطابق المشروع) ─────────────────
 const COURT_LABELS: Record<string, string> = {
@@ -231,6 +232,9 @@ export default function GuardPortalPage() {
                 : <><WifiOff size={13} strokeWidth={2} /> غير متصل</>
               }
             </div>
+
+            {/* زر تبديل الثيم */}
+            <GuardThemeToggle />
 
             {/* زر تحديث يدوي */}
             <button
