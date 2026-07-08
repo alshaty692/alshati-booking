@@ -7,7 +7,7 @@ import {
   Landmark, CreditCard, Hash,
   CircleDollarSign, Trophy, Layers, Tag,
   CalendarDays, Clock, Users,
-  Droplets, Package, Save, AlertTriangle, Lock,
+  Droplets, Package, Save, AlertTriangle, Lock, Shield,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import ClosureControl from '@/components/admin/ClosureControl'
@@ -223,6 +223,26 @@ export default async function SettingsPage() {
           </div>
         </div>
 
+        {/* ── بوابة الحارس ── */}
+        <div className="s-section card">
+          <div className="s-section-head">
+            <Shield size={18} strokeWidth={1.75} />
+            <h2>بوابة الحارس</h2>
+            <span className="s-guard-badge">مسار مستقل /guard</span>
+          </div>
+          <p className="s-hint">رمز PIN يُستخدم للدخول لبوابة الحارس — لا علاقة له بحسابات الإدارة</p>
+          <div className="s-grid-2">
+            <Field
+              name="guard_portal_pin"
+              label="رمز PIN الحارس"
+              icon={<Lock size={14} />}
+              type="text"
+              placeholder="1234"
+              highlight
+            />
+          </div>
+        </div>
+
         {/* ── زر الحفظ ── */}
         <button id="btn-save-settings" type="submit" className="btn btn-primary btn-lg s-save-btn">
           <Save size={18} strokeWidth={2} />
@@ -335,6 +355,20 @@ export default async function SettingsPage() {
           width: 100%;
           gap: var(--space-2);
           margin-top: var(--space-2);
+        }
+
+        /* بادج بوابة الحارس */
+        .s-guard-badge {
+          margin-right: auto;
+          background: var(--color-info-bg);
+          color: var(--color-info);
+          font-size: var(--text-xs);
+          font-weight: var(--font-semibold);
+          padding: 0.2em 0.65em;
+          border-radius: var(--radius-full);
+          border: 1px solid rgba(74, 158, 191, 0.2);
+          font-family: monospace;
+          white-space: nowrap;
         }
       `}</style>
     </div>

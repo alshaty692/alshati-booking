@@ -68,6 +68,8 @@ export interface Booking {
   discount_amount: number
   final_price: number
   water_quantity: number
+  water_delivered_quantity: number | null   // مُضاف: Migration 014
+  water_delivered_at: string | null         // مُضاف: Migration 014
   status: BookingStatus
   receipt_url: string | null
   receipt_uploaded_at: string | null

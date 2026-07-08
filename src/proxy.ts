@@ -63,7 +63,28 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // حماية كل مسارات الإدارة عدا صفحة تسجيل الدخول
+  // ── حماية بوابة الحارس /guard/* ─────────────────────────────
+  // تعتمد على كوكي guard_session فقط — لا علاقة لها بـ Supabase Auth
+  if (pathname.startsWith('/guard') && pathname !== '/guard/login') {
+    const guardSession = request.cookies.get('guard_session')
+    if (guardSession?.value !== 'authenticated') {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/guard/login'
+      return applySecurityHeaders(NextResponse.redirect(loginUrl))
+    }
+  }
+
+  // لو الحارس مسجّل دخوله ويحاول فتح /guard/login → يُوجَّه للبوابة
+  if (pathname === '/guard/login') {
+    const guardSession = request.cookies.get('guard_session')
+    if (guardSession?.value === 'authenticated') {
+      const guardUrl = request.nextUrl.clone()
+      guardUrl.pathname = '/guard'
+      return applySecurityHeaders(NextResponse.redirect(guardUrl))
+    }
+  }
+
+  // ── حماية كل مسارات الإدارة عدا صفحة تسجيل الدخول ──────────
   if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
     if (!user) {
       const loginUrl = request.nextUrl.clone()
