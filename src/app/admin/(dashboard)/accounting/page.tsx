@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Receipt, DollarSign, Briefcase,
   BarChart3, TrendingUp, Clock, AlertCircle,
-  ArrowLeft, FileText,
+  ArrowLeft, FileText, CreditCard,
 } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'المحاسبة — نظرة عامة' }
@@ -96,7 +96,7 @@ export default async function AccountingPage() {
       value:   `${summary.todayTotal.toLocaleString('ar-SA')} ر.س`,
       sub:     'مجموع الدفعات المسجّلة اليوم',
       icon:    <TrendingUp size={22} />,
-      href:    '/admin/invoices',
+      href:    '/admin/payments?period=today',
       color:   'lime' as const,
       visible: canViewInvoices,
     },
@@ -216,9 +216,10 @@ export default async function AccountingPage() {
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
           {[
-            canViewInvoices && { id: 'ql-invoices',      href: '/admin/invoices',     Icon: Receipt,    label: 'الفواتير' },
-            canViewPayroll  && { id: 'ql-employees',     href: '/admin/employees',    Icon: Briefcase,  label: 'الفريق الميداني' },
-            canViewPayroll  && { id: 'ql-commissions',   href: '/admin/commissions',  Icon: BarChart3,  label: 'العمولات' },
+            canViewInvoices && { id: 'ql-invoices',      href: '/admin/invoices',     Icon: Receipt,     label: 'الفواتير' },
+            canViewInvoices && { id: 'ql-payments',      href: '/admin/payments',     Icon: CreditCard,  label: 'الدفعات' },
+            canViewPayroll  && { id: 'ql-employees',     href: '/admin/employees',    Icon: Briefcase,   label: 'الفريق الميداني' },
+            canViewPayroll  && { id: 'ql-commissions',   href: '/admin/commissions',  Icon: BarChart3,   label: 'العمولات' },
           ].filter(Boolean).map((item) => {
             const { id, href, Icon, label } = item as { id: string; href: string; Icon: React.ElementType; label: string }
             return (
