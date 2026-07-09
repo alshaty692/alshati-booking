@@ -591,21 +591,21 @@ export default function InvoicesPage() {
         .inv-page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:.75rem; }
         .inv-page-title { display:flex; align-items:center; gap:.5rem; font-size:1.5rem; font-weight:700; }
         .inv-stats { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem; }
-        .inv-stat { background:var(--card); border:1px solid var(--border); border-radius:.75rem; padding:.75rem 1.25rem; flex:1; min-width:140px; }
+        .inv-stat { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.75rem; padding:.75rem 1.25rem; flex:1; min-width:140px; }
         .inv-stat-val { font-size:1.4rem; font-weight:700; }
         .inv-stat-lbl { font-size:.8rem; color:var(--text-muted); margin-top:.1rem; }
         .inv-filters { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.25rem; }
         .inv-select { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text-primary); min-width:140px; color-scheme:light dark; }
         .inv-select option { background:var(--bg-surface); color:var(--text-primary); }
         .inv-search { display:flex; gap:.5rem; flex:1; min-width:200px; }
-        .inv-search input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text); }
-        .inv-search button { background:var(--primary); color:#fff; border:none; border-radius:.5rem; padding:.45rem .9rem; cursor:pointer; display:flex; align-items:center; gap:.3rem; }
-        .inv-table-wrap { overflow-x:auto; border-radius:.75rem; border:1px solid var(--border); background:var(--card); }
+        .inv-search input { flex:1; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.5rem; padding:.45rem .75rem; font-size:.875rem; color:var(--text-primary); }
+        .inv-search button { background:var(--color-lime); color:#fff; border:none; border-radius:.5rem; padding:.45rem .9rem; cursor:pointer; display:flex; align-items:center; gap:.3rem; }
+        .inv-table-wrap { overflow-x:auto; border-radius:.75rem; border:1px solid var(--border-color); background:var(--bg-surface); }
         .inv-table { width:100%; border-collapse:collapse; }
-        .inv-table th { padding:.75rem 1rem; text-align:right; font-size:.8rem; color:var(--text-muted); border-bottom:1px solid var(--border); white-space:nowrap; }
-        .inv-table td { padding:.85rem 1rem; border-bottom:1px solid var(--border); font-size:.875rem; vertical-align:middle; }
+        .inv-table th { padding:.75rem 1rem; text-align:right; font-size:.8rem; color:var(--text-muted); border-bottom:1px solid var(--border-color); white-space:nowrap; }
+        .inv-table td { padding:.85rem 1rem; border-bottom:1px solid var(--border-color); font-size:.875rem; vertical-align:middle; }
         .inv-table tr:last-child td { border-bottom:none; }
-        .inv-table tr:hover td { background:var(--muted); }
+        .inv-table tr:hover td { background:var(--bg-elevated); }
         .inv-table tr { cursor:pointer; }
         .inv-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .6rem; border-radius:999px; font-size:.75rem; font-weight:600; }
         .inv-badge.issued    { background:#d1fae5; color:#065f46; }
@@ -629,27 +629,27 @@ export default function InvoicesPage() {
         .inv-balance-clear .inv-balance-due-val { color:#22c55e; font-weight:700; }
         /* Payments */
         .inv-payments-list { display:flex; flex-direction:column; gap:.3rem; margin-bottom:.75rem; }
-        .inv-payment-row { display:flex; justify-content:space-between; align-items:center; gap:.5rem; background:var(--bg-elevated,var(--muted)); border-radius:.5rem; padding:.4rem .6rem; }
+        .inv-payment-row { display:flex; justify-content:space-between; align-items:center; gap:.5rem; background:var(--bg-elevated); border-radius:.5rem; padding:.4rem .6rem; }
         .inv-payment-info { display:flex; flex-direction:column; gap:.1rem; flex:1; }
         .inv-payment-amount { font-weight:700; font-size:.9rem; }
         .inv-payment-meta { font-size:.75rem; color:var(--text-muted); }
         .inv-payment-ref { font-size:.72rem; color:var(--text-muted); font-family:monospace; }
         .inv-payment-del { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:.9rem; padding:.2rem .4rem; border-radius:.3rem; }
         .inv-payment-del:hover { color:#ef4444; background:#fef2f2; }
-        .inv-pay-form { display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; background:var(--muted); border-radius:.5rem; padding:.75rem; }
+        .inv-pay-form { display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; background:var(--bg-elevated); border-radius:.5rem; padding:.75rem; }
         .inv-pay-form-title { font-size:.8rem; font-weight:600; color:var(--text-muted); }
         .inv-pay-form-row { display:flex; gap:.5rem; }
-        .inv-pay-input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text); }
+        .inv-pay-input { flex:1; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text-primary); }
         .inv-pay-select { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.4rem; padding:.4rem .6rem; font-size:.85rem; color:var(--text-primary); appearance:auto; -webkit-appearance:auto; color-scheme:light dark; }
         .inv-pay-select option { background:var(--bg-surface); color:var(--text-primary); }
-        .inv-pay-submit { background:var(--primary,#7bba00); color:#fff; border:none; border-radius:.4rem; padding:.5rem; cursor:pointer; font-size:.875rem; }
+        .inv-pay-submit { background:var(--color-lime); color:#fff; border:none; border-radius:.4rem; padding:.5rem; cursor:pointer; font-size:.875rem; }
         .inv-pay-submit:disabled { opacity:.6; cursor:not-allowed; }
         .inv-pay-error { color:#ef4444; font-size:.8rem; }
         /* Credit Notes */
-        .inv-cn-add-btn { background:transparent; border:1px dashed var(--border); border-radius:.4rem; padding:.25rem .6rem; font-size:.78rem; cursor:pointer; color:var(--text-muted); }
-        .inv-cn-add-btn:hover { border-color:var(--primary); color:var(--primary); }
+        .inv-cn-add-btn { background:transparent; border:1px dashed var(--border-color); border-radius:.4rem; padding:.25rem .6rem; font-size:.78rem; cursor:pointer; color:var(--text-muted); }
+        .inv-cn-add-btn:hover { border-color:var(--color-lime); color:var(--color-lime); }
         .inv-cn-list { display:flex; flex-direction:column; gap:.4rem; margin-bottom:.75rem; }
-        .inv-cn-row { background:var(--muted); border-radius:.5rem; padding:.5rem .7rem; border-right:3px solid transparent; }
+        .inv-cn-row { background:var(--bg-elevated); border-radius:.5rem; padding:.5rem .7rem; border-right:3px solid transparent; }
         .inv-cn-approved { border-right-color:#22c55e; }
         .inv-cn-draft { border-right-color:#f59e0b; }
         .inv-cn-cancelled { opacity:.5; }
@@ -663,12 +663,12 @@ export default function InvoicesPage() {
         .inv-cn-actions { display:flex; gap:.4rem; }
         .inv-cn-approve { background:#22c55e; color:#fff; border:none; border-radius:.3rem; padding:.2rem .5rem; font-size:.75rem; cursor:pointer; }
         .inv-cn-cancel-btn { background:transparent; border:1px solid #ef4444; color:#ef4444; border-radius:.3rem; padding:.2rem .5rem; font-size:.75rem; cursor:pointer; }
-        .inv-cn-form { background:var(--muted); border-radius:.5rem; padding:.75rem; display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; }
+        .inv-cn-form { background:var(--bg-elevated); border-radius:.5rem; padding:.75rem; display:flex; flex-direction:column; gap:.5rem; margin-top:.5rem; }
         .inv-number { font-weight:700; font-size:.875rem; }
         .inv-customer-code { font-size:.75rem; color:var(--text-muted); }
         .inv-amount { font-weight:700; text-align:left; direction:ltr; }
         .inv-pagination { display:flex; align-items:center; justify-content:center; gap:.75rem; margin-top:1.25rem; }
-        .inv-pg-btn { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.4rem .8rem; cursor:pointer; color:var(--text); display:flex; align-items:center; }
+        .inv-pg-btn { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.5rem; padding:.4rem .8rem; cursor:pointer; color:var(--text-primary); display:flex; align-items:center; }
         .inv-pg-btn:disabled { opacity:.4; cursor:default; }
         .inv-pg-info { font-size:.875rem; color:var(--text-muted); }
         .inv-empty { text-align:center; padding:3rem; color:var(--text-muted); }
@@ -691,30 +691,44 @@ export default function InvoicesPage() {
         .inv-bc-due { border-color:#ef4444; }
         .inv-bc-due .inv-bc-due-val { color:#ef4444; }
         .inv-bc-clear .inv-bc-due-val { color:#22c55e; }
-        /* Modal */
-        .inv-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(2px); }
-        .inv-modal { background:var(--card); border-radius:1rem; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; }
-        .inv-modal-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.25rem .75rem; border-bottom:1px solid var(--border); }
-        .inv-number { font-size:1rem; font-weight:700; }
+        /* Modal — الـ overlay معتم وصلب في كلا الوضعين */
+        .inv-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,.65);
+          z-index: 9999;
+          display: flex; align-items: center; justify-content: center;
+          padding: 1rem;
+          backdrop-filter: blur(3px);
+        }
+        .inv-modal {
+          background: var(--bg-surface);
+          border: 1px solid var(--border-color);
+          border-radius: 1rem;
+          width: 100%; max-width: 520px; max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 24px 64px rgba(0,0,0,.45);
+        }
+        [data-theme="light"] .inv-modal { box-shadow: 0 24px 64px rgba(0,0,0,.18); }
+        .inv-modal-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.25rem .75rem; border-bottom:1px solid var(--border-color); }
         .inv-close-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); display:flex; align-items:center; }
-        .inv-section { padding:.85rem 1.25rem; border-bottom:1px solid var(--border); }
+        .inv-section { padding:.85rem 1.25rem; border-bottom:1px solid var(--border-color); }
         .inv-section:last-child { border-bottom:none; }
         .inv-section-title { font-size:.7rem; text-transform:uppercase; color:var(--color-lime-dim); margin:0 0 .6rem; font-weight:700; letter-spacing:.06em; }
         .inv-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.3rem 0; font-size:.875rem; }
         .inv-row span { color:var(--text-muted); }
-        .inv-code { background:var(--muted); padding:.15rem .5rem; border-radius:.375rem; font-size:.8rem; font-weight:700; }
+        .inv-code { background:var(--bg-elevated); padding:.15rem .5rem; border-radius:.375rem; font-size:.8rem; font-weight:700; color:var(--text-primary); }
         .inv-line-items { display:flex; flex-direction:column; gap:.35rem; }
         .inv-item { display:flex; justify-content:space-between; font-size:.875rem; padding:.2rem 0; }
         .inv-discount { color:#f59e0b; }
-        .inv-total { border-top:1px solid var(--border); padding-top:.5rem; margin-top:.25rem; font-weight:700; font-size:1rem; }
+        .inv-total { border-top:1px solid var(--border-color); padding-top:.5rem; margin-top:.25rem; font-weight:700; font-size:1rem; }
         .inv-actions { padding:1rem 1.25rem; }
         .inv-cancel-btn { width:100%; background:transparent; border:1.5px solid #ef4444; color:#ef4444; border-radius:.5rem; padding:.6rem; cursor:pointer; font-size:.875rem; }
         .inv-cancel-btn:hover { background:#fef2f2; }
         .inv-cancel-form { display:flex; flex-direction:column; gap:.5rem; }
-        .inv-cancel-input { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; color:var(--text); }
+        .inv-cancel-input { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; color:var(--text-primary); }
         .inv-cancel-btns { display:flex; gap:.5rem; }
         .inv-cancel-confirm { flex:1; background:#ef4444; color:#fff; border:none; border-radius:.5rem; padding:.55rem; cursor:pointer; }
-        .inv-cancel-back { background:var(--muted); border:none; border-radius:.5rem; padding:.55rem 1rem; cursor:pointer; color:var(--text); }
+        .inv-cancel-back { background:var(--bg-elevated); border:none; border-radius:.5rem; padding:.55rem 1rem; cursor:pointer; color:var(--text-primary); }
       `}</style>
 
       {/* Header */}
