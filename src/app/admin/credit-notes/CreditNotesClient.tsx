@@ -4,9 +4,10 @@
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
 import {
-  FileText, Loader2, RefreshCw, CheckCircle2, XCircle,
-  Clock, Filter, AlertTriangle, ExternalLink,
+  FileText, Loader2, CheckCircle2, XCircle,
+  Clock, AlertTriangle, ExternalLink,
 } from 'lucide-react'
+import FilterBar from '@/components/admin/FilterBar'
 
 /* ── أنواع ──────────────────────────────────────────────────── */
 
@@ -180,39 +181,21 @@ export default function CreditNotesClient({ canApprove, canManage }: Props) {
 
   return (
     <>
-      {/* ── شريط الأدوات ────────────────────────────────────── */}
-      <div className="cn-toolbar">
-        {/* أزرار الفلترة */}
-        <div className="cn-filter-tabs" role="tablist">
-          {([
-            { val: 'draft',     label: 'المعلّقة',  Icon: Clock },
-            { val: '',          label: 'الكل',       Icon: Filter },
-            { val: 'approved',  label: 'المعتمدة',  Icon: CheckCircle2 },
-            { val: 'cancelled', label: 'الملغاة',   Icon: XCircle },
-          ] as const).map(({ val, label, Icon }) => (
-            <button
-              key={val}
-              id={`cn-tab-${val || 'all'}`}
-              role="tab"
-              aria-selected={statusFilter === val}
-              className={`cn-tab ${statusFilter === val ? 'cn-tab-active' : ''}`}
-              onClick={() => setStatusFilter(val)}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          className="btn-icon"
-          title="تحديث"
-          onClick={fetchCreditNotes}
-          disabled={loading}
-        >
-          <RefreshCw size={14} className={loading ? 'cn-spin' : ''} />
-        </button>
-      </div>
+      {/* ── شريط الفلاتر الموحّد ─────────────────────────────── */}
+      <FilterBar
+        tabGroups={[{
+          value:    statusFilter,
+          onChange: (v) => setStatusFilter(v as typeof statusFilter),
+          tabs: [
+            { value: 'draft',     label: 'المعلّقة',  icon: <Clock        size={13} /> },
+            { value: '',          label: 'الكل',       icon: <FileText     size={13} /> },
+            { value: 'approved',  label: 'المعتمدة',  icon: <CheckCircle2 size={13} /> },
+            { value: 'cancelled', label: 'الملغاة',   icon: <XCircle      size={13} /> },
+          ],
+        }]}
+        onRefresh={fetchCreditNotes}
+        refreshing={loading}
+      />
 
       {/* ── رسالة خطأ الإجراء ───────────────────────────────── */}
       {actionError && (
@@ -426,50 +409,6 @@ export default function CreditNotesClient({ canApprove, canManage }: Props) {
 
       {/* ── Styles ──────────────────────────────────────────── */}
       <style>{`
-        /* شريط الأدوات */
-        .cn-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: var(--space-3);
-          margin-bottom: var(--space-5);
-          flex-wrap: wrap;
-        }
-
-        /* تبويبات الفلترة */
-        .cn-filter-tabs {
-          display: flex;
-          background: var(--bg-elevated);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-lg);
-          padding: 3px;
-          gap: 2px;
-        }
-        .cn-tab {
-          display: flex;
-          align-items: center;
-          gap: var(--space-1);
-          padding: 0.3rem 0.75rem;
-          border-radius: var(--radius-md);
-          border: none;
-          background: none;
-          color: var(--text-muted);
-          font-size: var(--text-sm);
-          cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
-        }
-        .cn-tab:hover { color: var(--text-primary); background: var(--bg-surface); }
-        .cn-tab-active {
-          background: var(--bg-surface) !important;
-          color: var(--text-primary) !important;
-          font-weight: var(--font-semibold);
-          box-shadow: 0 1px 3px rgba(0,0,0,.15);
-        }
-        @media (max-width: 500px) {
-          .cn-tab span { display: none; }
-          .cn-filter-tabs { gap: 0; }
-        }
 
         /* إحصاء سريع */
         .cn-summary {

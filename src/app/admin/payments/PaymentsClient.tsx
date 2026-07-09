@@ -6,9 +6,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
-  CreditCard, Loader2, RefreshCw, TrendingUp,
-  Hash, Wallet, ExternalLink, Filter,
+  CreditCard, Loader2, TrendingUp,
+  Hash, Wallet, ExternalLink,
 } from 'lucide-react'
+import FilterBar from '@/components/admin/FilterBar'
 
 /* ── أنواع ─────────────────────────────────────────────────── */
 
@@ -147,54 +148,26 @@ export default function PaymentsClient() {
   return (
     <div className="pm-root">
 
-      {/* ── الفلاتر ── */}
-      <div className="pm-filters card">
-        <div className="pm-filters-inner">
-          <Filter size={14} strokeWidth={2} className="pm-filter-icon" />
-
-          {/* فلتر الفترة */}
-          <div className="pm-filter-group">
-            <span className="pm-filter-label">الفترة:</span>
-            <div className="pm-filter-tabs" role="group">
-              {PERIOD_OPTIONS.map(o => (
-                <button
-                  key={o.value}
-                  className={`pm-tab ${period === o.value ? 'pm-tab-active' : ''}`}
-                  onClick={() => changePeriod(o.value)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* فلتر طريقة الدفع */}
-          <div className="pm-filter-group">
-            <span className="pm-filter-label">الطريقة:</span>
-            <select
-              id="pm-method-select"
-              className="select pm-method-select"
-              value={method}
-              onChange={e => changeMethod(e.target.value)}
-            >
-              <option value="all">الكل</option>
-              {methods.map(m => (
-                <option key={m.name} value={m.name}>{m.label_ar}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* زر تحديث */}
-          <button
-            className="btn btn-ghost pm-refresh"
-            onClick={() => fetchPayments(true)}
-            disabled={refreshing}
-            title="تحديث"
-          >
-            <RefreshCw size={14} strokeWidth={2} className={refreshing ? 'pm-spin' : ''} />
-          </button>
-        </div>
-      </div>
+      {/* ── شريط الفلاتر الموحّد ── */}
+      <FilterBar
+        tabGroups={[{
+          value:    period,
+          onChange: changePeriod,
+          tabs: PERIOD_OPTIONS.map(o => ({ value: o.value, label: o.label })),
+        }]}
+        selects={[{
+          id:      'pm-method-select',
+          label:   'الطريقة:',
+          value:   method,
+          options: [
+            { value: 'all', label: 'الكل' },
+            ...methods.map(m => ({ value: m.name, label: m.label_ar })),
+          ],
+          onChange: changeMethod,
+        }]}
+        onRefresh={() => fetchPayments(true)}
+        refreshing={refreshing}
+      />
 
       {/* ── بطاقات الملخص ── */}
       <div className="pm-stats">
@@ -321,43 +294,6 @@ export default function PaymentsClient() {
 
         /* ── Root ── */
         .pm-root { display: flex; flex-direction: column; gap: var(--space-4); }
-
-        /* ── Filters ── */
-        .pm-filters { padding: var(--space-3) var(--space-4); }
-        .pm-filters-inner {
-          display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
-        }
-        .pm-filter-icon { color: var(--text-muted); flex-shrink: 0; }
-        .pm-filter-group { display: flex; align-items: center; gap: var(--space-2); }
-        .pm-filter-label {
-          font-size: var(--text-xs); font-weight: var(--font-semibold);
-          color: var(--text-muted); white-space: nowrap;
-        }
-        .pm-filter-tabs { display: flex; gap: 2px; }
-        .pm-tab {
-          padding: 0.3em 0.75em;
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-sm);
-          background: var(--bg-elevated);
-          color: var(--text-muted);
-          font-size: var(--text-xs);
-          font-weight: var(--font-medium);
-          cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
-        }
-        .pm-tab:hover { color: var(--text-primary); border-color: var(--color-lime-dim); }
-        .pm-tab-active {
-          background: var(--color-lime-muted) !important;
-          border-color: var(--color-lime-dim) !important;
-          color: var(--color-lime) !important;
-          font-weight: var(--font-bold);
-        }
-        [data-theme="light"] .pm-tab-active { color: #2D5A00 !important; }
-
-        .pm-method-select { font-size: var(--text-xs); padding: 0.3em 0.65em; height: auto; }
-        .pm-refresh { padding: var(--space-2); color: var(--text-muted); }
-        .pm-refresh:hover { color: var(--text-primary); }
 
         /* ── Stats ── */
         .pm-stats {
