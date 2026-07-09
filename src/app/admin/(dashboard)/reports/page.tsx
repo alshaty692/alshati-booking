@@ -4,6 +4,7 @@
 // كل نوع يعرض أقسامه فقط + تصدير مستقل
 // ============================================================
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 import FilterBar, { getDateRange } from '@/components/reports/FilterBar'
 import KpiStrip from '@/components/reports/KpiStrip'
@@ -14,19 +15,21 @@ import CustomersSection from '@/components/reports/CustomersSection'
 import CodesSection from '@/components/reports/CodesSection'
 import OperationsSection from '@/components/reports/OperationsSection'
 import ExportAllBar from '@/components/reports/ExportAllBar'
+import AccountingSection from '@/components/reports/AccountingSection'
 
 import type { FilterState, ReportData } from '@/types/reports'
 import { formatAmount, getPeriodName } from '@/lib/utils'
 import { useCourtNames } from '@/hooks/useCourtNames'
 
 // ── نوع التقرير ──
-type ReportType = 'all' | 'financial' | 'bookings' | 'customers' | 'codes'
+type ReportType = 'all' | 'financial' | 'bookings' | 'customers' | 'codes' | 'accounting'
 const REPORT_TYPES: { id: ReportType; label: string; icon: string }[] = [
-  { id: 'all',       label: 'شامل',         icon: '📊' },
-  { id: 'financial', label: 'مالي',          icon: '💰' },
-  { id: 'bookings',  label: 'الحجوزات',      icon: '📋' },
-  { id: 'customers', label: 'العملاء',        icon: '👥' },
-  { id: 'codes',     label: 'أكواد الخصم',   icon: '🏷️' },
+  { id: 'all',        label: 'شامل',            icon: '📊' },
+  { id: 'financial',  label: 'مالي',             icon: '💰' },
+  { id: 'bookings',   label: 'الحجوزات',         icon: '📋' },
+  { id: 'customers',  label: 'العملاء',           icon: '👥' },
+  { id: 'codes',      label: 'أكواد الخصم',      icon: '🏷️' },
+  { id: 'accounting', label: 'المحاسبة',          icon: '💼' },
 ]
 
 function getInitialFilter(): FilterState {
@@ -239,14 +242,28 @@ const PDF_CSS = `
 
 // ═══════════════════════════════════════════════════════════
 export default function ReportsPage() {
+  const searchParams = useSearchParams()
   const [filter,      setFilter]      = useState<FilterState>(getInitialFilter)
   const [data,        setData]        = useState<ReportData | null>(null)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
   const [settings,    setSettings]    = useState<Record<string, string>>({})
-  const [reportType,  setReportType]  = useState<ReportType>('all')
+  const [reportType,  setReportType]  = useState<ReportType>(() => {
+    const tab = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('tab')
+      : null
+    const valid: ReportType[] = ['all','financial','bookings','customers','codes','accounting']
+    return (valid.includes(tab as ReportType) ? tab : 'all') as ReportType
+  })
   const { courts, getCourtName } = useCourtNames('/api/admin/settings')
   const courtOptions = [{ id: 'all', label: 'كل الملاعب', icon: '🏟️' }, ...courts]
+
+  // قراءة tab من URL بعد mount
+  useEffect(() => {
+    const tab = searchParams.get('tab') as ReportType | null
+    const valid: ReportType[] = ['all','financial','bookings','customers','codes','accounting']
+    if (tab && valid.includes(tab)) setReportType(tab)
+  }, [searchParams])
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(d => setSettings(d.settings ?? {})).catch(() => {})
@@ -628,6 +645,7 @@ export default function ReportsPage() {
     const map: Record<ReportType, () => void> = {
       all: exportAllPDF, financial: exportFinancialPDF,
       bookings: exportBookingsPDF, customers: exportCustomersPDF, codes: exportCodesPDF,
+      accounting: exportFinancialPDF,
     }
     return map[reportType] ?? exportAllPDF
   }
@@ -635,6 +653,7 @@ export default function ReportsPage() {
     const map: Record<ReportType, () => void> = {
       all: exportAllExcel, financial: exportFinancialExcel,
       bookings: exportBookingsExcel, customers: exportCustomersExcel, codes: exportCodesExcel,
+      accounting: exportFinancialExcel,
     }
     return map[reportType] ?? exportAllExcel
   }
@@ -642,6 +661,7 @@ export default function ReportsPage() {
     const map: Record<ReportType, () => void> = {
       all: shareFinancialWhatsApp, financial: shareFinancialWhatsApp,
       bookings: shareBookingsWhatsApp, customers: shareCustomersWhatsApp, codes: shareCodesWhatsApp,
+      accounting: shareFinancialWhatsApp,
     }
     return map[reportType] ?? shareFinancialWhatsApp
   }
@@ -770,6 +790,18 @@ export default function ReportsPage() {
             <CodesSection
               codes={data.codes}
               onExportPDF={exportCodesPDF} onExportExcel={exportCodesExcel} onWhatsApp={shareCodesWhatsApp}
+            />
+          )}
+
+          {/* محاسبة متقدمة */}
+          {reportType === 'accounting' && (
+            <AccountingSection
+              financial={data.financial}
+              kpis={data.kpis}
+              from={filter.from}
+              to={filter.to}
+              aging={data.aging}
+              commissions_summary={data.commissions_summary}
             />
           )}
         </>

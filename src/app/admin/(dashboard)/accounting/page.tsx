@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Receipt, DollarSign, Briefcase,
   BarChart3, TrendingUp, Clock, AlertCircle,
-  ArrowLeft, FileText, CreditCard,
+  ArrowLeft, FileText, CreditCard, LineChart,
 } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'المحاسبة — نظرة عامة' }
@@ -220,6 +220,12 @@ export default async function AccountingPage() {
             canViewInvoices && { id: 'ql-payments',      href: '/admin/payments',     Icon: CreditCard,  label: 'الدفعات' },
             canViewPayroll  && { id: 'ql-employees',     href: '/admin/employees',    Icon: Briefcase,   label: 'الفريق الميداني' },
             canViewPayroll  && { id: 'ql-commissions',   href: '/admin/commissions',  Icon: BarChart3,   label: 'العمولات' },
+            (canViewInvoices || canViewPayroll) && {
+              id: 'ql-financial-reports',
+              href: '/admin/reports?tab=accounting',
+              Icon: LineChart,
+              label: 'التقارير المالية المتقدمة',
+            },
           ].filter(Boolean).map((item) => {
             const { id, href, Icon, label } = item as { id: string; href: string; Icon: React.ElementType; label: string }
             return (

@@ -12,7 +12,8 @@ import type {
   ReportData, ReportMeta, ReportKpis, ReportFinancial,
   ReportBookings, ReportCustomers, ReportCodes,
   ReportHeatmap, ReportOperations, HeatGrid, HeatCell,
-  CourtFilter, StatusFilter, BookingRow
+  CourtFilter, StatusFilter, BookingRow,
+  AgingReport, AgingBucket, AgingInvoiceRow, CommissionBeneficiary
 } from '@/types/reports'
 
 // ──────────────────────────────────────────────────────────────
@@ -423,6 +424,168 @@ export async function GET(request: NextRequest) {
     }
 
     // ──────────────────────────────────────────────────────────
+    // ١٥. أعمار الذمم المدينة (Aging Report)
+    // فواتير unpaid/partial — تصنيفها حسب عمرها بالأيام
+    // ──────────────────────────────────────────────────────────
+    let aging: AgingReport | undefined
+    try {
+      const { data: unpaidInvFull } = await admin
+        .from('invoices')
+        .select('id, invoice_no, total_amount, payment_status, issued_at, customer_name, customer_phone')
+        .eq('status', 'issued')
+        .in('payment_status', ['unpaid', 'partial'])
+
+      const unpaidFull = unpaidInvFull ?? []
+
+      // نجلب الدفعات لنحسب المتبقي الفعلي لكل فاتورة
+      let paidMap: Record<string, number> = {}
+      if (unpaidFull.length > 0) {
+        const { data: paysFull } = await admin
+          .from('payments')
+          .select('invoice_id, amount')
+          .in('invoice_id', unpaidFull.map(inv => inv.id))
+        ;(paysFull ?? []).forEach(p => {
+          paidMap[p.invoice_id] = (paidMap[p.invoice_id] ?? 0) + Number(p.amount)
+        })
+      }
+
+      const nowMs = Date.now()
+      const emptyBucket = (): AgingBucket => ({ count: 0, total: 0, invoices: [] })
+      const buckets: Record<string, AgingBucket> = {
+        '0_7':    emptyBucket(),
+        '8_30':   emptyBucket(),
+        '31_60':  emptyBucket(),
+        '60_plus': emptyBucket(),
+      }
+
+      unpaidFull.forEach(inv => {
+        const issuedMs = new Date(inv.issued_at).getTime()
+        const ageDays  = Math.floor((nowMs - issuedMs) / 86400000)
+        const balance  = Math.max(0, Number(inv.total_amount) - (paidMap[inv.id] ?? 0))
+        if (balance <= 0) return   // تجاهل المسددة فعلاً رغم حالتها
+
+        const row: AgingInvoiceRow = {
+          id:             inv.id,
+          invoice_no:     inv.invoice_no ?? null,
+          customer:       (inv.customer_name ?? inv.customer_phone ?? '—'),
+          amount:         balance,
+          issued_at:      inv.issued_at,
+          age_days:       ageDays,
+          payment_status: inv.payment_status,
+        }
+
+        let key: string
+        if      (ageDays <= 7)  key = '0_7'
+        else if (ageDays <= 30) key = '8_30'
+        else if (ageDays <= 60) key = '31_60'
+        else                    key = '60_plus'
+
+        buckets[key].count++
+        buckets[key].total += balance
+        buckets[key].invoices.push(row)
+      })
+
+      // ترتيب الفواتير داخل كل فئة من الأحدث للأقدم
+      Object.values(buckets).forEach(b => {
+        b.invoices.sort((a, z) => z.age_days - a.age_days)
+      })
+
+      aging = buckets as unknown as AgingReport
+    } catch (_e) {
+      // جدول invoices قد لا يكون موجوداً — نتجاهل
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // ١٦. ملخص العمولات بالمستفيد
+    // commissions JOIN compensation_profiles في نطاق الفترة
+    // ──────────────────────────────────────────────────────────
+    let commissions_summary: CommissionBeneficiary[] | undefined
+    try {
+      // جلب العمولات في الفترة الزمنية المختارة
+      const { data: commsInPeriod } = await admin
+        .from('commissions')
+        .select('id, compensation_profile_id, amount, calculated_at, included_in_salary_payment_id')
+        .gte('calculated_at', from + 'T00:00:00Z')
+        .lte('calculated_at', to   + 'T23:59:59Z')
+
+      const comms = commsInPeriod ?? []
+
+      if (comms.length > 0) {
+        // جلب ملفات التعويض ذات الصلة
+        const profileIds = [...new Set(comms.map(c => c.compensation_profile_id))]
+        const { data: profiles } = await admin
+          .from('compensation_profiles')
+          .select('id, beneficiary_type, beneficiary_id, position, is_active')
+          .in('id', profileIds)
+
+        // جلب أسماء الموظفين
+        const employeeIds = (profiles ?? [])
+          .filter(p => p.beneficiary_type === 'employee')
+          .map(p => p.beneficiary_id)
+        const adminIds = (profiles ?? [])
+          .filter(p => p.beneficiary_type === 'admin')
+          .map(p => p.beneficiary_id)
+
+        const nameMap: Record<string, string> = {}
+
+        if (employeeIds.length > 0) {
+          const { data: emps } = await admin
+            .from('employees')
+            .select('id, name')
+            .in('id', employeeIds)
+          ;(emps ?? []).forEach(e => { nameMap[e.id] = e.name })
+        }
+        if (adminIds.length > 0) {
+          const { data: adms } = await admin
+            .from('admin_users')
+            .select('id, name')
+            .in('id', adminIds)
+          ;(adms ?? []).forEach(a => { nameMap[a.id] = a.name })
+        }
+
+        const profileMap: Record<string, { name: string; position: string | null }> = {}
+        ;(profiles ?? []).forEach(p => {
+          profileMap[p.id] = {
+            name:     nameMap[p.beneficiary_id] ?? '—',
+            position: p.position ?? null,
+          }
+        })
+
+        // تجميع بالمستفيد
+        const summary: Record<string, CommissionBeneficiary> = {}
+        comms.forEach(c => {
+          if (!summary[c.compensation_profile_id]) {
+            const info = profileMap[c.compensation_profile_id] ?? { name: '—', position: null }
+            summary[c.compensation_profile_id] = {
+              profile_id: c.compensation_profile_id,
+              name:       info.name,
+              position:   info.position,
+              count:      0,
+              total:      0,
+              pending:    0,
+              included:   0,
+            }
+          }
+          const entry = summary[c.compensation_profile_id]
+          entry.count++
+          entry.total += Number(c.amount)
+          if (c.included_in_salary_payment_id) {
+            entry.included += Number(c.amount)
+          } else {
+            entry.pending += Number(c.amount)
+          }
+        })
+
+        commissions_summary = Object.values(summary).sort((a, b) => b.total - a.total)
+      } else {
+        commissions_summary = []
+      }
+    } catch (_e) {
+      // جدول commissions قد لا يكون موجوداً
+      commissions_summary = []
+    }
+
+    // ──────────────────────────────────────────────────────────
     // ١٤. تجميع الـ Response
     // ──────────────────────────────────────────────────────────
     const meta: ReportMeta = {
@@ -443,6 +606,8 @@ export async function GET(request: NextRequest) {
       codes,
       heatmap,
       operations,
+      aging,
+      commissions_summary,
     }
 
     return Response.json(response)

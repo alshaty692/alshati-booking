@@ -163,14 +163,53 @@ export interface ReportOperations {
   avg_confirmation_minutes:  number
 }
 
+// ── أعمار الذمم المدينة ─────────────────────────────────────
+
+export interface AgingBucket {
+  count:  number   // عدد الفواتير في هذه الفئة
+  total:  number   // إجمالي المبلغ المستحق
+  invoices: AgingInvoiceRow[]  // تفاصيل الفواتير
+}
+
+export interface AgingInvoiceRow {
+  id:           string
+  invoice_no:   string | null
+  customer:     string
+  amount:       number   // total_amount المستحق المتبقي
+  issued_at:    string
+  age_days:     number   // عدد الأيام من تاريخ الإصدار
+  payment_status: string
+}
+
+export interface AgingReport {
+  '0_7':   AgingBucket
+  '8_30':  AgingBucket
+  '31_60': AgingBucket
+  '60_plus': AgingBucket
+}
+
+// ── ملخص العمولات بالمستفيد ──────────────────────────────────
+
+export interface CommissionBeneficiary {
+  profile_id:   string
+  name:         string
+  position:     string | null
+  count:        number   // عدد العمولات في الفترة
+  total:        number   // مجموع العمولات
+  pending:      number   // معلّقة (لم تُدرج براتب)
+  included:     number   // مدرجة ضمن راتب
+}
+
 // الـ Response الكامل
 export interface ReportData {
-  meta:            ReportMeta
-  kpis:            ReportKpis
-  financial:       ReportFinancial
-  bookings_report: ReportBookings
-  customers:       ReportCustomers
-  codes:           ReportCodes
-  heatmap:         ReportHeatmap
-  operations:      ReportOperations
+  meta:                ReportMeta
+  kpis:                ReportKpis
+  financial:           ReportFinancial
+  bookings_report:     ReportBookings
+  customers:           ReportCustomers
+  codes:               ReportCodes
+  heatmap:             ReportHeatmap
+  operations:          ReportOperations
+  aging?:              AgingReport
+  commissions_summary?: CommissionBeneficiary[]
 }
