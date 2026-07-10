@@ -431,7 +431,10 @@ export async function GET(request: NextRequest) {
     try {
       const { data: unpaidInvFull } = await admin
         .from('invoices')
-        .select('id, invoice_no, total_amount, payment_status, issued_at, customer_name, customer_phone')
+        .select(`
+          id, invoice_number, total_amount, payment_status, issued_at,
+          customers ( name, phone )
+        `)
         .eq('status', 'issued')
         .in('payment_status', ['unpaid', 'partial'])
 
@@ -466,8 +469,10 @@ export async function GET(request: NextRequest) {
 
         const row: AgingInvoiceRow = {
           id:             inv.id,
-          invoice_no:     inv.invoice_no ?? null,
-          customer:       (inv.customer_name ?? inv.customer_phone ?? '—'),
+          invoice_no:     (inv as unknown as { invoice_number?: string }).invoice_number ?? null,
+          customer:       ((inv as unknown as { customers?: { name?: string; phone?: string } }).customers?.name
+                           ?? (inv as unknown as { customers?: { name?: string; phone?: string } }).customers?.phone
+                           ?? '—'),
           amount:         balance,
           issued_at:      inv.issued_at,
           age_days:       ageDays,
@@ -515,7 +520,7 @@ export async function GET(request: NextRequest) {
         const profileIds = [...new Set(comms.map(c => c.compensation_profile_id))]
         const { data: profiles } = await admin
           .from('compensation_profiles')
-          .select('id, beneficiary_type, beneficiary_id, position, is_active')
+          .select('id, beneficiary_type, beneficiary_id, is_active')
           .in('id', profileIds)
 
         // جلب أسماء الموظفين
@@ -523,7 +528,7 @@ export async function GET(request: NextRequest) {
           .filter(p => p.beneficiary_type === 'employee')
           .map(p => p.beneficiary_id)
         const adminIds = (profiles ?? [])
-          .filter(p => p.beneficiary_type === 'admin')
+          .filter(p => p.beneficiary_type === 'admin_user')
           .map(p => p.beneficiary_id)
 
         const nameMap: Record<string, string> = {}
@@ -531,9 +536,9 @@ export async function GET(request: NextRequest) {
         if (employeeIds.length > 0) {
           const { data: emps } = await admin
             .from('employees')
-            .select('id, name')
+            .select('id, full_name')
             .in('id', employeeIds)
-          ;(emps ?? []).forEach(e => { nameMap[e.id] = e.name })
+          ;(emps ?? []).forEach(e => { nameMap[e.id] = e.full_name })
         }
         if (adminIds.length > 0) {
           const { data: adms } = await admin
@@ -543,11 +548,21 @@ export async function GET(request: NextRequest) {
           ;(adms ?? []).forEach(a => { nameMap[a.id] = a.name })
         }
 
+        const positionMap: Record<string, string | null> = {}
+        // position موجود في employees فقط — نجلبه إذا كان المستفيد موظفاً
+        if (employeeIds.length > 0) {
+          const { data: empPos } = await admin
+            .from('employees')
+            .select('id, position')
+            .in('id', employeeIds)
+          ;(empPos ?? []).forEach(e => { positionMap[e.id] = e.position ?? null })
+        }
+
         const profileMap: Record<string, { name: string; position: string | null }> = {}
         ;(profiles ?? []).forEach(p => {
           profileMap[p.id] = {
             name:     nameMap[p.beneficiary_id] ?? '—',
-            position: p.position ?? null,
+            position: positionMap[p.beneficiary_id] ?? null,
           }
         })
 

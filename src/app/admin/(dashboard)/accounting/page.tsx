@@ -44,11 +44,11 @@ async function fetchAccountingSummary() {
       .is('included_in_salary_payment_id', null),
 
     // تحصيل اليوم: مجموع الدفعات بتاريخ اليوم
+    // payment_date هو DATE (ليس TIMESTAMPTZ) — نستخدم .eq() مباشرة
     admin
       .from('payments')
       .select('amount')
-      .gte('payment_date', `${todayStr}T00:00:00Z`)
-      .lte('payment_date', `${todayStr}T23:59:59Z`),
+      .eq('payment_date', todayStr),
   ])
 
   const dueInvoicesCount   = invoicesResult.status   === 'fulfilled' ? (invoicesResult.value.count   ?? 0) : 0
@@ -85,7 +85,13 @@ export default async function AccountingPage() {
     redirect('/admin?error=unauthorized')
   }
 
-  const summary = await fetchAccountingSummary()
+  let summary: Awaited<ReturnType<typeof fetchAccountingSummary>>
+  try {
+    summary = await fetchAccountingSummary()
+  } catch (_err) {
+    // خطأ غير متوقع في الاستعلامات — نعرض الصفحة بأرقام صفر بدل crash
+    summary = { todayTotal: 0, dueInvoicesCount: 0, draftCNCount: 0, pendingCommCount: 0, pendingCommTotal: 0 }
+  }
 
   // ── بطاقات اللوحة ──────────────────────────────────────────
 
@@ -139,8 +145,15 @@ export default async function AccountingPage() {
     purple:  { bg: 'rgba(139,92,246,.08)',        text: '#a78bfa',              border: 'rgba(139,92,246,.25)' },
   }
 
+  // ── CSS hover عبر <style> بدلاً من event handlers (Server Component) ──
+  const hoverCss = `
+    .acct-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .acct-ql:hover   { border-color: var(--color-lime-dim) !important; color: var(--color-lime) !important; }
+  `
+
   return (
     <div style={{ maxWidth: 900 }} className="animate-fade-in">
+      <style>{hoverCss}</style>
       {/* ── رأس الصفحة ── */}
       <div style={{ marginBottom: 'var(--space-8)' }}>
         <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', margin: 0, color: 'var(--text-primary)' }}>
@@ -167,21 +180,15 @@ export default async function AccountingPage() {
               href={card.href}
               style={{ textDecoration: 'none' }}
             >
-              <div style={{
-                background: 'var(--bg-surface)',
-                border: `1px solid ${clr.border}`,
-                borderRadius: 'var(--radius-xl)',
-                padding: 'var(--space-5)',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-                cursor: 'pointer',
-              }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'
-                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = 'var(--shadow-md)'
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.transform = ''
-                  ;(e.currentTarget as HTMLDivElement).style.boxShadow = ''
+              <div
+                className="acct-card"
+                style={{
+                  background: 'var(--bg-surface)',
+                  border: `1px solid ${clr.border}`,
+                  borderRadius: 'var(--radius-xl)',
+                  padding: 'var(--space-5)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                  cursor: 'pointer',
                 }}
               >
                 <div style={{
@@ -227,26 +234,20 @@ export default async function AccountingPage() {
               label: 'التقارير المالية المتقدمة',
             },
           ].filter(Boolean).map((item) => {
-            const { id, href, Icon, label } = item as { id: string; href: string; Icon: React.ElementType; label: string }
+            const { id, href, Icon, label } = item as { id: string; href: string; Icon: import('lucide-react').LucideIcon; label: string }
             return (
               <Link key={id} id={id} href={href} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-                  padding: 'var(--space-3) var(--space-4)',
-                  background: 'var(--bg-surface)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-lg)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 'var(--text-sm)',
-                  transition: 'border-color 0.15s, color 0.15s',
-                }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-lime-dim)'
-                    ;(e.currentTarget as HTMLDivElement).style.color = 'var(--color-lime)'
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-color)'
-                    ;(e.currentTarget as HTMLDivElement).style.color = 'var(--text-secondary)'
+                <div
+                  className="acct-ql"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                    padding: 'var(--space-3) var(--space-4)',
+                    background: 'var(--bg-surface)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-lg)',
+                    color: 'var(--text-secondary)',
+                    fontSize: 'var(--text-sm)',
+                    transition: 'border-color 0.15s, color 0.15s',
                   }}
                 >
                   <Icon size={16} />
