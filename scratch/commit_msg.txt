@@ -1,0 +1,10 @@
+feat(accounting): add financial reports tab
+
+- Added 'accounting' tab to reports page with 3 sections:
+  * Collection timeline chart (SVG-based, no external dependency)
+  * Aging receivables report (0-7, 8-30, 31-60, 60+ days buckets)
+  * Commission summary by beneficiary (pending vs included)
+- Extended /api/admin/reports to compute aging and commissions_summary
+- Added AgingReport, AgingBucket, AgingInvoiceRow, CommissionBeneficiary types
+- Added tab=accounting URL param support for deep linking
+- Added quick link in accounting dashboard to financial reports

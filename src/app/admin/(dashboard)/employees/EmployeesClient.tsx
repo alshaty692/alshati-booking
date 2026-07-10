@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import {
   Plus, X, Loader2, Briefcase, UserCheck, UserX,
   RefreshCw, Edit2, DollarSign, Percent, Hash,
-  Phone, Calendar, ChevronDown, ChevronUp,
+  Phone, Calendar, ChevronDown, ChevronUp, Gift,
 } from 'lucide-react'
 
 // ── أنواع البيانات ──────────────────────────────────────────
@@ -401,6 +401,114 @@ function EditEmployeeModal({
 }
 
 // ============================================================
+// Modal: إضافة مكافأة سريعة من صفحة الموظفين
+// ============================================================
+
+function BonusQuickModal({
+  profileId,
+  name,
+  onClose,
+  onSuccess,
+}: {
+  profileId: string
+  name:      string
+  onClose:   () => void
+  onSuccess: () => void
+}) {
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const n = Number(amount)
+    if (isNaN(n) || n <= 0) { setError('المبلغ يجب أن يكون أكبر من صفر'); return }
+    if (!reason.trim())     { setError('سبب المكافأة مطلوب'); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/bonuses', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ compensation_profile_id: profileId, amount: n, reason: reason.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'فشل إنشاء المكافأة')
+      onSuccess()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'var(--bg-overlay)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 9000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 'var(--space-4)',
+      }}
+      onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}
+    >
+      <div style={{
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 'var(--radius-xl)',
+        boxShadow: 'var(--shadow-lg)',
+        width: '100%', maxWidth: 420,
+        padding: 'var(--space-6)',
+      }}>
+        <div className="emp-modal-header">
+          <div className="emp-modal-icon"><Gift size={18} /></div>
+          <h3 className="emp-modal-title">مكافأة — {name}</h3>
+          <button className="emp-modal-close" onClick={onClose} disabled={saving}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="emp-field">
+            <label className="emp-label">المبلغ (ر.س) *</label>
+            <input
+              id="quick-bonus-amount"
+              className="input"
+              type="number" min="0.01" step="0.01" placeholder="0.00"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              required autoFocus disabled={saving}
+            />
+          </div>
+          <div className="emp-field">
+            <label className="emp-label">السبب *</label>
+            <input
+              id="quick-bonus-reason"
+              className="input"
+              type="text"
+              placeholder="مكافأة الأداء المتميز · بدل رمضان"
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              required disabled={saving}
+            />
+          </div>
+          {error && <p className="emp-error">{error}</p>}
+          <div className="emp-modal-footer">
+            <button type="button" className="btn btn-ghost" onClick={onClose} disabled={saving}>إلغاء</button>
+            <button id="btn-save-quick-bonus" type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? <Loader2 size={14} className="emp-spin" /> : <Gift size={14} />}
+              {saving ? 'جارٍ الحفظ…' : 'حفظ المكافأة'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
 // بطاقة الموظف
 // ============================================================
 
@@ -410,12 +518,14 @@ function EmployeeCard({
   canManagePayroll,
   onEdit,
   onEditCompensation,
+  onAddBonus,
 }: {
   employee:           Employee
   canManageEmployees: boolean
   canManagePayroll:   boolean
   onEdit:             (emp: Employee) => void
   onEditCompensation: (emp: Employee) => void
+  onAddBonus:         (emp: Employee) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const profile = employee.compensation_profiles?.[0] ?? null
@@ -500,6 +610,17 @@ function EmployeeCard({
               <DollarSign size={14} />
             </button>
           )}
+          {canManagePayroll && profile && employee.is_active && (
+            <button
+              id={`btn-add-bonus-${employee.id}`}
+              className="btn-icon"
+              title="إضافة مكافأة"
+              onClick={() => onAddBonus(employee)}
+              style={{ color: 'var(--color-warning)' }}
+            >
+              <Gift size={14} />
+            </button>
+          )}
           {employee.notes && (
             <button
               className="btn-icon"
@@ -533,6 +654,7 @@ export default function EmployeesClient({ canManageEmployees, canManagePayroll }
   const [addOpen,      setAddOpen]      = useState(false)
   const [editTarget,   setEditTarget]   = useState<Employee | null>(null)
   const [compTarget,   setCompTarget]   = useState<Employee | null>(null)
+  const [bonusTarget,  setBonusTarget]  = useState<Employee | null>(null)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -573,6 +695,11 @@ export default function EmployeesClient({ canManageEmployees, canManagePayroll }
       }
     }))
     setCompTarget(null)
+  }
+
+  const handleBonusSuccess = () => {
+    // نتيجة المكافأة تُقرأ فوراً عبر صفحة الرواتب — لا حاجة لتحديث القائمة
+    setBonusTarget(null)
   }
 
   // ── Render ───────────────────────────────────────────────────
@@ -657,6 +784,7 @@ export default function EmployeesClient({ canManageEmployees, canManagePayroll }
               canManagePayroll={canManagePayroll}
               onEdit={setEditTarget}
               onEditCompensation={setCompTarget}
+              onAddBonus={setBonusTarget}
             />
           ))}
         </div>
@@ -681,6 +809,15 @@ export default function EmployeesClient({ canManageEmployees, canManagePayroll }
           employeeName={compTarget.full_name}
           onClose={() => setCompTarget(null)}
           onSuccess={handleCompSuccess}
+        />,
+        document.body
+      )}
+      {mounted && bonusTarget?.compensation_profiles?.[0] && createPortal(
+        <BonusQuickModal
+          profileId={bonusTarget.compensation_profiles[0].id}
+          name={bonusTarget.full_name}
+          onClose={() => setBonusTarget(null)}
+          onSuccess={handleBonusSuccess}
         />,
         document.body
       )}

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Receipt, DollarSign, Briefcase,
   BarChart3, TrendingUp, Clock, AlertCircle,
-  ArrowLeft, FileText, CreditCard, LineChart,
+  ArrowLeft, FileText, CreditCard, LineChart, Banknote,
 } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'المحاسبة — نظرة عامة' }
@@ -59,12 +59,33 @@ async function fetchAccountingSummary() {
   const todayPayments      = paymentsResult.status === 'fulfilled'    ? (paymentsResult.value.data ?? []) : []
   const todayTotal         = todayPayments.reduce((s: number, p: { amount: number }) => s + Number(p.amount), 0)
 
+  // رواتب لم تُصرف هذا الشهر
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+
+  const unpaidPayrollResult = await admin
+    .from('compensation_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('is_active', true)
+
+  const totalActiveProfiles = unpaidPayrollResult.count ?? 0
+
+  const paidThisMonthResult = await admin
+    .from('salary_payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('period_month', currentMonth)
+
+  const paidThisMonth = paidThisMonthResult.count ?? 0
+  const unpaidPayrollCount = Math.max(0, totalActiveProfiles - paidThisMonth)
+
   return {
     todayTotal,
     dueInvoicesCount,
     draftCNCount,
     pendingCommCount,
     pendingCommTotal,
+    unpaidPayrollCount,
+    currentMonth,
   }
 }
 
@@ -89,8 +110,7 @@ export default async function AccountingPage() {
   try {
     summary = await fetchAccountingSummary()
   } catch (_err) {
-    // خطأ غير متوقع في الاستعلامات — نعرض الصفحة بأرقام صفر بدل crash
-    summary = { todayTotal: 0, dueInvoicesCount: 0, draftCNCount: 0, pendingCommCount: 0, pendingCommTotal: 0 }
+    summary = { todayTotal: 0, dueInvoicesCount: 0, draftCNCount: 0, pendingCommCount: 0, pendingCommTotal: 0, unpaidPayrollCount: 0, currentMonth: '' }
   }
 
   // ── بطاقات اللوحة ──────────────────────────────────────────
@@ -134,6 +154,16 @@ export default async function AccountingPage() {
       icon:    <BarChart3 size={22} />,
       href:    '/admin/commissions',
       color:   'purple' as const,
+      visible: canViewPayroll,
+    },
+    {
+      id:      'ac-unpaid-payroll',
+      label:   'رواتب لم تُصرف',
+      value:   String(summary.unpaidPayrollCount),
+      sub:     `هذا الشهر — ${summary.unpaidPayrollCount > 0 ? 'يحتاج متابعة' : 'تم الصرف للجميع ✓'}`,
+      icon:    <Banknote size={22} />,
+      href:    '/admin/payroll',
+      color:   summary.unpaidPayrollCount > 0 ? ('warning' as const) : ('lime' as const),
       visible: canViewPayroll,
     },
   ].filter(c => c.visible)
@@ -227,6 +257,7 @@ export default async function AccountingPage() {
             canViewInvoices && { id: 'ql-payments',      href: '/admin/payments',     Icon: CreditCard,  label: 'الدفعات' },
             canViewPayroll  && { id: 'ql-employees',     href: '/admin/employees',    Icon: Briefcase,   label: 'الفريق الميداني' },
             canViewPayroll  && { id: 'ql-commissions',   href: '/admin/commissions',  Icon: BarChart3,   label: 'العمولات' },
+            canViewPayroll  && { id: 'ql-payroll',       href: '/admin/payroll',      Icon: Banknote,    label: 'الرواتب الشهرية' },
             (canViewInvoices || canViewPayroll) && {
               id: 'ql-financial-reports',
               href: '/admin/reports?tab=accounting',
