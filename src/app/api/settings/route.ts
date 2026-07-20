@@ -1,5 +1,5 @@
 // GET /api/settings — جلب الإعدادات العامة (للعميل)
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 
 // force-dynamic: يمنع Next.js من تحويل الـ route لـ static
 export const dynamic = 'force-dynamic'
@@ -15,19 +15,23 @@ const PUBLIC_KEYS = [
   'venue_1_name', 'venue_2_name', 'venue_3_name',
 ]
 
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+  'Pragma': 'no-cache',
+}
+
 export async function GET() {
   try {
-    const supabase = await createClient()
+    // createAdminClient: لا يمر بـ cookies() فلا يُشغّل Request Deduplication
+    const supabase = createAdminClient()
     const { data } = await supabase.from('settings').select('key, value').in('key', PUBLIC_KEYS)
     const settings: Record<string, string> = {}
     data?.forEach(r => { if (r.key && r.value !== null) settings[r.key] = r.value })
     return Response.json(
       { settings },
-      // no-store: يمنع المتصفح وأي CDN/Edge من تخزين الإعدادات — تُقرأ Fresh بكل طلب
-      { headers: { 'Cache-Control': 'no-store' } }
+      { headers: NO_CACHE_HEADERS }
     )
   } catch {
-    return Response.json({ settings: {} }, { headers: { 'Cache-Control': 'no-store' } })
+    return Response.json({ settings: {} }, { headers: NO_CACHE_HEADERS })
   }
 }
-

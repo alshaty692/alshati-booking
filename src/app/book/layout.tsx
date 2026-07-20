@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   description: 'احجز الآن في مركز حي الشاطئ',
 }
 
+// يضمن أن الـ layout لا يُخزَّن statically — يُعاد تنفيذه بكل طلب
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function BookLayout({ children }: { children: React.ReactNode }) {
   // 1. التحقق من الجلسة
   const cookieStore = await cookies()

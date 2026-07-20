@@ -7,6 +7,11 @@ import { createAdminClient } from '@/lib/supabase/server'
 // يضمن إن Next.js يجلب من Supabase مباشرة كل مرة بدون تخزين مؤقت
 export const dynamic = 'force-dynamic'
 
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+  'Pragma': 'no-cache',
+}
+
 export async function GET() {
   try {
     const supabase = createAdminClient()
@@ -35,9 +40,9 @@ export async function GET() {
       if (row.key === 'price_multi_normal')      prices.multi      = Number(row.value) || 0
     })
 
-    return Response.json({ prices }, { headers: { 'Cache-Control': 'no-store' } })
+    return Response.json({ prices }, { headers: NO_CACHE_HEADERS })
   } catch (err) {
     console.error('[prices]', err)
-    return Response.json({ prices: { football: 0, volleyball: 0, multi: 0 } }, { headers: { 'Cache-Control': 'no-store' } })
+    return Response.json({ prices: { football: 0, volleyball: 0, multi: 0 } }, { headers: NO_CACHE_HEADERS })
   }
 }
