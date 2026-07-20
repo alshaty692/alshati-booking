@@ -19,9 +19,13 @@ interface WaterSelectorProps {
 
 export default function WaterSelector({ quantity, onChange, settings }: WaterSelectorProps) {
   const waterPrice      = Number(settings.water_price_per_carton) || 20
+  const waterStockEnabled = settings.water_stock_enabled === 'true'
   const waterStock      = Number(settings.water_stock_available ?? '999')
   const waterMaxSetting = Number(settings.water_max_cartons) || 10
-  const waterMax        = waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0
+  // لو المخزون مفتوح: الحد الأقصى هو water_max_cartons فقط (بدون حد المخزون)
+  const waterMax        = waterStockEnabled
+    ? (waterStock > 0 ? Math.min(waterMaxSetting, waterStock) : 0)
+    : waterMaxSetting
   const waterTotal      = quantity * waterPrice
 
   return (
@@ -30,13 +34,13 @@ export default function WaterSelector({ quantity, onChange, settings }: WaterSel
         <Droplets size={14} strokeWidth={2} />
         كراتين مياه 💧 (اختياري)
       </label>
-      {waterStock <= 0 ? (
+      {waterStockEnabled && waterStock <= 0 ? (
         <p className="water-unavailable">المياه غير متوفرة حالياً</p>
       ) : (
         <>
           <p className="water-hint">
             كل كرتون {formatAmount(waterPrice)}
-            {waterStock <= 10 && (
+            {waterStockEnabled && waterStock <= 10 && (
               <span className="water-low"> (متبقي {waterStock} كرتون)</span>
             )}
           </p>

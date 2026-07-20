@@ -32,16 +32,20 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'الحجز ملغى أو مرفوض بالفعل' }, { status: 400 })
     }
 
-    // إعادة مخزون المياه لو كان الحجز مؤكداً وفيه مياه
+    // إعادة مخزون المياه لو كان الحجز مؤكداً وفيه مياه وتتبع المخزون مفعّل
     if (booking.status === 'confirmed' && (booking.water_quantity ?? 0) > 0) {
-      const { data: stockRow } = await admin
-        .from('settings').select('value').eq('key', 'water_stock_available').single()
-      const current = Number(stockRow?.value ?? 0)
-      await admin.from('settings')
-        .upsert(
-          { key: 'water_stock_available', value: String(current + booking.water_quantity) },
-          { onConflict: 'key' }
-        )
+      const { data: stockEnabledRow } = await admin
+        .from('settings').select('value').eq('key', 'water_stock_enabled').maybeSingle()
+      if (stockEnabledRow?.value === 'true') {
+        const { data: stockRow } = await admin
+          .from('settings').select('value').eq('key', 'water_stock_available').single()
+        const current = Number(stockRow?.value ?? 0)
+        await admin.from('settings')
+          .upsert(
+            { key: 'water_stock_available', value: String(current + booking.water_quantity) },
+            { onConflict: 'key' }
+          )
+      }
     }
 
     // إلغاء الحجز — نستخدم internal_note لحفظ السبب بدلاً من cancellation_reason

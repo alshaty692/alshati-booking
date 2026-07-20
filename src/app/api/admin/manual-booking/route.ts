@@ -97,21 +97,29 @@ export async function POST(request: NextRequest) {
       const { data: waterSettings } = await admin
         .from('settings')
         .select('key, value')
-        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available'])
+        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available', 'water_stock_enabled'])
 
       waterPricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
-      const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
-      const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '0')
+      const waterStockEnabled = waterSettings?.find(s => s.key === 'water_stock_enabled')?.value === 'true'
 
-      if (stockAvailable <= 0) {
-        return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
-      }
-      if (waterQty > stockAvailable) {
-        return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
-      }
+      if (waterStockEnabled) {
+        // ── تتبع المخزون مفعَّل: فحص التوفر ──
+        const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+        const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '0')
 
-      const clampedQty = Math.min(waterQty, maxCartons)
-      waterTotal = clampedQty * waterPricePerCarton
+        if (stockAvailable <= 0) {
+          return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
+        }
+        if (waterQty > stockAvailable) {
+          return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
+        }
+
+        const clampedQty = Math.min(waterQty, maxCartons)
+        waterTotal = clampedQty * waterPricePerCarton
+      } else {
+        // ── المخزون مفتوح: نقبل الكمية بدون قيود ──
+        waterTotal = waterQty * waterPricePerCarton
+      }
     }
 
     // السعر النهائي = سعر الملعب (بعد الخصم) + سعر المياه
@@ -164,20 +172,29 @@ export async function POST(request: NextRequest) {
       } catch { /* تجاهل خطأ الكود */ }
     }
 
-    // ── خصم مخزون المياه للحجوزات المؤكدة ─────────────────
+    // ── خصم مخزون المياه للحجوزات المؤكدة (إن كان تتبع المخزون مفعلاً) ─────────────
     // للحجوزات المعلّقة (pending/uploaded): ينقص المخزون عند التأكيد اليدوي لاحقاً
     if (isConfirmed && waterQty > 0) {
-      const { data: stockRow } = await admin
+      const { data: stockEnabledRow } = await admin
         .from('settings')
         .select('value')
-        .eq('key', 'water_stock_available')
+        .eq('key', 'water_stock_enabled')
         .maybeSingle()
-      const current = Number(stockRow?.value ?? 0)
-      if (current >= waterQty) {
-        await admin
+      const waterStockEnabled = stockEnabledRow?.value === 'true'
+
+      if (waterStockEnabled) {
+        const { data: stockRow } = await admin
           .from('settings')
-          .update({ value: String(current - waterQty) })
+          .select('value')
           .eq('key', 'water_stock_available')
+          .maybeSingle()
+        const current = Number(stockRow?.value ?? 0)
+        if (current >= waterQty) {
+          await admin
+            .from('settings')
+            .update({ value: String(current - waterQty) })
+            .eq('key', 'water_stock_available')
+        }
       }
     }
 

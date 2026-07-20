@@ -30,6 +30,9 @@ const STATUS_STYLE: Record<string, string> = {
 
 async function adjustWaterStock(supabase: ReturnType<typeof createAdminClient>, quantity: number, direction: 'decrement' | 'increment') {
   if (quantity <= 0) return
+  // ── فحص إعداد تتبع المخزون أولاً ──
+  const { data: enabledRow } = await supabase.from('settings').select('value').eq('key', 'water_stock_enabled').maybeSingle()
+  if (enabledRow?.value !== 'true') return  // المخزون مفتوح — لا تدخل
   const { data } = await supabase.from('settings').select('value').eq('key', 'water_stock_available').single()
   const current = Number(data?.value ?? '999')
   const newVal = direction === 'decrement' ? Math.max(0, current - quantity) : current + quantity

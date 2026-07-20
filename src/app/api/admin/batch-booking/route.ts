@@ -93,9 +93,10 @@ export async function POST(request: NextRequest) {
     /* ── جلب إعدادات المياه مرة واحدة ── */
     const { data: waterSettings } = await admin
       .from('settings').select('key, value')
-      .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available'])
+      .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available', 'water_stock_enabled'])
     const waterPricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
     const waterMaxCartons     = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+    const waterStockEnabled   = waterSettings?.find(s => s.key === 'water_stock_enabled')?.value === 'true'
     const waterStockCurrent   = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '999')
 
     /* ── توليد batch_id مشترك ── */
@@ -221,8 +222,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    /* ── خصم مخزون المياه الكلي (دفعة واحدة) ── */
-    if (isConfirmed && totalWaterDeducted > 0) {
+    /* ── خصم مخزون المياه الكلي (دفعة واحدة) — فقط إن كان تتبع المخزون مفعلاً ── */
+    if (isConfirmed && totalWaterDeducted > 0 && waterStockEnabled) {
       const newStock = Math.max(0, waterStockCurrent - totalWaterDeducted)
       await admin.from('settings')
         .update({ value: String(newStock) })

@@ -14,6 +14,7 @@ export default function NewManualBookingPage() {
   const [form, setForm] = useState({
     booking_date: '', court_id: '', period_number: '', customer_name: '',
     customer_phone: '', code_used: '', final_price: '', internal_note: '',
+    water_quantity: '0',
   })
   const [price, setPrice] = useState<PriceCalculation | null>(null)
   const [loading, setLoading] = useState(false)
@@ -30,7 +31,8 @@ export default function NewManualBookingPage() {
       const data = await res.json()
       if (!data.error) {
         setPrice(data)
-        setForm(f => ({ ...f, final_price: String(data.final_price) }))
+        // لا نضبط final_price تلقائياً — نتركه للمستخدم أو فارغاً لحساب السرفير
+        setForm(f => ({ ...f, final_price: '' }))
       }
     } catch {}
   }
@@ -121,11 +123,27 @@ export default function NewManualBookingPage() {
             {price.discount_amount > 0 && (
               <span style={{ color: 'var(--color-lime)' }}>خصم: −{formatAmount(price.discount_amount)}</span>
             )}
+            {Number(form.water_quantity) > 0 && (
+              <span style={{ color: 'var(--color-lime-dim)' }}>
+                مياه: +{Number(form.water_quantity)} كرتون
+              </span>
+            )}
             <span style={{ fontWeight: 'var(--font-black)' as React.CSSProperties['fontWeight'], color: 'var(--color-lime)', fontSize: 'var(--text-lg)' }}>
               الإجمالي: {formatAmount(price.final_price)}
             </span>
           </div>
         )}
+
+        {/* حقل كراتين المياه */}
+        <div className="nb-field">
+          <label htmlFor="nb-water" className="nb-label">كراتين مياه 💧 (اختياري)</label>
+          <input id="nb-water" type="number" className="input" min="0" placeholder="0"
+            value={form.water_quantity}
+            onChange={e => setForm(f => ({ ...f, water_quantity: e.target.value }))} />
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+            سيُحسب سعرها ويُضاف للفاتورة تلقائياً
+          </p>
+        </div>
 
         {/* تعديل السعر */}
         <div className="nb-field">

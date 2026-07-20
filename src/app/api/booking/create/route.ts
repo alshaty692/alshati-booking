@@ -117,28 +117,35 @@ export async function POST(request: NextRequest) {
       const { data: waterSettings } = await supabase
         .from('settings')
         .select('key, value')
-        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available'])
+        .in('key', ['water_price_per_carton', 'water_max_cartons', 'water_stock_available', 'water_stock_enabled'])
       
       const pricePerCarton = Number(waterSettings?.find(s => s.key === 'water_price_per_carton')?.value) || 20
-      const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
-      const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '999')
-      
-      // التحقق من المخزون
-      if (stockAvailable <= 0) {
-        return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
-      }
-      if (waterQty > stockAvailable) {
-        return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
-      }
-      // رفض صريح إذا تجاوز الحد الأقصى — لا نقبل silently truncation
-      if (waterQty > maxCartons) {
-        return Response.json(
-          { error: `الحد الأقصى للمياه ${maxCartons} كرتون لكل حجز` },
-          { status: 400 }
-        )
+      const waterStockEnabled = waterSettings?.find(s => s.key === 'water_stock_enabled')?.value === 'true'
+
+      if (waterStockEnabled) {
+        // ── تتبع المخزون مفعَّل: فحص التوفر والحد الأقصى ──
+        const maxCartons = Number(waterSettings?.find(s => s.key === 'water_max_cartons')?.value) || 10
+        const stockAvailable = Number(waterSettings?.find(s => s.key === 'water_stock_available')?.value ?? '999')
+
+        if (stockAvailable <= 0) {
+          return Response.json({ error: 'المياه غير متوفرة حالياً' }, { status: 400 })
+        }
+        if (waterQty > stockAvailable) {
+          return Response.json({ error: `الكمية المتوفرة حالياً ${stockAvailable} كرتون فقط` }, { status: 400 })
+        }
+        // رفض صريح إذا تجاوز الحد الأقصى — لا نقبل silently truncation
+        if (waterQty > maxCartons) {
+          return Response.json(
+            { error: `الحد الأقصى للمياه ${maxCartons} كرتون لكل حجز` },
+            { status: 400 }
+          )
+        }
+        clampedQty = Math.min(waterQty, maxCartons)
+      } else {
+        // ── المخزون مفتوح: نقبل الكمية المطلوبة بدون قيود ──
+        clampedQty = waterQty
       }
 
-      clampedQty = Math.min(waterQty, maxCartons)   // دائماً = waterQty هنا بعد الفحص أعلاه
       waterTotal = clampedQty * pricePerCarton
     }
 

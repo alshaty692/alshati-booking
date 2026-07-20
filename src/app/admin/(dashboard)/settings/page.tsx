@@ -7,7 +7,7 @@ import {
   Landmark, CreditCard, Hash,
   CircleDollarSign, Trophy, Layers, Tag,
   CalendarDays, Clock, Users,
-  Droplets, Package, Save, AlertTriangle, Lock, Shield,
+  Droplets, Package, Save, AlertTriangle, Lock, Shield, ToggleRight, ToggleLeft,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import ClosureControl from '@/components/admin/ClosureControl'
@@ -218,9 +218,35 @@ export default async function SettingsPage() {
               />
               <p className="s-stock-note">
                 <AlertTriangle size={11} strokeWidth={2} />
-                يُنقص تلقائياً عند تأكيد حجز فيه مياه
+                يُنقص تلقائياً عند تأكيد حجز فيه مياه (إن كان التتبع مفعلاً)
               </p>
             </div>
+          </div>
+
+          {/* ── زر تبديل تتبع المخزون ── */}
+          <div className="s-toggle-row">
+            <label htmlFor="field-water_stock_enabled" className="s-toggle-label">
+              <span className="s-toggle-icon">
+                {s['water_stock_enabled'] === 'true'
+                  ? <ToggleRight size={28} strokeWidth={1.5} style={{ color: 'var(--color-lime)' }} />
+                  : <ToggleLeft  size={28} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />}
+              </span>
+              <span>
+                <strong>تتبع مخزون المياه</strong>
+                <span className="s-toggle-desc">عند الإيقاف: الحجز بالمياه يشتغل عادي بدون خصم من المخزون</span>
+              </span>
+            </label>
+            {/* النمط المستخدم: checkbox حقيقي بقيمة 'true'/'false' عبر hidden + checkbox للصورة */}
+            {/* النمط: لو الصندوق مفعَّل يُرسل 'true'، وإلا لا يُرسل شيء — لذا نستخدم hidden+visible pair */}
+            <input type="hidden" name="water_stock_enabled" value="false" />
+            <input
+              id="field-water_stock_enabled"
+              type="checkbox"
+              name="water_stock_enabled"
+              value="true"
+              defaultChecked={s['water_stock_enabled'] === 'true'}
+              className="s-toggle-checkbox"
+            />
           </div>
         </div>
 
@@ -374,6 +400,46 @@ export default async function SettingsPage() {
           border: 1px solid rgba(74, 158, 191, 0.2);
           font-family: monospace;
           white-space: nowrap;
+        }
+        /* صف تبديل تتبع المخزون */
+        .s-toggle-row {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          padding: var(--space-3) var(--space-4);
+          margin-top: var(--space-4);
+          background: var(--color-surface-2, rgba(255,255,255,.04));
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          cursor: pointer;
+        }
+        .s-toggle-label {
+          display: flex;
+          align-items: center;
+          gap: var(--space-3);
+          cursor: pointer;
+          flex: 1;
+          font-size: var(--text-sm);
+          color: var(--text-secondary);
+        }
+        .s-toggle-label strong {
+          display: block;
+          font-size: var(--text-sm);
+          font-weight: var(--font-bold);
+          color: var(--text-primary);
+          margin-bottom: 2px;
+        }
+        .s-toggle-desc {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+        }
+        .s-toggle-icon { display: flex; flex-shrink: 0; }
+        /* الـ checkbox الفعلي مخفي بصرياً — يعمل في الـ DOM فقط */
+        .s-toggle-checkbox {
+          position: absolute;
+          opacity: 0;
+          width: 0;
+          height: 0;
         }
       `}</style>
     </div>

@@ -11,7 +11,7 @@ const PUBLIC_KEYS = [
   'closure_full_active', 'closure_full_start', 'closure_full_title', 'closure_full_message',
   'price_football_normal', 'price_volleyball_normal', 'price_multi_normal',
   'booking_window_days', 'max_pending_bookings', 'pending_expiry_hours',
-  'water_price_per_carton', 'water_max_cartons', 'water_stock_available',
+  'water_price_per_carton', 'water_max_cartons', 'water_stock_available', 'water_stock_enabled',
   'venue_1_name', 'venue_2_name', 'venue_3_name',
 ]
 
