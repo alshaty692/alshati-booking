@@ -7,11 +7,12 @@ import {
   Landmark, CreditCard, Hash,
   CircleDollarSign, Trophy, Layers, Tag,
   CalendarDays, Clock, Users,
-  Droplets, Package, Save, AlertTriangle, Lock, Shield, ToggleRight, ToggleLeft,
+  Droplets, Package, Save, AlertTriangle, Lock, Shield,
 } from 'lucide-react'
 import PageHeader from '@/components/admin/PageHeader'
 import ClosureControl from '@/components/admin/ClosureControl'
 import QuickLinks from '@/components/admin/QuickLinks'
+import WaterStockToggle from '@/components/admin/WaterStockToggle'
 
 export const metadata: Metadata = { title: 'الإعدادات' }
 
@@ -20,10 +21,16 @@ async function saveSettings(formData: FormData): Promise<{ success: boolean; err
   const auth = await requirePermission('manage_settings')
   if (!auth.ok) return { success: false, error: 'ليس لديك صلاحية تعديل الإعدادات' }
 
-  const pairs: { key: string; value: string }[] = []
+  // جمع الأزواج — آخر قيمة لكل مفتاح تفوز (يمنع تكرار نفس المفتاح في upsert)
+  const rawPairs: { key: string; value: string }[] = []
   formData.forEach((value, key) => {
-    if (key !== 'action') pairs.push({ key: key.trim(), value: String(value).trim() })
+    if (key !== 'action') rawPairs.push({ key: key.trim(), value: String(value).trim() })
   })
+
+  // إزالة التكرارات: Map يُبقي القيمة الأخيرة لكل مفتاح
+  const deduped = new Map<string, string>()
+  for (const { key, value } of rawPairs) deduped.set(key, value)
+  const pairs = Array.from(deduped.entries()).map(([key, value]) => ({ key, value }))
 
   if (pairs.length === 0) return { success: false, error: 'لا توجد بيانات للحفظ' }
 
@@ -223,31 +230,8 @@ export default async function SettingsPage() {
             </div>
           </div>
 
-          {/* ── زر تبديل تتبع المخزون ── */}
-          <div className="s-toggle-row">
-            <label htmlFor="field-water_stock_enabled" className="s-toggle-label">
-              <span className="s-toggle-icon">
-                {s['water_stock_enabled'] === 'true'
-                  ? <ToggleRight size={28} strokeWidth={1.5} style={{ color: 'var(--color-lime)' }} />
-                  : <ToggleLeft  size={28} strokeWidth={1.5} style={{ color: 'var(--text-muted)' }} />}
-              </span>
-              <span>
-                <strong>تتبع مخزون المياه</strong>
-                <span className="s-toggle-desc">عند الإيقاف: الحجز بالمياه يشتغل عادي بدون خصم من المخزون</span>
-              </span>
-            </label>
-            {/* النمط المستخدم: checkbox حقيقي بقيمة 'true'/'false' عبر hidden + checkbox للصورة */}
-            {/* النمط: لو الصندوق مفعَّل يُرسل 'true'، وإلا لا يُرسل شيء — لذا نستخدم hidden+visible pair */}
-            <input type="hidden" name="water_stock_enabled" value="false" />
-            <input
-              id="field-water_stock_enabled"
-              type="checkbox"
-              name="water_stock_enabled"
-              value="true"
-              defaultChecked={s['water_stock_enabled'] === 'true'}
-              className="s-toggle-checkbox"
-            />
-          </div>
+          {/* ── زر تبديل تتبع المخزون — Client Component ── */}
+          <WaterStockToggle initialEnabled={s['water_stock_enabled'] === 'true'} />
         </div>
 
         {/* ── بوابة الحارس ── */}
@@ -401,46 +385,7 @@ export default async function SettingsPage() {
           font-family: monospace;
           white-space: nowrap;
         }
-        /* صف تبديل تتبع المخزون */
-        .s-toggle-row {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          padding: var(--space-3) var(--space-4);
-          margin-top: var(--space-4);
-          background: var(--color-surface-2, rgba(255,255,255,.04));
-          border: 1px solid var(--border-default);
-          border-radius: var(--radius-lg);
-          cursor: pointer;
-        }
-        .s-toggle-label {
-          display: flex;
-          align-items: center;
-          gap: var(--space-3);
-          cursor: pointer;
-          flex: 1;
-          font-size: var(--text-sm);
-          color: var(--text-secondary);
-        }
-        .s-toggle-label strong {
-          display: block;
-          font-size: var(--text-sm);
-          font-weight: var(--font-bold);
-          color: var(--text-primary);
-          margin-bottom: 2px;
-        }
-        .s-toggle-desc {
-          font-size: var(--text-xs);
-          color: var(--text-muted);
-        }
-        .s-toggle-icon { display: flex; flex-shrink: 0; }
-        /* الـ checkbox الفعلي مخفي بصرياً — يعمل في الـ DOM فقط */
-        .s-toggle-checkbox {
-          position: absolute;
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
+        /* WaterStockToggle styles are self-contained inside the component */
       `}</style>
     </div>
   )
